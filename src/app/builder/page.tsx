@@ -1,7 +1,7 @@
 import Image from "next/image";
-import Link from "next/link";
 
 import { IssueWizard } from "@/components/newsletter/IssueWizard";
+import { HomeLink } from "@/components/navigation/HomeLink";
 import { schoolAmplifiedBrand } from "@/lib/brand";
 
 export default function BuilderPage() {
@@ -27,12 +27,7 @@ export default function BuilderPage() {
           </div>
 
           <div className="flex flex-wrap gap-3">
-            <Link
-              className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
-              href="/"
-            >
-              Overview
-            </Link>
+            <HomeLink className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text" />
             <a
               className="rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white"
               href="/TASKS.md"

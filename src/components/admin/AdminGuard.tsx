@@ -8,8 +8,10 @@ import { useAuthSession } from "@/lib/auth-client";
 import { schoolAmplifiedBrand } from "@/lib/brand";
 import { canManageMembers, canManageSchools } from "@/lib/member-access";
 import type { MemberRecord } from "@/types/member";
+import { HomeLink } from "@/components/navigation/HomeLink";
 
 const navItems = [
+  { href: "/", label: "Home" },
   { href: "/admin", label: "Dashboard" },
   { href: "/admin/schools", label: "Schools" },
   { href: "/admin/members", label: "Members" },
@@ -100,7 +102,8 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
     return (
       <main className="min-h-screen bg-[linear-gradient(180deg,#123A69_0%,#0F2745_100%)] px-6 py-10 text-white">
         <div className="mx-auto max-w-3xl rounded-editorial border border-white/10 bg-[#102847] p-8 shadow-editorial">
-          <div className="text-xs font-bold uppercase tracking-[0.3em] text-[#7db3f1]">
+          <HomeLink />
+          <div className="mt-6 text-xs font-bold uppercase tracking-[0.3em] text-[#7db3f1]">
             {schoolAmplifiedBrand.name}
           </div>
           <h1 className="mt-3 font-display text-4xl">Access not assigned</h1>
@@ -124,7 +127,8 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
     return (
       <main className="min-h-screen bg-[linear-gradient(180deg,#123A69_0%,#0F2745_100%)] px-6 py-10 text-white">
         <div className="mx-auto max-w-3xl rounded-editorial border border-white/10 bg-[#102847] p-8 shadow-editorial">
-          <div className="text-xs font-bold uppercase tracking-[0.3em] text-[#7db3f1]">
+          <HomeLink />
+          <div className="mt-6 text-xs font-bold uppercase tracking-[0.3em] text-[#7db3f1]">
             {schoolAmplifiedBrand.name}
           </div>
           <h1 className="mt-3 font-display text-4xl">Restricted area</h1>
@@ -146,7 +150,8 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
     return (
       <main className="min-h-screen bg-[linear-gradient(180deg,#123A69_0%,#0F2745_100%)] px-6 py-10 text-white">
         <div className="mx-auto max-w-3xl rounded-editorial border border-white/10 bg-[#102847] p-8 shadow-editorial">
-          <div className="text-xs font-bold uppercase tracking-[0.3em] text-[#7db3f1]">
+          <HomeLink />
+          <div className="mt-6 text-xs font-bold uppercase tracking-[0.3em] text-[#7db3f1]">
             {schoolAmplifiedBrand.name}
           </div>
           <h1 className="mt-3 font-display text-4xl">Restricted area</h1>
