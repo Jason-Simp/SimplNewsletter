@@ -6,10 +6,12 @@ type Props = {
   onPublishModeChange: (mode: PublishMode) => void;
   onVectorProviderChange: (provider: NewsletterDocument["workspace"]["vectorProvider"]) => void;
   onProjectCodeChange: (value: string) => void;
+  onAgentIdChange: (value: string) => void;
 };
 
 export function WorkspaceSettingsPanel({
   document,
+  onAgentIdChange,
   onPublishModeChange,
   onVectorProviderChange,
   onProjectCodeChange
@@ -68,6 +70,16 @@ export function WorkspaceSettingsPanel({
               <option value="openai">OpenAI vector store</option>
               <option value="none">None yet</option>
             </select>
+          </label>
+
+          <label className="grid gap-2">
+            <span className="text-sm font-semibold text-brand-text">11labs agent ID</span>
+            <input
+              className="rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
+              onChange={(event) => onAgentIdChange(event.target.value)}
+              placeholder="agent_..."
+              value={document.workspace.agentId ?? ""}
+            />
           </label>
 
           <label className="grid gap-2">

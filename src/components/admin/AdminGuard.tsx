@@ -13,6 +13,7 @@ const navItems = [
   { href: "/admin", label: "Dashboard" },
   { href: "/admin/schools", label: "Schools" },
   { href: "/admin/members", label: "Members" },
+  { href: "/admin/codes", label: "Codes" },
   { href: "/builder", label: "Builder" }
 ];
 
@@ -141,7 +142,7 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (pathname === "/admin/members" && !canManageMembers(member)) {
+  if ((pathname === "/admin/members" || pathname === "/admin/codes") && !canManageMembers(member)) {
     return (
       <main className="min-h-screen bg-[linear-gradient(180deg,#123A69_0%,#0F2745_100%)] px-6 py-10 text-white">
         <div className="mx-auto max-w-3xl rounded-editorial border border-white/10 bg-[#102847] p-8 shadow-editorial">

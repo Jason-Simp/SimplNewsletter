@@ -22,6 +22,7 @@ type SchoolRow = {
   text_color: string;
   muted_text_color: string;
   publish_mode: "instant" | "approval";
+  agent_id: string | null;
   archive_days: number;
   users_managed_by_school: boolean;
   vector_provider: "supabase" | "openai" | "none";
@@ -92,9 +93,11 @@ function toDocument(
       }
     },
     workspace: {
+      schoolId: school.id,
       publishMode: school.publish_mode,
       archiveDays: school.archive_days,
       usersManagedBySchool: school.users_managed_by_school,
+      agentId: school.agent_id ?? "",
       vectorProvider: school.vector_provider,
       encryptedProjectCode:
         school.encrypted_project_code && secret
@@ -120,18 +123,24 @@ function toDocument(
   };
 }
 
-export async function listNewsletters() {
+export async function listNewsletters(schoolId?: string) {
   const supabase = getServiceSupabase();
 
   if (!supabase) {
     return [sampleNewsletter];
   }
 
-  const { data: newsletterRows, error } = await supabase
+  let query = supabase
     .from("newsletters")
     .select("id,title,issue_date,audience,intro,subject_line,preview_text,school_id")
     .order("created_at", { ascending: false })
     .limit(10);
+
+  if (schoolId) {
+    query = query.eq("school_id", schoolId);
+  }
+
+  const { data: newsletterRows, error } = await query;
 
   if (error || !newsletterRows?.length) {
     return [sampleNewsletter];
@@ -180,6 +189,7 @@ export async function saveNewsletter(document: NewsletterDocument) {
   const secret = process.env.VECTOR_PROJECT_SECRET;
 
   const schoolPayload = {
+    id: document.workspace.schoolId,
     name: document.organization.name,
     tagline: document.organization.tagline,
     logo_url: document.organization.logoUrl,
@@ -195,6 +205,7 @@ export async function saveNewsletter(document: NewsletterDocument) {
     text_color: document.organization.colors.text,
     muted_text_color: document.organization.colors.muted,
     publish_mode: document.workspace.publishMode,
+    agent_id: document.workspace.agentId ?? null,
     archive_days: document.workspace.archiveDays,
     users_managed_by_school: document.workspace.usersManagedBySchool,
     vector_provider: document.workspace.vectorProvider,
@@ -206,7 +217,7 @@ export async function saveNewsletter(document: NewsletterDocument) {
 
   const { data: school, error: schoolError } = await supabase
     .from("schools")
-    .upsert({ id: "00000000-0000-0000-0000-000000000001", ...schoolPayload })
+    .upsert(schoolPayload)
     .select("id")
     .single();
 

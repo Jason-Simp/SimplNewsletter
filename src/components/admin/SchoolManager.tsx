@@ -20,6 +20,7 @@ const emptySchool: SchoolProfile = {
   backgroundColor: "#F7F9FC",
   textColor: "#142033",
   publishMode: "instant",
+  agentId: "",
   vectorProvider: "none",
   encryptedProjectCode: ""
 };
@@ -168,6 +169,7 @@ export function SchoolManager() {
           <Input label="Phone" value={form.phone} onChange={(value) => updateField("phone", value)} />
           <Input label="Address" value={form.address} onChange={(value) => updateField("address", value)} />
           <Input label="Logo URL" value={form.logoUrl} onChange={(value) => updateField("logoUrl", value)} />
+          <Input label="11labs agent ID" value={form.agentId} onChange={(value) => updateField("agentId", value)} />
           <Input
             label="Encrypted project code"
             value={form.encryptedProjectCode}

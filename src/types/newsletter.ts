@@ -91,9 +91,11 @@ export type DistributionOption = {
 };
 
 export type WorkspaceSettings = {
+  schoolId?: string;
   publishMode: PublishMode;
   archiveDays: number;
   usersManagedBySchool: boolean;
+  agentId?: string;
   vectorProvider: "supabase" | "openai" | "none";
   encryptedProjectCode: string;
   mediaConstraints: MediaConstraint[];

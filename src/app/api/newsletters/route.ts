@@ -1,9 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 import { listNewsletters, saveNewsletter } from "@/lib/newsletter-repository";
 
-export async function GET() {
-  const data = await listNewsletters();
+export async function GET(request: NextRequest) {
+  const schoolId = request.nextUrl.searchParams.get("schoolId") ?? undefined;
+  const data = await listNewsletters(schoolId);
 
   return NextResponse.json({
     status: "ok",

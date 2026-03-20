@@ -34,9 +34,11 @@ export const sampleNewsletter: NewsletterDocument = {
     }
   },
   workspace: {
+    schoolId: "demo-school-1",
     publishMode: "instant",
     archiveDays: 30,
     usersManagedBySchool: true,
+    agentId: "",
     vectorProvider: "supabase",
     encryptedProjectCode: "enc_proj_riverside_demo_001",
     mediaConstraints,

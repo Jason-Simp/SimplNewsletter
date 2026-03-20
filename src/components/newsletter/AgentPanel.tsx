@@ -26,6 +26,7 @@ export function AgentPanel({ document, onApplyIntro, onApplyTitle }: Props) {
         },
         body: JSON.stringify({
           schoolName: document.organization.name,
+          agentId: document.workspace.agentId,
           encryptedProjectCode: document.workspace.encryptedProjectCode,
           prompt,
           sectionTypes: document.sections.filter((section) => section.enabled).map((section) => section.type)

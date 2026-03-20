@@ -11,6 +11,8 @@ export function LoginForm() {
   const { supabase, session } = useAuthSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [signupCode, setSignupCode] = useState("");
   const [status, setStatus] = useState("Member login");
 
   if (session) {
@@ -58,6 +60,54 @@ export function LoginForm() {
     setStatus("Magic link sent.");
   };
 
+  const createAccount = async () => {
+    if (!password || password.length < 8) {
+      setStatus("Use a password with at least 8 characters.");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setStatus("Passwords do not match.");
+      return;
+    }
+
+    setStatus("Creating account...");
+    const response = await fetch("/api/auth/signup", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        email,
+        password,
+        signupCode
+      })
+    });
+
+    const payload = await response.json();
+
+    if (!response.ok) {
+      setStatus(payload?.message ?? "Unable to create account.");
+      return;
+    }
+
+    if (supabase) {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) {
+        setStatus("Account created. Sign in with your new credentials.");
+        return;
+      }
+    }
+
+    setStatus("Account created.");
+    router.push("/admin");
+    router.refresh();
+  };
+
   return (
     <section className="w-full max-w-md rounded-editorial border border-white/10 bg-white p-8 shadow-editorial">
       <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">
@@ -65,7 +115,7 @@ export function LoginForm() {
       </div>
       <h1 className="mt-3 font-display text-4xl text-brand-navy">Member Login</h1>
       <p className="mt-3 text-sm leading-6 text-brand-muted">
-        Sign in to manage schools, members, and newsletter publishing inside The Wire.
+        Sign in or create an account to manage schools, members, and newsletter publishing inside The Wire.
       </p>
 
       <div className="mt-6 grid gap-4">
@@ -88,6 +138,25 @@ export function LoginForm() {
             value={password}
           />
         </label>
+
+        <label className="grid gap-2">
+          <span className="text-sm font-semibold text-brand-text">Confirm password</span>
+          <input
+            className="rounded-2xl border border-slate-200 px-4 py-3"
+            onChange={(event) => setConfirmPassword(event.target.value)}
+            type="password"
+            value={confirmPassword}
+          />
+        </label>
+
+        <label className="grid gap-2">
+          <span className="text-sm font-semibold text-brand-text">Signup code</span>
+          <input
+            className="rounded-2xl border border-slate-200 px-4 py-3"
+            onChange={(event) => setSignupCode(event.target.value)}
+            value={signupCode}
+          />
+        </label>
       </div>
 
       <div className="mt-6 flex flex-wrap gap-3">
@@ -100,6 +169,13 @@ export function LoginForm() {
         </button>
         <button
           className="rounded-full bg-brand-secondary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white"
+          onClick={() => void createAccount()}
+          type="button"
+        >
+          Create account
+        </button>
+        <button
+          className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
           onClick={() => void sendMagicLink()}
           type="button"
         >

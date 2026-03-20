@@ -13,6 +13,7 @@ export type SchoolProfile = {
   backgroundColor: string;
   textColor: string;
   publishMode: "instant" | "approval";
+  agentId: string;
   vectorProvider: "supabase" | "openai" | "none";
   encryptedProjectCode: string;
 };

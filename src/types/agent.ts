@@ -1,5 +1,6 @@
 export type AgentGenerateRequest = {
   schoolName: string;
+  agentId?: string;
   encryptedProjectCode: string;
   prompt: string;
   links?: string[];
@@ -20,6 +21,7 @@ export type AgentGenerateResponse = {
 
 export type AgentVectorSyncRequest = {
   schoolName: string;
+  agentId?: string;
   encryptedProjectCode: string;
   newsletterId: string;
   title: string;

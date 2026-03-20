@@ -15,6 +15,7 @@ export async function POST(request: Request) {
     const html = renderNewsletterHtml(document);
     const result = await syncNewsletterToAgentVectorStore({
       schoolName: document.organization.name,
+      agentId: document.workspace.agentId,
       encryptedProjectCode: document.workspace.encryptedProjectCode,
       newsletterId: document.id,
       title: document.title,

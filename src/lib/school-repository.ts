@@ -19,6 +19,7 @@ const fallbackSchools: SchoolProfile[] = [
     backgroundColor: "#F7F9FC",
     textColor: "#142033",
     publishMode: "instant",
+    agentId: "",
     vectorProvider: "supabase",
     encryptedProjectCode: "enc_proj_riverside_demo_001"
   }
@@ -54,6 +55,7 @@ export async function listSchools() {
     backgroundColor: school.background_color,
     textColor: school.text_color,
     publishMode: school.publish_mode,
+    agentId: school.agent_id ?? "",
     vectorProvider: school.vector_provider,
     encryptedProjectCode:
       school.encrypted_project_code && secret
@@ -87,6 +89,7 @@ export async function saveSchool(profile: SchoolProfile) {
       background_color: profile.backgroundColor,
       text_color: profile.textColor,
       publish_mode: profile.publishMode,
+      agent_id: profile.agentId,
       vector_provider: profile.vectorProvider,
       encrypted_project_code:
         profile.encryptedProjectCode && secret
@@ -115,6 +118,7 @@ export async function saveSchool(profile: SchoolProfile) {
     backgroundColor: data.background_color,
     textColor: data.text_color,
     publishMode: data.publish_mode,
+    agentId: data.agent_id ?? "",
     vectorProvider: data.vector_provider,
     encryptedProjectCode: profile.encryptedProjectCode
   } satisfies SchoolProfile;
