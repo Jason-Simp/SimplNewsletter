@@ -69,12 +69,20 @@ export default function HomePage() {
                 ))}
               </div>
               <div className="mt-8">
-                <Link
-                  className="inline-flex w-full items-center justify-center rounded-full bg-brand-secondary px-6 py-4 text-sm font-semibold uppercase tracking-[0.12em] text-white"
-                  href="/login"
-                >
-                  Member login
-                </Link>
+                <div className="grid gap-3">
+                  <Link
+                    className="inline-flex w-full items-center justify-center rounded-full bg-brand-primary px-6 py-4 text-sm font-semibold uppercase tracking-[0.12em] text-white"
+                    href="/login"
+                  >
+                    Member login
+                  </Link>
+                  <Link
+                    className="inline-flex w-full items-center justify-center rounded-full bg-brand-secondary px-6 py-4 text-sm font-semibold uppercase tracking-[0.12em] text-white"
+                    href="/login"
+                  >
+                    Sign up
+                  </Link>
+                </div>
               </div>
             </div>
           </div>
