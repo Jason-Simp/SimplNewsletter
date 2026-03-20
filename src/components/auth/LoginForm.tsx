@@ -6,14 +6,17 @@ import { useRouter } from "next/navigation";
 import { schoolAmplifiedBrand } from "@/lib/brand";
 import { useAuthSession } from "@/lib/auth-client";
 
+type AuthMode = "signin" | "signup" | "magic";
+
 export function LoginForm() {
   const router = useRouter();
   const { supabase, session } = useAuthSession();
+  const [mode, setMode] = useState<AuthMode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [signupCode, setSignupCode] = useState("");
-  const [status, setStatus] = useState("Member login");
+  const [status, setStatus] = useState("Choose how you want to access The Wire.");
 
   if (session) {
     router.replace("/admin");
@@ -108,15 +111,54 @@ export function LoginForm() {
     router.refresh();
   };
 
+  const heading =
+    mode === "signin" ? "Member login" : mode === "signup" ? "Create account" : "Email magic link";
+  const description =
+    mode === "signin"
+      ? "Sign in with your existing member credentials."
+      : mode === "signup"
+        ? "Use your invite code to create a member account for your school."
+        : "Request a sign-in link by email if your account is already set up.";
+
   return (
     <section className="w-full max-w-md rounded-editorial border border-white/10 bg-white p-8 shadow-editorial">
       <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">
         {schoolAmplifiedBrand.name}
       </div>
-      <h1 className="mt-3 font-display text-4xl text-brand-navy">Member Login</h1>
+      <h1 className="mt-3 font-display text-4xl text-brand-navy">{heading}</h1>
       <p className="mt-3 text-sm leading-6 text-brand-muted">
-        Sign in or create an account to manage schools, members, and newsletter publishing inside The Wire.
+        {description}
       </p>
+
+      <div className="mt-6 grid grid-cols-3 gap-2 rounded-2xl bg-brand-background p-2">
+        <button
+          className={`rounded-xl px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] ${
+            mode === "signin" ? "bg-brand-primary text-white" : "text-brand-text"
+          }`}
+          onClick={() => setMode("signin")}
+          type="button"
+        >
+          Sign in
+        </button>
+        <button
+          className={`rounded-xl px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] ${
+            mode === "signup" ? "bg-brand-secondary text-white" : "text-brand-text"
+          }`}
+          onClick={() => setMode("signup")}
+          type="button"
+        >
+          Create account
+        </button>
+        <button
+          className={`rounded-xl px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] ${
+            mode === "magic" ? "bg-brand-navy text-white" : "text-brand-text"
+          }`}
+          onClick={() => setMode("magic")}
+          type="button"
+        >
+          Magic link
+        </button>
+      </div>
 
       <div className="mt-6 grid gap-4">
         <label className="grid gap-2">
@@ -139,48 +181,58 @@ export function LoginForm() {
           />
         </label>
 
-        <label className="grid gap-2">
-          <span className="text-sm font-semibold text-brand-text">Confirm password</span>
-          <input
-            className="rounded-2xl border border-slate-200 px-4 py-3"
-            onChange={(event) => setConfirmPassword(event.target.value)}
-            type="password"
-            value={confirmPassword}
-          />
-        </label>
+        {mode === "signup" ? (
+          <>
+            <label className="grid gap-2">
+              <span className="text-sm font-semibold text-brand-text">Confirm password</span>
+              <input
+                className="rounded-2xl border border-slate-200 px-4 py-3"
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                type="password"
+                value={confirmPassword}
+              />
+            </label>
 
-        <label className="grid gap-2">
-          <span className="text-sm font-semibold text-brand-text">Signup code</span>
-          <input
-            className="rounded-2xl border border-slate-200 px-4 py-3"
-            onChange={(event) => setSignupCode(event.target.value)}
-            value={signupCode}
-          />
-        </label>
+            <label className="grid gap-2">
+              <span className="text-sm font-semibold text-brand-text">Signup code</span>
+              <input
+                className="rounded-2xl border border-slate-200 px-4 py-3"
+                onChange={(event) => setSignupCode(event.target.value)}
+                value={signupCode}
+              />
+            </label>
+          </>
+        ) : null}
       </div>
 
       <div className="mt-6 flex flex-wrap gap-3">
-        <button
-          className="rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white"
-          onClick={() => void signIn()}
-          type="button"
-        >
-          Sign in
-        </button>
-        <button
-          className="rounded-full bg-brand-secondary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white"
-          onClick={() => void createAccount()}
-          type="button"
-        >
-          Create account
-        </button>
-        <button
-          className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
-          onClick={() => void sendMagicLink()}
-          type="button"
-        >
-          Email magic link
-        </button>
+        {mode === "signin" ? (
+          <button
+            className="rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white"
+            onClick={() => void signIn()}
+            type="button"
+          >
+            Sign in
+          </button>
+        ) : null}
+        {mode === "signup" ? (
+          <button
+            className="rounded-full bg-brand-secondary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white"
+            onClick={() => void createAccount()}
+            type="button"
+          >
+            Create account
+          </button>
+        ) : null}
+        {mode === "magic" ? (
+          <button
+            className="rounded-full bg-brand-navy px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white"
+            onClick={() => void sendMagicLink()}
+            type="button"
+          >
+            Send magic link
+          </button>
+        ) : null}
       </div>
 
       <div className="mt-4 rounded-2xl bg-brand-background px-4 py-3 text-sm text-brand-muted">

@@ -9,11 +9,11 @@ export default function LoginPage() {
             The Wire by SchoolAmplified
           </div>
           <h1 className="mt-4 max-w-3xl font-display text-6xl leading-none">
-            Member login for school newsletter operations.
+            Secure access for school newsletter teams.
           </h1>
           <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-200">
-            Sign in to manage school profiles, member access, vector-linked content generation, and
-            multi-channel publishing inside one system.
+            Existing members can sign in. New invited users can create an account with their signup
+            code and start working inside their school workspace.
           </p>
         </section>
 
