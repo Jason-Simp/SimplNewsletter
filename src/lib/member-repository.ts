@@ -1,5 +1,6 @@
 import { getServiceSupabase } from "@/lib/supabase/server";
 import type { MemberRecord } from "@/types/member";
+import type { SchoolProfile } from "@/types/school";
 
 type MemberRow = {
   id: string;
@@ -103,6 +104,121 @@ export async function saveMember(member: Omit<MemberRecord, "id" | "schoolName">
     role: (data as MemberRow).role,
     isActive: (data as MemberRow).is_active
   } satisfies MemberRecord;
+}
+
+export async function bootstrapSchoolAdmin(input: {
+  authUserId: string;
+  email: string;
+  fullName: string;
+  schoolName: string;
+}) {
+  const supabase = getServiceSupabase();
+
+  if (!supabase) {
+    return {
+      school: {
+        id: "demo-school-bootstrap",
+        name: input.schoolName,
+        tagline: "",
+        logoUrl: "",
+        websiteUrl: "",
+        contactEmail: input.email,
+        phone: "",
+        address: "",
+        primaryColor: "#123A69",
+        secondaryColor: "#86201A",
+        accentColor: "#3E86D1",
+        backgroundColor: "#F7F9FC",
+        textColor: "#142033",
+        publishMode: "instant",
+        agentId: "",
+        vectorProvider: "none",
+        encryptedProjectCode: ""
+      } satisfies SchoolProfile,
+      member: {
+        id: "demo-member-bootstrap",
+        schoolId: "demo-school-bootstrap",
+        schoolName: input.schoolName,
+        email: input.email,
+        fullName: input.fullName,
+        role: "school_admin",
+        isActive: true
+      } satisfies MemberRecord
+    };
+  }
+
+  const existingMember = await getMemberByEmail(input.email);
+
+  if (existingMember) {
+    const { error: updateError } = await supabase
+      .from("school_users")
+      .update({
+        auth_user_id: input.authUserId,
+        full_name: input.fullName || existingMember.fullName
+      })
+      .eq("id", existingMember.id);
+
+    if (updateError) {
+      throw new Error(updateError.message);
+    }
+
+    return {
+      school: {
+        id: existingMember.schoolId,
+        name: existingMember.schoolName
+      },
+      member: {
+        ...existingMember,
+        fullName: input.fullName || existingMember.fullName
+      }
+    };
+  }
+
+  const { data: school, error: schoolError } = await supabase
+    .from("schools")
+    .insert({
+      name: input.schoolName,
+      contact_email: input.email
+    })
+    .select("id,name")
+    .single();
+
+  if (schoolError || !school) {
+    throw new Error(schoolError?.message ?? "Unable to create school.");
+  }
+
+  const { data: member, error: memberError } = await supabase
+    .from("school_users")
+    .insert({
+      school_id: school.id,
+      auth_user_id: input.authUserId,
+      email: input.email,
+      full_name: input.fullName,
+      role: "school_admin",
+      is_active: true
+    })
+    .select("id,school_id,email,full_name,role,is_active,schools(name)")
+    .single();
+
+  if (memberError || !member) {
+    throw new Error(memberError?.message ?? "Unable to create school admin.");
+  }
+
+  return {
+    school: {
+      id: school.id,
+      name: school.name
+    },
+    member: {
+      id: (member as MemberRow).id,
+      schoolId: (member as MemberRow).school_id,
+      schoolName: resolveSchoolName((member as MemberRow).schools),
+      email: (member as MemberRow).email,
+      fullName: (member as MemberRow).full_name ?? "",
+      role: (member as MemberRow).role,
+      isActive: (member as MemberRow).is_active
+    } satisfies MemberRecord
+  };
 }
 
 function resolveSchoolName(schools: MemberRow["schools"]) {

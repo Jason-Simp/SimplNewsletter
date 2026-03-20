@@ -78,7 +78,7 @@ export default function HomePage() {
                   </Link>
                   <Link
                     className="inline-flex w-full items-center justify-center rounded-full bg-brand-secondary px-6 py-4 text-sm font-semibold uppercase tracking-[0.12em] text-white"
-                    href="/login"
+                    href="/login?mode=signup"
                   >
                     Sign up
                   </Link>

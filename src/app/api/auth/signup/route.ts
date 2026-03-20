@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { consumeSignupCode } from "@/lib/signup-code-repository";
+import { incrementSignupCodeUse, validateSignupCode } from "@/lib/signup-code-repository";
 import { getServiceSupabase } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    await consumeSignupCode(signupCode);
+    const codeRecord = await validateSignupCode(signupCode);
 
     const { data, error } = await supabase.auth.admin.createUser({
       email,
@@ -59,6 +59,8 @@ export async function POST(request: Request) {
       throw new Error(error.message);
     }
 
+    await incrementSignupCodeUse(codeRecord.id, codeRecord.useCount + 1);
+
     return NextResponse.json({
       status: "ok",
       data: {
@@ -66,12 +68,21 @@ export async function POST(request: Request) {
       }
     });
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to create account.";
     return NextResponse.json(
       {
         status: "error",
-        message: error instanceof Error ? error.message : "Unable to create account."
+        message
       },
-      { status: 500 }
+      {
+        status:
+          message === "Invalid signup code." ||
+          message === "This signup code is inactive." ||
+          message === "This signup code has expired." ||
+          message === "This signup code has already been used."
+            ? 400
+            : 500
+      }
     );
   }
 }

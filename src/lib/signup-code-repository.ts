@@ -85,7 +85,7 @@ export async function saveSignupCode(input: {
   return mapCodeRow(data as SignupCodeRow);
 }
 
-export async function consumeSignupCode(code: string) {
+export async function validateSignupCode(code: string) {
   const normalizedCode = code.trim().toLowerCase();
   const supabase = getServiceSupabase();
 
@@ -121,16 +121,24 @@ export async function consumeSignupCode(code: string) {
     throw new Error("This signup code has already been used.");
   }
 
+  return mapCodeRow(codeRow);
+}
+
+export async function incrementSignupCodeUse(codeId: string, nextUseCount: number) {
+  const supabase = getServiceSupabase();
+
+  if (!supabase) {
+    return;
+  }
+
   const { error: updateError } = await supabase
     .from("signup_codes")
-    .update({ use_count: codeRow.use_count + 1 })
-    .eq("id", codeRow.id);
+    .update({ use_count: nextUseCount })
+    .eq("id", codeId);
 
   if (updateError) {
     throw new Error(updateError.message);
   }
-
-  return mapCodeRow({ ...codeRow, use_count: codeRow.use_count + 1 });
 }
 
 function mapCodeRow(row: SignupCodeRow): SignupCodeRecord {

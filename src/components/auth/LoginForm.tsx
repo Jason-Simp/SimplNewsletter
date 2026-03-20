@@ -8,10 +8,10 @@ import { useAuthSession } from "@/lib/auth-client";
 
 type AuthMode = "signin" | "signup" | "magic";
 
-export function LoginForm() {
+export function LoginForm({ initialMode = "signin" }: { initialMode?: AuthMode }) {
   const router = useRouter();
   const { supabase, session } = useAuthSession();
-  const [mode, setMode] = useState<AuthMode>("signin");
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -37,7 +37,7 @@ export function LoginForm() {
     }
 
     setStatus("Signed in.");
-    router.push("/admin");
+    router.push("/setup");
     router.refresh();
   };
 

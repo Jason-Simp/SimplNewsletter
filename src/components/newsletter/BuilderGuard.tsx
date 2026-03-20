@@ -57,6 +57,12 @@ export function BuilderGuard({ children }: { children: React.ReactNode }) {
     };
   }, [session?.user?.email, supabase]);
 
+  useEffect(() => {
+    if (!loading && !memberLoading && session && supabase && !member) {
+      router.replace("/setup");
+    }
+  }, [loading, member, memberLoading, router, session, supabase]);
+
   if (loading || memberLoading) {
     return <main className="min-h-screen bg-brand-navy px-6 py-10 text-white">Loading builder...</main>;
   }
@@ -79,9 +85,9 @@ export function BuilderGuard({ children }: { children: React.ReactNode }) {
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
               className="rounded-full bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-navy"
-              href="/login"
+              href={session ? "/setup" : "/login"}
             >
-              Go to login
+              {session ? "Finish setup" : "Go to login"}
             </Link>
             <Link
               className="rounded-full border border-white/20 px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white"

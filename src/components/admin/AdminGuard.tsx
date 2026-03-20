@@ -81,6 +81,12 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
     };
   }, [session?.user?.email, session?.user?.id, supabase]);
 
+  useEffect(() => {
+    if (!loading && !memberLoading && session && supabase && !member) {
+      router.replace("/setup");
+    }
+  }, [loading, member, memberLoading, router, session, supabase]);
+
   const signOut = async () => {
     if (!supabase) {
       return;
@@ -99,28 +105,7 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
   }
 
   if (session && supabase && !member) {
-    return (
-      <main className="min-h-screen bg-[linear-gradient(180deg,#123A69_0%,#0F2745_100%)] px-6 py-10 text-white">
-        <div className="mx-auto max-w-3xl rounded-editorial border border-white/10 bg-[#102847] p-8 shadow-editorial">
-          <HomeLink />
-          <div className="mt-6 text-xs font-bold uppercase tracking-[0.3em] text-[#7db3f1]">
-            {schoolAmplifiedBrand.name}
-          </div>
-          <h1 className="mt-3 font-display text-4xl">Access not assigned</h1>
-          <p className="mt-4 text-base leading-7 text-slate-200">
-            Your login works, but this email is not assigned to a school member record yet. Add the member
-            from the admin members screen or seed the `school_users` table for this account.
-          </p>
-          <button
-            className="mt-6 rounded-full bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-navy"
-            onClick={() => void signOut()}
-            type="button"
-          >
-            Sign out
-          </button>
-        </div>
-      </main>
-    );
+    return null;
   }
 
   if (pathname === "/admin/schools" && !canManageSchools(member)) {
