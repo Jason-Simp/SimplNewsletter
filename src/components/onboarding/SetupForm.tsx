@@ -12,6 +12,8 @@ export function SetupForm() {
   const [schoolName, setSchoolName] = useState("");
   const [status, setStatus] = useState("Finish setup to create your school workspace.");
   const [memberLoading, setMemberLoading] = useState(true);
+  const [hasWorkspace, setHasWorkspace] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!loading && !session && supabase) {
@@ -37,7 +39,8 @@ export function SetupForm() {
       if (!cancelled) {
         setMemberLoading(false);
         if (payload?.data) {
-          router.replace("/admin");
+          setHasWorkspace(true);
+          setStatus("Your workspace is already connected to this account.");
         }
       }
     }
@@ -63,6 +66,7 @@ export function SetupForm() {
       return;
     }
 
+    setSubmitting(true);
     setStatus("Creating your school workspace...");
 
     const response = await fetch("/api/onboarding/bootstrap", {
@@ -81,11 +85,13 @@ export function SetupForm() {
     const payload = await response.json();
 
     if (!response.ok) {
+      setSubmitting(false);
       setStatus(payload?.message ?? "Unable to finish setup.");
       return;
     }
 
     setStatus("Workspace created. Redirecting...");
+    setHasWorkspace(true);
     router.replace("/admin");
     router.refresh();
   };
@@ -96,6 +102,40 @@ export function SetupForm() {
 
   if (!session && supabase) {
     return null;
+  }
+
+  if (hasWorkspace) {
+    return (
+      <section className="w-full max-w-lg rounded-editorial border border-white/10 bg-white p-8 shadow-editorial">
+        <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">
+          Workspace ready
+        </div>
+        <h1 className="mt-3 font-display text-4xl text-brand-navy">Your school workspace exists</h1>
+        <p className="mt-3 text-sm leading-6 text-brand-muted">
+          This account is already linked to a school workspace. Continue into admin to manage branding,
+          members, and newsletter publishing.
+        </p>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <button
+            className="rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white"
+            onClick={() => router.push("/admin")}
+            type="button"
+          >
+            Open admin
+          </button>
+          <button
+            className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
+            onClick={() => router.push("/builder")}
+            type="button"
+          >
+            Open builder
+          </button>
+        </div>
+        <div className="mt-4 rounded-2xl bg-brand-background px-4 py-3 text-sm text-brand-muted">
+          {status}
+        </div>
+      </section>
+    );
   }
 
   return (
@@ -129,11 +169,12 @@ export function SetupForm() {
       </div>
 
       <button
-        className="mt-6 rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white"
+        className="mt-6 rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white disabled:cursor-not-allowed disabled:opacity-60"
+        disabled={submitting}
         onClick={() => void finishSetup()}
         type="button"
       >
-        Create workspace
+        {submitting ? "Creating workspace..." : "Create workspace"}
       </button>
 
       <div className="mt-4 rounded-2xl bg-brand-background px-4 py-3 text-sm text-brand-muted">
