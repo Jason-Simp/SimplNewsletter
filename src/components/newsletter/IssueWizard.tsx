@@ -1,12 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { buildSteps, sampleNewsletter } from "@/lib/sample-data";
 import type { Channel, PublishMode } from "@/types/newsletter";
+import { AgentPanel } from "@/components/newsletter/AgentPanel";
 import { DistributionPanel } from "@/components/newsletter/DistributionPanel";
 import { DistributionSelector } from "@/components/newsletter/DistributionSelector";
+import { MediaUploadPanel } from "@/components/newsletter/MediaUploadPanel";
 import { NewsletterPreview } from "@/components/newsletter/NewsletterPreview";
+import { OrganizationBrandingPanel } from "@/components/newsletter/OrganizationBrandingPanel";
 import { SectionLibrary } from "@/components/newsletter/SectionLibrary";
 import { WorkspaceSettingsPanel } from "@/components/newsletter/WorkspaceSettingsPanel";
 
@@ -16,11 +19,43 @@ export function IssueWizard() {
   const [activeStep, setActiveStep] = useState<string>(buildSteps[0].id);
   const [activeChannel, setActiveChannel] = useState<Channel>("web");
   const [document, setDocument] = useState(sampleNewsletter);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [saveMessage, setSaveMessage] = useState("Local draft loaded.");
+  const initialLoadComplete = useRef(false);
 
   const updateField = (field: "title" | "intro" | "subjectLine" | "previewText", value: string) => {
     setDocument((current) => ({
       ...current,
       [field]: value
+    }));
+  };
+
+  const updateOrganizationField = (
+    field: keyof typeof document.organization,
+    value: string
+  ) => {
+    setDocument((current) => ({
+      ...current,
+      organization: {
+        ...current.organization,
+        [field]: value
+      }
+    }));
+  };
+
+  const updateOrganizationColor = (
+    field: keyof typeof document.organization.colors,
+    value: string
+  ) => {
+    setDocument((current) => ({
+      ...current,
+      organization: {
+        ...current.organization,
+        colors: {
+          ...current.organization.colors,
+          [field]: value
+        }
+      }
     }));
   };
 
@@ -72,6 +107,74 @@ export function IssueWizard() {
     }));
   };
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadDocument() {
+      try {
+        const response = await fetch("/api/newsletters");
+        const payload = await response.json();
+        const nextDocument = payload?.data?.[0];
+
+        if (!cancelled && nextDocument) {
+          setDocument(nextDocument);
+          setSaveMessage("Draft loaded from workspace.");
+        }
+      } catch {
+        if (!cancelled) {
+          setSaveMessage("Using local starter draft.");
+        }
+      } finally {
+        initialLoadComplete.current = true;
+      }
+    }
+
+    void loadDocument();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!initialLoadComplete.current) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(async () => {
+      setSaveState("saving");
+      setSaveMessage("Saving draft...");
+
+      try {
+        const response = await fetch("/api/newsletters", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(document)
+        });
+
+        const payload = await response.json();
+
+        if (!response.ok) {
+          throw new Error(payload?.message ?? "Unable to save draft.");
+        }
+
+        setSaveState("saved");
+        setSaveMessage(
+          payload.mode === "supabase"
+            ? "Saved to Supabase."
+            : "Saved locally. Add service keys to persist remotely."
+        );
+      } catch {
+        setSaveState("error");
+        setSaveMessage("Save failed. Check API configuration.");
+      }
+    }, 900);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [document]);
+
   return (
     <div className="grid gap-8">
       <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
@@ -118,8 +221,16 @@ export function IssueWizard() {
                 </p>
                 <h2 className="mt-2 font-display text-3xl text-brand-navy">Core issue fields</h2>
               </div>
-              <span className="rounded-full bg-brand-background px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-brand-primary">
-                Autosave-ready
+              <span
+                className={`rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] ${
+                  saveState === "error"
+                    ? "bg-red-100 text-red-700"
+                    : saveState === "saved"
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-brand-background text-brand-primary"
+                }`}
+              >
+                {saveMessage}
               </span>
             </div>
 
@@ -171,9 +282,23 @@ export function IssueWizard() {
             onVectorProviderChange={updateVectorProvider}
           />
 
+          <OrganizationBrandingPanel
+            document={document}
+            onOrganizationColorChange={updateOrganizationColor}
+            onOrganizationFieldChange={updateOrganizationField}
+          />
+
+          <AgentPanel
+            document={document}
+            onApplyIntro={(value) => updateField("intro", value)}
+            onApplyTitle={(value) => updateField("title", value)}
+          />
+
           <SectionLibrary onToggle={toggleSection} sections={document.sections} />
 
           <DistributionSelector onToggle={toggleDistribution} options={document.distributionOptions} />
+
+          <MediaUploadPanel document={document} />
         </div>
 
         <div className="grid gap-6">

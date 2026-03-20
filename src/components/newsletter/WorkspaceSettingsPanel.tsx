@@ -81,7 +81,7 @@ export function WorkspaceSettingsPanel({
           </label>
         </div>
 
-        <div className="rounded-[24px] bg-[#f9f4ed] p-5">
+        <div className="rounded-[24px] bg-[#EAF2FB] p-5">
           <div className="text-sm font-semibold text-brand-text">Retention and user model</div>
           <div className="mt-2 text-sm leading-6 text-brand-muted">
             Archive uploaded content and newsletter artifacts for {document.workspace.archiveDays} days,

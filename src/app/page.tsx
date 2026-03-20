@@ -1,6 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import { schoolAmplifiedBrand } from "@/lib/brand";
+
 const deliveryModes = [
   "Structured newsletter builder",
   "Editorial template system",
@@ -13,20 +15,21 @@ const deliveryModes = [
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,#f7f1e8,white_45%,#eef4fb)] px-6 py-8 text-brand-text lg:px-10">
+    <main className="min-h-screen bg-[linear-gradient(180deg,#123A69_0%,#0F2745_100%)] px-6 py-8 text-brand-text lg:px-10">
       <div className="mx-auto grid max-w-7xl gap-8">
-        <header className="overflow-hidden rounded-editorial border border-white/60 bg-white/80 shadow-editorial backdrop-blur">
+        <header className="overflow-hidden rounded-editorial border border-white/10 bg-white shadow-editorial">
           <div className="grid gap-10 px-8 py-10 lg:grid-cols-[1.2fr_0.8fr] lg:px-12 lg:py-14">
             <div>
-              <div className="inline-flex items-center gap-3 rounded-full bg-brand-background px-4 py-2 text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">
-                SchoolAmplified
+              <div className="inline-flex items-center gap-3 rounded-full bg-[#EAF2FB] px-4 py-2 text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">
+                {schoolAmplifiedBrand.shortName}
               </div>
               <h1 className="mt-6 max-w-4xl font-display text-5xl leading-none text-brand-navy lg:text-7xl">
-                Newsletter publishing for schools should feel premium without becoming complicated.
+                The Wire gives schools a cleaner path from raw updates to a polished newsletter.
               </h1>
               <p className="mt-6 max-w-2xl text-lg leading-8 text-brand-muted">
-                This starter app translates the product plan into a front-end direction: guided intake,
-                modular sections, editorial previews, and explicit multi-channel distribution.
+                This front end turns the product plan into a working shell: guided intake, modular
+                sections, school branding, editorial previews, agent integration, and multi-channel
+                distribution.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link
@@ -35,23 +38,29 @@ export default function HomePage() {
                 >
                   Open builder
                 </Link>
+                <Link
+                  className="rounded-full bg-brand-secondary px-6 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white"
+                  href="/login"
+                >
+                  Member login
+                </Link>
                 <a
                   className="rounded-full border border-slate-200 bg-white px-6 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
                   href="/AGENTS.md"
                 >
-                  Read Codex brief
+                  Read build brief
                 </a>
               </div>
             </div>
 
             <div className="rounded-[32px] bg-[#102847] p-6 text-white">
               <Image
-                alt="SchoolAmplified logo"
+                alt="The Wire by SchoolAmplified logo"
                 className="h-12 w-auto"
-                height={48}
+                height={96}
                 priority
-                src="/brand/schoolamplified-logo.png"
-                width={256}
+                src={schoolAmplifiedBrand.logoUrl}
+                width={320}
               />
               <div className="mt-8 grid gap-4">
                 {deliveryModes.map((mode) => (

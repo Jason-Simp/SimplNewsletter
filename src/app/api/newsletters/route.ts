@@ -1,23 +1,26 @@
 import { NextResponse } from "next/server";
 
-import { sampleNewsletter } from "@/lib/sample-data";
+import { listNewsletters, saveNewsletter } from "@/lib/newsletter-repository";
 
 export async function GET() {
+  const data = await listNewsletters();
+
   return NextResponse.json({
     status: "ok",
-    data: [sampleNewsletter]
+    data
   });
 }
 
 export async function POST(request: Request) {
   const payload = await request.json();
+  const result = await saveNewsletter(payload);
 
   return NextResponse.json(
     {
-      status: "accepted",
-      message: "Newsletter persistence will be backed by Supabase once credentials are connected.",
-      received: payload
+      status: "ok",
+      mode: result.mode,
+      data: result.newsletter
     },
-    { status: 202 }
+    { status: 200 }
   );
 }

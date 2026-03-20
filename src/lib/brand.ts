@@ -1,6 +1,7 @@
 export const schoolAmplifiedBrand = {
-  name: "SchoolAmplified",
-  logoUrl: "/brand/schoolamplified-logo.png",
+  name: "The Wire by SchoolAmplified",
+  shortName: "The Wire",
+  logoUrl: "/brand/the-wire-logo.png",
   colors: {
     primary: "#123A69",
     secondary: "#86201A",
@@ -17,7 +18,7 @@ export const defaultSchoolTheme = {
   primary: "#143E71",
   secondary: "#B23A2D",
   accent: "#E7B55E",
-  background: "#F5F1E8",
+  background: "#F7F9FC",
   surface: "#FFFDFC",
   text: "#1B2430",
   muted: "#5E6470"

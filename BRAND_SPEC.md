@@ -1,13 +1,14 @@
 # Brand Spec
 
 ## Platform brand
-SchoolAmplified
+The Wire by SchoolAmplified
 
 ## Platform logo
-Use the provided SchoolAmplified horizontal logo lockup in the product shell.
+Use the provided The Wire logo in the product shell.
 
 Source asset:
 - `/Users/jasonsirotin/SimplNewsletter/logo/logo.png`
+- `/Users/jasonsirotin/SimplNewsletter/logo/The Wire Master Logo With Alpha.png`
 
 ## Default brand tokens
 - primary: `#123A69`

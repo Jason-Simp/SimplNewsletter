@@ -2,7 +2,7 @@
 
 ## Mission
 
-Build a multi-tenant school newsletter builder add-on for the SchoolAmplified platform.
+Build The Wire by SchoolAmplified, a multi-tenant school newsletter platform.
 
 This product should let school districts, schools, principals, communications teams, and educators create polished newsletters by filling out a structured form, adding links, uploading images, and optionally reusing prior content. The system should then generate finished newsletters for multiple channels and support distribution from one place.
 
@@ -49,7 +49,7 @@ Do not build a clone of consumer drag-and-drop design tools. Build a guided publ
 ## Brand requirements
 
 ### Platform brand
-Use SchoolAmplified as the application-level brand.
+Use The Wire by SchoolAmplified as the application-level brand.
 
 Use the SchoolAmplified logo in:
 - app header

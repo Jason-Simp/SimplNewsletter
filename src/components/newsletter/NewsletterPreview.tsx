@@ -1,3 +1,4 @@
+import { schoolAmplifiedBrand } from "@/lib/brand";
 import Image from "next/image";
 
 import type { Channel, NewsletterDocument, NewsletterSection } from "@/types/newsletter";
@@ -80,7 +81,7 @@ export function NewsletterPreview({ document, channel }: Props) {
         <header className="flex flex-wrap items-center justify-between gap-4 border-b border-black/5 bg-white/80 px-6 py-5 backdrop-blur">
           <div className="flex items-center gap-4">
             <Image
-              alt="SchoolAmplified logo"
+              alt={`${schoolAmplifiedBrand.name} logo`}
               className="h-10 w-auto"
               height={40}
               src={organization.logoUrl}
@@ -176,7 +177,7 @@ export function NewsletterPreview({ document, channel }: Props) {
                 </div>
                 <div className="mt-5 grid gap-4 md:grid-cols-2">
                   {news.content.items.map((item) => (
-                    <article key={item.id} className="rounded-[24px] border border-slate-200 bg-[#fffdfa] p-5">
+                    <article key={item.id} className="rounded-[24px] border border-slate-200 bg-[#F7F9FC] p-5">
                       <div className="text-xs font-bold uppercase tracking-[0.25em]" style={{ color: organization.colors.secondary }}>
                         {item.tag ?? "News"}
                       </div>
@@ -252,7 +253,7 @@ export function NewsletterPreview({ document, channel }: Props) {
                   <h3 className="mt-3 text-2xl font-semibold">{cta.content.volunteer.headline}</h3>
                   <p className="mt-3 text-sm leading-6 text-white/90">{cta.content.volunteer.summary}</p>
                 </article>
-                <article className="rounded-[28px] p-6 shadow-sm" style={{ backgroundColor: "#f7e6df" }}>
+                <article className="rounded-[28px] p-6 shadow-sm" style={{ backgroundColor: "#EAF2FB" }}>
                   <div className="text-xs font-bold uppercase tracking-[0.3em]" style={{ color: organization.colors.secondary }}>
                     Support
                   </div>

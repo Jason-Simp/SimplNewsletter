@@ -2,26 +2,27 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { IssueWizard } from "@/components/newsletter/IssueWizard";
+import { schoolAmplifiedBrand } from "@/lib/brand";
 
 export default function BuilderPage() {
   return (
-    <main className="min-h-screen bg-[linear-gradient(180deg,#f6efe4_0%,#f4f8fc_48%,#ffffff_100%)] px-6 py-8 lg:px-10">
+    <main className="min-h-screen bg-[linear-gradient(180deg,#123A69_0%,#0F2745_100%)] px-6 py-8 lg:px-10">
       <div className="mx-auto grid max-w-7xl gap-8">
-        <header className="flex flex-wrap items-center justify-between gap-4 rounded-editorial border border-white/70 bg-white/80 px-6 py-5 shadow-editorial backdrop-blur">
+        <header className="flex flex-wrap items-center justify-between gap-4 rounded-editorial border border-white/10 bg-white px-6 py-5 shadow-editorial">
           <div className="flex items-center gap-4">
             <Image
-              alt="SchoolAmplified logo"
+              alt="The Wire by SchoolAmplified logo"
               className="h-11 w-auto"
-              height={44}
+              height={64}
               priority
-              src="/brand/schoolamplified-logo.png"
-              width={235}
+              src={schoolAmplifiedBrand.logoUrl}
+              width={280}
             />
             <div>
               <div className="text-sm font-semibold uppercase tracking-[0.18em] text-brand-secondary">
-                Front-end prototype
+                {schoolAmplifiedBrand.name}
               </div>
-              <div className="text-lg font-semibold text-brand-navy">Newsletter Builder Workspace</div>
+              <div className="text-lg font-semibold text-brand-navy">Publishing Workspace</div>
             </div>
           </div>
 

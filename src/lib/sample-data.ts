@@ -1,3 +1,4 @@
+import { schoolAmplifiedBrand } from "@/lib/brand";
 import { defaultDistributionOptions, mediaConstraints } from "@/lib/product-config";
 import type { NewsletterDocument } from "@/types/newsletter";
 import { defaultSchoolTheme } from "@/lib/brand";
@@ -27,7 +28,7 @@ export const sampleNewsletter: NewsletterDocument = {
     contactEmail: "hello@schoolamplified.example.com",
     phone: "(555) 010-2400",
     address: "15 River Walk Drive, Marietta, GA 30060",
-    logoUrl: "/brand/schoolamplified-logo.png",
+    logoUrl: schoolAmplifiedBrand.logoUrl,
     colors: {
       ...defaultSchoolTheme
     }
@@ -51,8 +52,8 @@ export const sampleNewsletter: NewsletterDocument = {
       sortOrder: 1,
       visibility: visibleEverywhere,
       content: {
-        eyebrow: "SchoolAmplified Demo",
-        headline: "A better newsletter workflow for districts and schools",
+        eyebrow: "The Wire Demo",
+        headline: "A better school newsletter workflow",
         body:
           "This sample front end uses the provided HTML section model while shifting the visual language toward a more editorial, premium layout inspired by the uploaded newsletter template.",
         stats: [
@@ -263,7 +264,7 @@ export const sampleNewsletter: NewsletterDocument = {
       content: {
         quote:
           "One input, many outputs, with enough editorial structure that the finished work still feels designed.",
-        attribution: "SchoolAmplified Newsletter Builder"
+        attribution: "The Wire by SchoolAmplified"
       }
     },
     {

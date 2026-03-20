@@ -1,7 +1,7 @@
 # Product Requirements Document
 
 ## Product name
-SchoolAmplified Newsletter Builder
+The Wire by SchoolAmplified
 
 ## Summary
 A structured newsletter creation and distribution system for school districts, schools, and educators. Users fill out a guided form, add links and pictures, and the system generates a finished newsletter for web, email, PDF, and HTML export.
