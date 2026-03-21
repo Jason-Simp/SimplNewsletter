@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 
-import { generateNewsletterDraftWithAgent } from "@/lib/elevenlabs-agent";
+import { generateContentWithProvider } from "@/lib/integration-client";
 
 export async function POST(request: Request) {
   try {
     const payload = await request.json();
-    const result = await generateNewsletterDraftWithAgent(payload);
+    const result = await generateContentWithProvider(payload);
 
     return NextResponse.json({
       status: "ok",

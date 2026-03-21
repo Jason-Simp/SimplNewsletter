@@ -4,6 +4,8 @@ export type PublishMode = "instant" | "approval";
 
 export type UserRole = "school_admin" | "editor";
 
+export type IntegrationProvider = "elevenlabs" | "openai" | "supabase" | "n8n" | "custom" | "none";
+
 export type SectionType =
   | "hero"
   | "stats_band"
@@ -95,9 +97,12 @@ export type WorkspaceSettings = {
   publishMode: PublishMode;
   archiveDays: number;
   usersManagedBySchool: boolean;
-  agentId?: string;
-  vectorProvider: "supabase" | "openai" | "elevenlabs" | "none";
-  encryptedProjectCode: string;
+  generationProvider: IntegrationProvider;
+  knowledgeProvider: IntegrationProvider;
+  syncProvider: IntegrationProvider;
+  assistantReference?: string;
+  integrationEndpoint?: string;
+  encryptedKnowledgeRef: string;
   mediaConstraints: MediaConstraint[];
   roles: UserRole[];
 };

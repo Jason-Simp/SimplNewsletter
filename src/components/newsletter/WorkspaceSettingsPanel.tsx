@@ -4,17 +4,23 @@ import type { NewsletterDocument, PublishMode } from "@/types/newsletter";
 type Props = {
   document: NewsletterDocument;
   onPublishModeChange: (mode: PublishMode) => void;
-  onVectorProviderChange: (provider: NewsletterDocument["workspace"]["vectorProvider"]) => void;
-  onProjectCodeChange: (value: string) => void;
-  onAgentIdChange: (value: string) => void;
+  onGenerationProviderChange: (provider: NewsletterDocument["workspace"]["generationProvider"]) => void;
+  onKnowledgeProviderChange: (provider: NewsletterDocument["workspace"]["knowledgeProvider"]) => void;
+  onSyncProviderChange: (provider: NewsletterDocument["workspace"]["syncProvider"]) => void;
+  onKnowledgeRefChange: (value: string) => void;
+  onAssistantReferenceChange: (value: string) => void;
+  onIntegrationEndpointChange: (value: string) => void;
 };
 
 export function WorkspaceSettingsPanel({
   document,
-  onAgentIdChange,
+  onAssistantReferenceChange,
+  onGenerationProviderChange,
+  onIntegrationEndpointChange,
+  onKnowledgeProviderChange,
+  onKnowledgeRefChange,
   onPublishModeChange,
-  onVectorProviderChange,
-  onProjectCodeChange
+  onSyncProviderChange
 }: Props) {
   return (
     <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
@@ -56,40 +62,91 @@ export function WorkspaceSettingsPanel({
 
         <div className="grid gap-4 md:grid-cols-2">
           <label className="grid gap-2">
-            <span className="text-sm font-semibold text-brand-text">Vector provider</span>
+            <span className="text-sm font-semibold text-brand-text">Rewrite provider</span>
             <select
               className="rounded-2xl border border-slate-200 px-4 py-3"
               onChange={(event) =>
-                onVectorProviderChange(
-                  event.target.value as NewsletterDocument["workspace"]["vectorProvider"]
+                onGenerationProviderChange(
+                  event.target.value as NewsletterDocument["workspace"]["generationProvider"]
                 )
               }
-              value={document.workspace.vectorProvider}
+              value={document.workspace.generationProvider}
+            >
+              <option value="elevenlabs">ElevenLabs</option>
+              <option value="openai">OpenAI</option>
+              <option value="n8n">n8n</option>
+              <option value="custom">Custom bridge</option>
+              <option value="none">Manual only</option>
+            </select>
+          </label>
+
+          <label className="grid gap-2">
+            <span className="text-sm font-semibold text-brand-text">Knowledge provider</span>
+            <select
+              className="rounded-2xl border border-slate-200 px-4 py-3"
+              onChange={(event) =>
+                onKnowledgeProviderChange(
+                  event.target.value as NewsletterDocument["workspace"]["knowledgeProvider"]
+                )
+              }
+              value={document.workspace.knowledgeProvider}
             >
               <option value="supabase">Supabase vector store</option>
               <option value="openai">OpenAI vector store</option>
               <option value="elevenlabs">ElevenLabs knowledge base</option>
+              <option value="n8n">n8n workflow</option>
+              <option value="custom">Custom bridge</option>
               <option value="none">None yet</option>
             </select>
           </label>
 
           <label className="grid gap-2">
-            <span className="text-sm font-semibold text-brand-text">11labs agent ID</span>
+            <span className="text-sm font-semibold text-brand-text">Sync provider</span>
+            <select
+              className="rounded-2xl border border-slate-200 px-4 py-3"
+              onChange={(event) =>
+                onSyncProviderChange(
+                  event.target.value as NewsletterDocument["workspace"]["syncProvider"]
+                )
+              }
+              value={document.workspace.syncProvider}
+            >
+              <option value="elevenlabs">ElevenLabs</option>
+              <option value="openai">OpenAI</option>
+              <option value="supabase">Supabase</option>
+              <option value="n8n">n8n</option>
+              <option value="custom">Custom bridge</option>
+              <option value="none">No sync</option>
+            </select>
+          </label>
+
+          <label className="grid gap-2">
+            <span className="text-sm font-semibold text-brand-text">Assistant reference</span>
             <input
               className="rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
-              onChange={(event) => onAgentIdChange(event.target.value)}
-              placeholder="agent_..."
-              value={document.workspace.agentId ?? ""}
+              onChange={(event) => onAssistantReferenceChange(event.target.value)}
+              placeholder="Agent ID, assistant key, or workflow reference"
+              value={document.workspace.assistantReference ?? ""}
             />
           </label>
 
           <label className="grid gap-2">
-            <span className="text-sm font-semibold text-brand-text">Encrypted project code</span>
+            <span className="text-sm font-semibold text-brand-text">Integration endpoint</span>
             <input
               className="rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
-              onChange={(event) => onProjectCodeChange(event.target.value)}
-              placeholder="enc_proj_..."
-              value={document.workspace.encryptedProjectCode}
+              onChange={(event) => onIntegrationEndpointChange(event.target.value)}
+              placeholder="Optional bridge or workflow endpoint"
+              value={document.workspace.integrationEndpoint ?? ""}
+            />
+          </label>
+
+          <label className="grid gap-2 md:col-span-2">
+            <span className="text-sm font-semibold text-brand-text">Encrypted knowledge reference</span>
+            <input
+              className="rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
+              onChange={(event) => onKnowledgeRefChange(event.target.value)}
+              placeholder="Encrypted vector, knowledge base, or workflow reference"
+              value={document.workspace.encryptedKnowledgeRef}
             />
           </label>
         </div>

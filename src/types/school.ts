@@ -1,3 +1,5 @@
+import type { IntegrationProvider } from "@/types/newsletter";
+
 export type SchoolProfile = {
   id: string;
   name: string;
@@ -13,7 +15,10 @@ export type SchoolProfile = {
   backgroundColor: string;
   textColor: string;
   publishMode: "instant" | "approval";
-  agentId: string;
-  vectorProvider: "supabase" | "openai" | "elevenlabs" | "none";
-  encryptedProjectCode: string;
+  generationProvider: IntegrationProvider;
+  knowledgeProvider: IntegrationProvider;
+  syncProvider: IntegrationProvider;
+  assistantReference: string;
+  integrationEndpoint: string;
+  encryptedKnowledgeRef: string;
 };

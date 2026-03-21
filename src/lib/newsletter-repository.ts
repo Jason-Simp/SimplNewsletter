@@ -97,9 +97,12 @@ function toDocument(
       publishMode: school.publish_mode,
       archiveDays: school.archive_days,
       usersManagedBySchool: school.users_managed_by_school,
-      agentId: school.agent_id ?? "",
-      vectorProvider: school.vector_provider,
-      encryptedProjectCode:
+      generationProvider: school.agent_id ? "elevenlabs" : "none",
+      knowledgeProvider: school.vector_provider,
+      syncProvider: school.agent_id ? "elevenlabs" : "none",
+      assistantReference: school.agent_id ?? "",
+      integrationEndpoint: "",
+      encryptedKnowledgeRef:
         school.encrypted_project_code && secret
           ? decryptProjectCode(school.encrypted_project_code, secret)
           : school.encrypted_project_code ?? "",
@@ -205,14 +208,14 @@ export async function saveNewsletter(document: NewsletterDocument) {
     text_color: document.organization.colors.text,
     muted_text_color: document.organization.colors.muted,
     publish_mode: document.workspace.publishMode,
-    agent_id: document.workspace.agentId ?? null,
+    agent_id: document.workspace.assistantReference ?? null,
     archive_days: document.workspace.archiveDays,
     users_managed_by_school: document.workspace.usersManagedBySchool,
-    vector_provider: document.workspace.vectorProvider,
+    vector_provider: document.workspace.knowledgeProvider,
     encrypted_project_code:
-      document.workspace.encryptedProjectCode && secret
-        ? encryptProjectCode(document.workspace.encryptedProjectCode, secret)
-        : document.workspace.encryptedProjectCode
+      document.workspace.encryptedKnowledgeRef && secret
+        ? encryptProjectCode(document.workspace.encryptedKnowledgeRef, secret)
+        : document.workspace.encryptedKnowledgeRef
   };
 
   const { data: school, error: schoolError } = await supabase

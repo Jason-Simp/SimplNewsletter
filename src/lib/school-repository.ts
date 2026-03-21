@@ -19,9 +19,12 @@ const fallbackSchools: SchoolProfile[] = [
     backgroundColor: "#F7F9FC",
     textColor: "#142033",
     publishMode: "instant",
-    agentId: "",
-    vectorProvider: "supabase",
-    encryptedProjectCode: "enc_proj_riverside_demo_001"
+    generationProvider: "elevenlabs",
+    knowledgeProvider: "supabase",
+    syncProvider: "elevenlabs",
+    assistantReference: "",
+    integrationEndpoint: "",
+    encryptedKnowledgeRef: "enc_proj_riverside_demo_001"
   }
 ];
 
@@ -55,9 +58,12 @@ export async function listSchools() {
     backgroundColor: school.background_color,
     textColor: school.text_color,
     publishMode: school.publish_mode,
-    agentId: school.agent_id ?? "",
-    vectorProvider: school.vector_provider,
-    encryptedProjectCode:
+    generationProvider: (school.agent_id ? "elevenlabs" : "none"),
+    knowledgeProvider: school.vector_provider,
+    syncProvider: (school.agent_id ? "elevenlabs" : "none"),
+    assistantReference: school.agent_id ?? "",
+    integrationEndpoint: "",
+    encryptedKnowledgeRef:
       school.encrypted_project_code && secret
         ? decryptProjectCode(school.encrypted_project_code, secret)
         : school.encrypted_project_code ?? ""
@@ -89,12 +95,12 @@ export async function saveSchool(profile: SchoolProfile) {
       background_color: profile.backgroundColor,
       text_color: profile.textColor,
       publish_mode: profile.publishMode,
-      agent_id: profile.agentId,
-      vector_provider: profile.vectorProvider,
+      agent_id: profile.assistantReference,
+      vector_provider: profile.knowledgeProvider,
       encrypted_project_code:
-        profile.encryptedProjectCode && secret
-          ? encryptProjectCode(profile.encryptedProjectCode, secret)
-          : profile.encryptedProjectCode
+        profile.encryptedKnowledgeRef && secret
+          ? encryptProjectCode(profile.encryptedKnowledgeRef, secret)
+          : profile.encryptedKnowledgeRef
     })
     .select("*")
     .single();
@@ -118,8 +124,11 @@ export async function saveSchool(profile: SchoolProfile) {
     backgroundColor: data.background_color,
     textColor: data.text_color,
     publishMode: data.publish_mode,
-    agentId: data.agent_id ?? "",
-    vectorProvider: data.vector_provider,
-    encryptedProjectCode: profile.encryptedProjectCode
+    generationProvider: profile.generationProvider,
+    knowledgeProvider: profile.knowledgeProvider,
+    syncProvider: profile.syncProvider,
+    assistantReference: data.agent_id ?? "",
+    integrationEndpoint: profile.integrationEndpoint,
+    encryptedKnowledgeRef: profile.encryptedKnowledgeRef
   } satisfies SchoolProfile;
 }

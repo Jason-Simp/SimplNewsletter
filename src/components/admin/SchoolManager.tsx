@@ -22,9 +22,12 @@ const emptySchool: SchoolProfile = {
   backgroundColor: "#F7F9FC",
   textColor: "#142033",
   publishMode: "instant",
-  agentId: "",
-  vectorProvider: "none",
-  encryptedProjectCode: ""
+  generationProvider: "none",
+  knowledgeProvider: "none",
+  syncProvider: "none",
+  assistantReference: "",
+  integrationEndpoint: "",
+  encryptedKnowledgeRef: ""
 };
 
 export function SchoolManager() {
@@ -194,11 +197,62 @@ export function SchoolManager() {
           <Input label="Phone" value={form.phone} onChange={(value) => updateField("phone", value)} />
           <Input label="Address" value={form.address} onChange={(value) => updateField("address", value)} />
           <Input label="Logo URL" value={form.logoUrl} onChange={(value) => updateField("logoUrl", value)} />
-          <Input label="11labs agent ID" value={form.agentId} onChange={(value) => updateField("agentId", value)} />
           <Input
-            label="Encrypted project code"
-            value={form.encryptedProjectCode}
-            onChange={(value) => updateField("encryptedProjectCode", value)}
+            label="Assistant reference"
+            value={form.assistantReference}
+            onChange={(value) => updateField("assistantReference", value)}
+          />
+          <Input
+            label="Integration endpoint"
+            value={form.integrationEndpoint}
+            onChange={(value) => updateField("integrationEndpoint", value)}
+          />
+          <Input
+            label="Encrypted knowledge reference"
+            value={form.encryptedKnowledgeRef}
+            onChange={(value) => updateField("encryptedKnowledgeRef", value)}
+          />
+          <SelectField
+            label="Rewrite provider"
+            onChange={(value) =>
+              updateField("generationProvider", value as SchoolProfile["generationProvider"])
+            }
+            options={[
+              ["elevenlabs", "ElevenLabs"],
+              ["openai", "OpenAI"],
+              ["n8n", "n8n"],
+              ["custom", "Custom bridge"],
+              ["none", "Manual only"]
+            ]}
+            value={form.generationProvider}
+          />
+          <SelectField
+            label="Knowledge provider"
+            onChange={(value) =>
+              updateField("knowledgeProvider", value as SchoolProfile["knowledgeProvider"])
+            }
+            options={[
+              ["supabase", "Supabase vector store"],
+              ["openai", "OpenAI vector store"],
+              ["elevenlabs", "ElevenLabs knowledge base"],
+              ["n8n", "n8n"],
+              ["custom", "Custom bridge"],
+              ["none", "None"]
+            ]}
+            value={form.knowledgeProvider}
+          />
+          <SelectField
+            label="Sync provider"
+            onChange={(value) => updateField("syncProvider", value as SchoolProfile["syncProvider"])}
+            options={[
+              ["elevenlabs", "ElevenLabs"],
+              ["openai", "OpenAI"],
+              ["supabase", "Supabase"],
+              ["n8n", "n8n"],
+              ["custom", "Custom bridge"],
+              ["none", "No sync"]
+            ]}
+            value={form.syncProvider}
           />
         </div>
 
@@ -266,6 +320,35 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
         <input className="h-10 w-12 rounded border border-slate-200" onChange={(event) => onChange(event.target.value)} type="color" value={value} />
         <input className="w-full outline-none" onChange={(event) => onChange(event.target.value)} value={value} />
       </div>
+    </label>
+  );
+}
+
+function SelectField({
+  label,
+  value,
+  onChange,
+  options
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: [string, string][];
+}) {
+  return (
+    <label className="grid gap-2">
+      <span className="text-sm font-semibold text-brand-text">{label}</span>
+      <select
+        className="rounded-2xl border border-slate-200 px-4 py-3"
+        onChange={(event) => onChange(event.target.value)}
+        value={value}
+      >
+        {options.map(([optionValue, optionLabel]) => (
+          <option key={optionValue} value={optionValue}>
+            {optionLabel}
+          </option>
+        ))}
+      </select>
     </label>
   );
 }

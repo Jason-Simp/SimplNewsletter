@@ -91,32 +91,62 @@ export function IssueWizard() {
     }));
   };
 
-  const updateVectorProvider = (vectorProvider: typeof document.workspace.vectorProvider) => {
+  const updateGenerationProvider = (generationProvider: typeof document.workspace.generationProvider) => {
     setDocument((current) => ({
       ...current,
       workspace: {
         ...current.workspace,
-        vectorProvider
+        generationProvider
       }
     }));
   };
 
-  const updateProjectCode = (encryptedProjectCode: string) => {
+  const updateKnowledgeProvider = (knowledgeProvider: typeof document.workspace.knowledgeProvider) => {
     setDocument((current) => ({
       ...current,
       workspace: {
         ...current.workspace,
-        encryptedProjectCode
+        knowledgeProvider
       }
     }));
   };
 
-  const updateAgentId = (agentId: string) => {
+  const updateSyncProvider = (syncProvider: typeof document.workspace.syncProvider) => {
     setDocument((current) => ({
       ...current,
       workspace: {
         ...current.workspace,
-        agentId
+        syncProvider
+      }
+    }));
+  };
+
+  const updateKnowledgeRef = (encryptedKnowledgeRef: string) => {
+    setDocument((current) => ({
+      ...current,
+      workspace: {
+        ...current.workspace,
+        encryptedKnowledgeRef
+      }
+    }));
+  };
+
+  const updateAssistantReference = (assistantReference: string) => {
+    setDocument((current) => ({
+      ...current,
+      workspace: {
+        ...current.workspace,
+        assistantReference
+      }
+    }));
+  };
+
+  const updateIntegrationEndpoint = (integrationEndpoint: string) => {
+    setDocument((current) => ({
+      ...current,
+      workspace: {
+        ...current.workspace,
+        integrationEndpoint
       }
     }));
   };
@@ -196,9 +226,12 @@ export function IssueWizard() {
                   ...nextDocument.workspace,
                   schoolId: nextSchool.id,
                   publishMode: nextSchool.publishMode,
-                  agentId: nextSchool.agentId,
-                  vectorProvider: nextSchool.vectorProvider,
-                  encryptedProjectCode: nextSchool.encryptedProjectCode
+                  generationProvider: nextSchool.generationProvider,
+                  knowledgeProvider: nextSchool.knowledgeProvider,
+                  syncProvider: nextSchool.syncProvider,
+                  assistantReference: nextSchool.assistantReference,
+                  integrationEndpoint: nextSchool.integrationEndpoint,
+                  encryptedKnowledgeRef: nextSchool.encryptedKnowledgeRef
                 }
               }
             : nextDocument;
@@ -407,11 +440,14 @@ export function IssueWizard() {
               </section>
 
               <WorkspaceSettingsPanel
-                onAgentIdChange={updateAgentId}
                 document={document}
-                onProjectCodeChange={updateProjectCode}
+                onAssistantReferenceChange={updateAssistantReference}
+                onGenerationProviderChange={updateGenerationProvider}
+                onIntegrationEndpointChange={updateIntegrationEndpoint}
+                onKnowledgeProviderChange={updateKnowledgeProvider}
+                onKnowledgeRefChange={updateKnowledgeRef}
                 onPublishModeChange={updatePublishMode}
-                onVectorProviderChange={updateVectorProvider}
+                onSyncProviderChange={updateSyncProvider}
               />
 
               <OrganizationBrandingPanel

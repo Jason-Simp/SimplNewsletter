@@ -131,9 +131,12 @@ export async function bootstrapSchoolAdmin(input: {
         backgroundColor: "#F7F9FC",
         textColor: "#142033",
         publishMode: "instant",
-        agentId: "",
-        vectorProvider: "none",
-        encryptedProjectCode: ""
+        generationProvider: "none",
+        knowledgeProvider: "none",
+        syncProvider: "none",
+        assistantReference: "",
+        integrationEndpoint: "",
+        encryptedKnowledgeRef: ""
       } satisfies SchoolProfile,
       member: {
         id: "demo-member-bootstrap",

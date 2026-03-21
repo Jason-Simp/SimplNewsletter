@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 
+import { syncContentToProvider } from "@/lib/integration-client";
 import { saveNewsletter } from "@/lib/newsletter-repository";
 import { renderNewsletterHtml } from "@/lib/render-html";
-import { syncNewsletterToAgentVectorStore } from "@/lib/elevenlabs-agent";
 import type { NewsletterDocument } from "@/types/newsletter";
 
 export async function POST(request: Request) {
@@ -13,10 +13,13 @@ export async function POST(request: Request) {
     await saveNewsletter(document);
 
     const html = renderNewsletterHtml(document);
-    const result = await syncNewsletterToAgentVectorStore({
+    const result = await syncContentToProvider({
       schoolName: document.organization.name,
-      agentId: document.workspace.agentId,
-      encryptedProjectCode: document.workspace.encryptedProjectCode,
+      syncProvider: document.workspace.syncProvider,
+      knowledgeProvider: document.workspace.knowledgeProvider,
+      assistantReference: document.workspace.assistantReference,
+      integrationEndpoint: document.workspace.integrationEndpoint,
+      encryptedKnowledgeRef: document.workspace.encryptedKnowledgeRef,
       newsletterId: document.id,
       title: document.title,
       html,
