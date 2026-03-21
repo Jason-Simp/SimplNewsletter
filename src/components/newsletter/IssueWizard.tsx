@@ -6,7 +6,6 @@ import { useAuthSession } from "@/lib/auth-client";
 import { buildSteps, sampleNewsletter } from "@/lib/sample-data";
 import type { Channel, PublishMode } from "@/types/newsletter";
 import type { SchoolProfile } from "@/types/school";
-import { AgentPanel } from "@/components/newsletter/AgentPanel";
 import { DistributionPanel } from "@/components/newsletter/DistributionPanel";
 import { DistributionSelector } from "@/components/newsletter/DistributionSelector";
 import { MediaUploadPanel } from "@/components/newsletter/MediaUploadPanel";
@@ -415,11 +414,16 @@ export function IssueWizard() {
 
           {activeStep === "content" ? (
             <>
-              <AgentPanel
-                document={document}
-                onApplyIntro={(value) => updateField("intro", value)}
-                onApplyTitle={(value) => updateField("title", value)}
-              />
+              <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
+                <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">
+                  Content handling
+                </p>
+                <h2 className="mt-2 font-display text-3xl text-brand-navy">Write rough, publish clean</h2>
+                <p className="mt-4 text-sm leading-7 text-brand-muted">
+                  This step is for rough notes, bullets, and links. The school-specific agent layer should
+                  work behind the scenes, so editors should not have to manage agent actions manually here.
+                </p>
+              </section>
               <SectionLibrary onToggle={toggleSection} sections={document.sections} />
             </>
           ) : null}

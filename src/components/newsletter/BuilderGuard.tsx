@@ -57,12 +57,6 @@ export function BuilderGuard({ children }: { children: React.ReactNode }) {
     };
   }, [session?.user?.email, supabase]);
 
-  useEffect(() => {
-    if (!loading && !memberLoading && session && supabase && !member) {
-      router.replace("/setup");
-    }
-  }, [loading, member, memberLoading, router, session, supabase]);
-
   if (loading || memberLoading) {
     return <main className="min-h-screen bg-brand-navy px-6 py-10 text-white">Loading builder...</main>;
   }
@@ -89,6 +83,15 @@ export function BuilderGuard({ children }: { children: React.ReactNode }) {
             >
               {session ? "Finish setup" : "Go to login"}
             </Link>
+            {session ? (
+              <button
+                className="rounded-full border border-white/20 px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white"
+                onClick={() => router.refresh()}
+                type="button"
+              >
+                Retry builder
+              </button>
+            ) : null}
             <Link
               className="rounded-full border border-white/20 px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white"
               href="/admin/members"

@@ -35,7 +35,7 @@ export async function listSchools() {
   const { data, error } = await supabase.from("schools").select("*").order("created_at", { ascending: false });
 
   if (error || !data) {
-    return fallbackSchools;
+    return [];
   }
 
   const secret = process.env.VECTOR_PROJECT_SECRET;

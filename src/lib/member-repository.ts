@@ -46,7 +46,7 @@ export async function listMembers() {
     .order("created_at", { ascending: false });
 
   if (error || !data) {
-    return fallbackMembers;
+    return [];
   }
 
   return (data as MemberRow[]).map((member) => ({
