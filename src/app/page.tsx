@@ -21,12 +21,12 @@ export default function HomePage() {
           <div className="grid gap-10 px-8 py-10 lg:grid-cols-[1.2fr_0.8fr] lg:px-12 lg:py-14">
             <div>
               <Image
-                alt="The Wire by SchoolAmplified logo"
-                className="h-auto w-full max-w-[260px]"
-                height={150}
+                alt="The Wire powered by SimplSolutions logo"
+                className="h-auto w-full max-w-[340px]"
+                height={220}
                 priority
-                src={schoolAmplifiedBrand.logoUrl}
-                width={260}
+                src="/brand/the-wire-powered-by-simpl.svg"
+                width={340}
               />
               <h1 className="mt-6 max-w-4xl font-display text-5xl leading-none text-brand-navy lg:text-7xl">
                 Create school newsletters faster, with less manual work.
