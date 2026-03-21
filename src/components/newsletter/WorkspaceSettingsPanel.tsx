@@ -131,11 +131,11 @@ export function WorkspaceSettingsPanel({
           </label>
 
           <label className="grid gap-2">
-            <span className="text-sm font-semibold text-brand-text">Integration endpoint</span>
+            <span className="text-sm font-semibold text-brand-text">Integration or embed URL</span>
             <input
               className="rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
               onChange={(event) => onIntegrationEndpointChange(event.target.value)}
-              placeholder="Optional bridge or workflow endpoint"
+              placeholder="Assistant chat embed or workflow endpoint"
               value={document.workspace.integrationEndpoint ?? ""}
             />
           </label>
@@ -157,6 +157,14 @@ export function WorkspaceSettingsPanel({
             Archive uploaded content and newsletter artifacts for {document.workspace.archiveDays} days,
             then delete them automatically. Schools manage their own users inside the workspace, and the
             same login policy can support either instant publish or optional approval routing.
+          </div>
+        </div>
+
+        <div className="rounded-[24px] bg-[#EAF2FB] p-5">
+          <div className="text-sm font-semibold text-brand-text">Assistant embed</div>
+          <div className="mt-2 text-sm leading-6 text-brand-muted">
+            If your provider offers an embeddable assistant chat, place its URL here. The builder can show
+            that assistant on the content step so staff can talk to it while drafting.
           </div>
         </div>
 

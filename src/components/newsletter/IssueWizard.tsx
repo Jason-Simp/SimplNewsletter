@@ -6,6 +6,7 @@ import { useAuthSession } from "@/lib/auth-client";
 import { buildSteps, sampleNewsletter } from "@/lib/sample-data";
 import type { Channel, PublishMode } from "@/types/newsletter";
 import type { SchoolProfile } from "@/types/school";
+import { AssistantEmbedPanel } from "@/components/newsletter/AssistantEmbedPanel";
 import { DistributionPanel } from "@/components/newsletter/DistributionPanel";
 import { DistributionSelector } from "@/components/newsletter/DistributionSelector";
 import { MediaUploadPanel } from "@/components/newsletter/MediaUploadPanel";
@@ -470,6 +471,7 @@ export function IssueWizard() {
                   work behind the scenes, so editors should not have to manage agent actions manually here.
                 </p>
               </section>
+              <AssistantEmbedPanel document={document} />
               <SectionLibrary onToggle={toggleSection} sections={document.sections} />
             </>
           ) : null}

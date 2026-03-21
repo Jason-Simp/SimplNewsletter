@@ -203,7 +203,7 @@ export function SchoolManager() {
             onChange={(value) => updateField("assistantReference", value)}
           />
           <Input
-            label="Integration endpoint"
+            label="Integration or embed URL"
             value={form.integrationEndpoint}
             onChange={(value) => updateField("integrationEndpoint", value)}
           />
