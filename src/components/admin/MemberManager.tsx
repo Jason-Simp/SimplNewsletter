@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 
+import { useAuthSession } from "@/lib/auth-client";
 import type { MemberRecord } from "@/types/member";
 import type { SchoolProfile } from "@/types/school";
 
 export function MemberManager() {
+  const { session } = useAuthSession();
   const [members, setMembers] = useState<MemberRecord[]>([]);
   const [schools, setSchools] = useState<SchoolProfile[]>([]);
   const [status, setStatus] = useState("Loading members...");
@@ -13,6 +15,21 @@ export function MemberManager() {
   const [fullName, setFullName] = useState("");
   const [role, setRole] = useState<"school_admin" | "editor">("editor");
   const [schoolId, setSchoolId] = useState("");
+  const [member, setMember] = useState<MemberRecord | null>(null);
+
+  useEffect(() => {
+    async function loadMember() {
+      if (!session?.user?.email) {
+        return;
+      }
+
+      const response = await fetch(`/api/members/me?email=${encodeURIComponent(session.user.email)}`);
+      const payload = response.ok ? await response.json() : null;
+      setMember(payload?.data ?? null);
+    }
+
+    void loadMember();
+  }, [session?.user?.email]);
 
   useEffect(() => {
     async function loadData() {
@@ -24,14 +41,27 @@ export function MemberManager() {
       const membersPayload = await membersResponse.json();
       const schoolsPayload = await schoolsResponse.json();
 
-      setMembers(membersPayload.data ?? []);
-      setSchools(schoolsPayload.data ?? []);
-      setSchoolId(schoolsPayload.data?.[0]?.id ?? "");
+      const allMembers = membersPayload.data ?? [];
+      const allSchools = schoolsPayload.data ?? [];
+      const scopedMembers =
+        member?.role === "company_admin"
+          ? allMembers
+          : allMembers.filter((item: MemberRecord) => item.schoolId === member?.schoolId);
+      const scopedSchools =
+        member?.role === "company_admin"
+          ? allSchools
+          : allSchools.filter((item: SchoolProfile) => item.id === member?.schoolId);
+
+      setMembers(scopedMembers);
+      setSchools(scopedSchools);
+      setSchoolId(scopedSchools[0]?.id ?? "");
       setStatus("Members loaded.");
     }
 
-    void loadData();
-  }, []);
+    if (member || !session?.user?.email) {
+      void loadData();
+    }
+  }, [member, session?.user?.email]);
 
   const inviteMember = async () => {
     setStatus("Saving member...");
@@ -70,8 +100,9 @@ export function MemberManager() {
         <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Members</div>
         <h1 className="mt-2 font-display text-4xl text-brand-navy">Login and access</h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-brand-muted">
-          This surface now saves member-school-role assignments through the backend so dashboard access can
-          be tied to actual records instead of demo-only placeholders.
+          {member?.role === "company_admin"
+            ? "Manage member access across schools."
+            : "Manage member access for your school dashboard and publishing team."}
         </p>
       </div>
 
@@ -93,6 +124,7 @@ export function MemberManager() {
             />
             <select
               className="rounded-2xl border border-slate-200 px-4 py-3"
+              disabled={schools.length <= 1}
               onChange={(event) => setSchoolId(event.target.value)}
               value={schoolId}
             >

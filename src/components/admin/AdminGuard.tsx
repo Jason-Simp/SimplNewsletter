@@ -6,18 +6,9 @@ import { useEffect, useState } from "react";
 
 import { useAuthSession } from "@/lib/auth-client";
 import { schoolAmplifiedBrand } from "@/lib/brand";
-import { canManageMembers, canManageSchools } from "@/lib/member-access";
+import { canManageCodes, canManageMembers, canManageSchools, isCompanyAdmin } from "@/lib/member-access";
 import type { MemberRecord } from "@/types/member";
 import { HomeLink } from "@/components/navigation/HomeLink";
-
-const navItems = [
-  { href: "/", label: "Home" },
-  { href: "/admin", label: "Dashboard" },
-  { href: "/admin/schools", label: "Schools" },
-  { href: "/admin/members", label: "Members" },
-  { href: "/admin/codes", label: "Codes" },
-  { href: "/builder", label: "Builder" }
-];
 
 export function AdminGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -98,6 +89,15 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
     return null;
   }
 
+  const navItems = [
+    { href: "/", label: "Home" },
+    { href: "/admin", label: "Dashboard" },
+    { href: "/admin/schools", label: isCompanyAdmin(member) ? "Schools" : "School Profile" },
+    { href: "/admin/members", label: "Members" },
+    ...(canManageCodes(member) ? [{ href: "/admin/codes", label: "Codes" }] : []),
+    { href: "/builder", label: "Builder" }
+  ];
+
   if (session && supabase && !member) {
     return (
       <main className="min-h-screen bg-[linear-gradient(180deg,#123A69_0%,#0F2745_100%)] px-6 py-10 text-white">
@@ -177,6 +177,29 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
+  if (pathname === "/admin/codes" && !canManageCodes(member)) {
+    return (
+      <main className="min-h-screen bg-[linear-gradient(180deg,#123A69_0%,#0F2745_100%)] px-6 py-10 text-white">
+        <div className="mx-auto max-w-3xl rounded-editorial border border-white/10 bg-[#102847] p-8 shadow-editorial">
+          <HomeLink />
+          <div className="mt-6 text-xs font-bold uppercase tracking-[0.3em] text-[#7db3f1]">
+            {schoolAmplifiedBrand.name}
+          </div>
+          <h1 className="mt-3 font-display text-4xl">Company admin only</h1>
+          <p className="mt-4 text-base leading-7 text-slate-200">
+            Signup code management belongs to the company-level admin workspace, not the school dashboard.
+          </p>
+          <Link
+            className="mt-6 inline-flex rounded-full bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-navy"
+            href="/admin"
+          >
+            Back to dashboard
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-[linear-gradient(180deg,#123A69_0%,#0F2745_100%)] px-6 py-8 lg:px-10">
       <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[260px_1fr]">
@@ -189,8 +212,11 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
             {member?.fullName || session?.user?.email || "Demo mode"}
           </div>
           {member ? (
-            <div className="mt-2 rounded-full bg-white/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.2em] text-[#7db3f1]">
-              {member.role} · {member.schoolName}
+            <div className="mt-3 grid gap-2">
+              <div className="text-sm font-semibold text-white">{member.schoolName}</div>
+              <div className="inline-flex w-fit rounded-full bg-white/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.2em] text-[#7db3f1]">
+                {member.role.replace("_", " ")}
+              </div>
             </div>
           ) : null}
 

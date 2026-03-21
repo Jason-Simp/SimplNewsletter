@@ -7,7 +7,7 @@ type MemberRow = {
   school_id: string;
   email: string;
   full_name: string | null;
-  role: "school_admin" | "editor";
+  role: "company_admin" | "school_admin" | "editor";
   is_active: boolean;
   schools: { name: string } | { name: string }[] | null;
 };

@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { extractPaletteFromImage } from "@/lib/color-extraction";
+import { useAuthSession } from "@/lib/auth-client";
 import type { SchoolProfile } from "@/types/school";
+import type { MemberRecord } from "@/types/member";
 
 const emptySchool: SchoolProfile = {
   id: "demo-new-school",
@@ -26,16 +28,36 @@ const emptySchool: SchoolProfile = {
 };
 
 export function SchoolManager() {
+  const { session } = useAuthSession();
   const [schools, setSchools] = useState<SchoolProfile[]>([]);
   const [activeSchoolId, setActiveSchoolId] = useState("");
   const [form, setForm] = useState<SchoolProfile>(emptySchool);
   const [status, setStatus] = useState("Loading schools...");
+  const [member, setMember] = useState<MemberRecord | null>(null);
+
+  useEffect(() => {
+    async function loadMember() {
+      if (!session?.user?.email) {
+        return;
+      }
+
+      const response = await fetch(`/api/members/me?email=${encodeURIComponent(session.user.email)}`);
+      const payload = response.ok ? await response.json() : null;
+      setMember(payload?.data ?? null);
+    }
+
+    void loadMember();
+  }, [session?.user?.email]);
 
   useEffect(() => {
     async function loadSchools() {
       const response = await fetch("/api/schools");
       const payload = await response.json();
-      const nextSchools = payload.data as SchoolProfile[];
+      const allSchools = payload.data as SchoolProfile[];
+      const nextSchools =
+        member?.role === "company_admin"
+          ? allSchools
+          : allSchools.filter((school) => school.id === member?.schoolId);
 
       setSchools(nextSchools);
       if (nextSchools.length > 0) {
@@ -45,8 +67,10 @@ export function SchoolManager() {
       setStatus("Schools loaded.");
     }
 
-    void loadSchools();
-  }, []);
+    if (member || !session?.user?.email) {
+      void loadSchools();
+    }
+  }, [member, session?.user?.email]);
 
   useEffect(() => {
     const nextSchool = schools.find((school) => school.id === activeSchoolId);
@@ -123,13 +147,14 @@ export function SchoolManager() {
           </div>
           <button
             className="rounded-full bg-brand-primary px-4 py-2 text-sm font-semibold uppercase tracking-[0.12em] text-white"
+            disabled={member?.role !== "company_admin"}
             onClick={() => {
               setActiveSchoolId("demo-new-school");
               setForm({ ...emptySchool, id: `demo-new-school-${Date.now()}` });
             }}
             type="button"
           >
-            Add school
+            {member?.role === "company_admin" ? "Add school" : "Current school"}
           </button>
         </div>
 

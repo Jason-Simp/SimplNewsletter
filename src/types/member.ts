@@ -4,6 +4,6 @@ export type MemberRecord = {
   schoolName: string;
   email: string;
   fullName: string;
-  role: "school_admin" | "editor";
+  role: "company_admin" | "school_admin" | "editor";
   isActive: boolean;
 };
