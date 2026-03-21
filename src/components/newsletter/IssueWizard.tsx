@@ -4,16 +4,14 @@ import { useEffect, useRef, useState } from "react";
 
 import { useAuthSession } from "@/lib/auth-client";
 import { buildSteps, sampleNewsletter } from "@/lib/sample-data";
-import type { Channel, PublishMode } from "@/types/newsletter";
+import type { Channel } from "@/types/newsletter";
 import type { SchoolProfile } from "@/types/school";
 import { AssistantEmbedPanel } from "@/components/newsletter/AssistantEmbedPanel";
 import { DistributionPanel } from "@/components/newsletter/DistributionPanel";
 import { DistributionSelector } from "@/components/newsletter/DistributionSelector";
 import { MediaUploadPanel } from "@/components/newsletter/MediaUploadPanel";
 import { NewsletterPreview } from "@/components/newsletter/NewsletterPreview";
-import { OrganizationBrandingPanel } from "@/components/newsletter/OrganizationBrandingPanel";
 import { SectionLibrary } from "@/components/newsletter/SectionLibrary";
-import { WorkspaceSettingsPanel } from "@/components/newsletter/WorkspaceSettingsPanel";
 
 const channels: Channel[] = ["web", "email", "pdf", "html", "blog"];
 
@@ -44,35 +42,6 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
     }));
   };
 
-  const updateOrganizationField = (
-    field: keyof typeof document.organization,
-    value: string
-  ) => {
-    setDocument((current) => ({
-      ...current,
-      organization: {
-        ...current.organization,
-        [field]: value
-      }
-    }));
-  };
-
-  const updateOrganizationColor = (
-    field: keyof typeof document.organization.colors,
-    value: string
-  ) => {
-    setDocument((current) => ({
-      ...current,
-      organization: {
-        ...current.organization,
-        colors: {
-          ...current.organization.colors,
-          [field]: value
-        }
-      }
-    }));
-  };
-
   const toggleSection = (id: string) => {
     setDocument((current) => ({
       ...current,
@@ -97,76 +66,6 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
         ? current.filter((item) => item !== sectionType)
         : [...current, sectionType]
     );
-  };
-
-  const updatePublishMode = (publishMode: PublishMode) => {
-    setDocument((current) => ({
-      ...current,
-      workspace: {
-        ...current.workspace,
-        publishMode
-      }
-    }));
-  };
-
-  const updateGenerationProvider = (generationProvider: typeof document.workspace.generationProvider) => {
-    setDocument((current) => ({
-      ...current,
-      workspace: {
-        ...current.workspace,
-        generationProvider
-      }
-    }));
-  };
-
-  const updateKnowledgeProvider = (knowledgeProvider: typeof document.workspace.knowledgeProvider) => {
-    setDocument((current) => ({
-      ...current,
-      workspace: {
-        ...current.workspace,
-        knowledgeProvider
-      }
-    }));
-  };
-
-  const updateSyncProvider = (syncProvider: typeof document.workspace.syncProvider) => {
-    setDocument((current) => ({
-      ...current,
-      workspace: {
-        ...current.workspace,
-        syncProvider
-      }
-    }));
-  };
-
-  const updateKnowledgeRef = (encryptedKnowledgeRef: string) => {
-    setDocument((current) => ({
-      ...current,
-      workspace: {
-        ...current.workspace,
-        encryptedKnowledgeRef
-      }
-    }));
-  };
-
-  const updateAssistantReference = (assistantReference: string) => {
-    setDocument((current) => ({
-      ...current,
-      workspace: {
-        ...current.workspace,
-        assistantReference
-      }
-    }));
-  };
-
-  const updateIntegrationEndpoint = (integrationEndpoint: string) => {
-    setDocument((current) => ({
-      ...current,
-      workspace: {
-        ...current.workspace,
-        integrationEndpoint
-      }
-    }));
   };
 
   const goToStep = (stepId: string) => {
@@ -342,30 +241,36 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
       <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
         <div className="grid gap-6">
           <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
-            <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Builder flow</p>
-            <h1 className="mt-2 font-display text-4xl text-brand-navy">Newsletter creation workspace</h1>
-            <p className="mt-3 text-sm leading-6 text-brand-muted">
-              Pick a step and the workspace below changes to the exact task for that stage.
-            </p>
-            <div className="mt-4 rounded-[24px] bg-brand-background p-4">
-              <div className="text-xs font-bold uppercase tracking-[0.25em] text-brand-secondary">
-                Current school
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">
+                  {isQuickMode ? "Instant newsletter" : "Advanced customization"}
+                </p>
+                <h1 className="mt-2 font-display text-4xl text-brand-navy">
+                  {document.organization.name}
+                </h1>
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-brand-muted">
+                  {isQuickMode
+                    ? "Use the simplest path possible: drop in the message, links, and section choices, then review the finished issue."
+                    : "Use the guided workflow to shape the issue, review the structure, and control how it will be published."}
+                </p>
               </div>
-              <div className="mt-2 text-lg font-semibold text-brand-text">{document.organization.name}</div>
-              <div className="mt-1 text-sm leading-6 text-brand-muted">
-                Everything in this builder should save under this school workspace, including branding,
-                assets, exports, and publishing settings.
-              </div>
+              <a
+                className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
+                href="/admin/schools"
+              >
+                Branding and school settings
+              </a>
             </div>
 
-            <div className="mt-6 grid gap-3">
+            <div className="mt-6 flex flex-wrap gap-3">
               {stepList.map((step, index) => {
                 const selected = activeStep === step.id;
 
                 return (
                   <button
                     key={step.id}
-                    className={`rounded-[24px] border px-4 py-4 text-left transition ${
+                    className={`rounded-full border px-5 py-3 text-left transition ${
                       selected
                         ? "border-brand-primary bg-brand-background"
                         : "border-slate-200 bg-white hover:bg-slate-50"
@@ -373,11 +278,10 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
                     onClick={() => goToStep(step.id)}
                     type="button"
                   >
-                    <div className="text-xs font-bold uppercase tracking-[0.25em] text-brand-secondary">
+                    <span className="text-xs font-bold uppercase tracking-[0.25em] text-brand-secondary">
                       Step {index + 1}
-                    </div>
-                    <div className="mt-2 text-lg font-semibold text-brand-text">{step.title}</div>
-                    <div className="mt-1 text-sm leading-6 text-brand-muted">{step.description}</div>
+                    </span>
+                    <span className="ml-2 text-sm font-semibold text-brand-text">{step.title}</span>
                   </button>
                 );
               })}
@@ -387,9 +291,7 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
           <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">
-                  Current step
-                </p>
+                <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Current step</p>
                 <h2 className="mt-2 font-display text-3xl text-brand-navy">{activeStepConfig.title}</h2>
               </div>
               <span
@@ -498,8 +400,8 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
                   </p>
                   <h2 className="mt-2 font-display text-3xl text-brand-navy">Dead simple input</h2>
                   <p className="mt-3 text-sm leading-6 text-brand-muted">
-                    Paste links, add bullets, and choose the blocks you want. The system should handle the
-                    rewriting and layout after this point.
+                    Give the high-level points, paste any source links, choose the few blocks you want, and
+                    let the school agent write the issue while the system handles the design.
                   </p>
                   <div className="mt-6 grid gap-4">
                     <label className="grid gap-2">
@@ -548,24 +450,22 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
                   </div>
                 </section>
               ) : (
-                <>
-                  <WorkspaceSettingsPanel
-                    document={document}
-                    onAssistantReferenceChange={updateAssistantReference}
-                    onGenerationProviderChange={updateGenerationProvider}
-                    onIntegrationEndpointChange={updateIntegrationEndpoint}
-                    onKnowledgeProviderChange={updateKnowledgeProvider}
-                    onKnowledgeRefChange={updateKnowledgeRef}
-                    onPublishModeChange={updatePublishMode}
-                    onSyncProviderChange={updateSyncProvider}
-                  />
-
-                  <OrganizationBrandingPanel
-                    document={document}
-                    onOrganizationColorChange={updateOrganizationColor}
-                    onOrganizationFieldChange={updateOrganizationField}
-                  />
-                </>
+                <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
+                  <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">
+                    School settings
+                  </p>
+                  <h2 className="mt-2 font-display text-3xl text-brand-navy">Keep branding separate</h2>
+                  <p className="mt-3 text-sm leading-7 text-brand-muted">
+                    Logos, colors, assistant settings, and school-level defaults should be managed from the
+                    school dashboard so this workspace stays focused on the issue itself.
+                  </p>
+                  <a
+                    className="mt-5 inline-flex rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
+                    href="/admin/schools"
+                  >
+                    Open school settings
+                  </a>
+                </section>
               )}
             </>
           ) : null}
@@ -579,7 +479,7 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
                 <h2 className="mt-2 font-display text-3xl text-brand-navy">Write rough, publish clean</h2>
                 <p className="mt-4 text-sm leading-7 text-brand-muted">
                   {isQuickMode
-                    ? "This is the review point for the quick release. The system should take the notes, links, and section choices from the first step and turn them into the finished draft automatically."
+                    ? "This is the quick-release handoff. The notes, links, selected sections, and uploaded images should be enough for the school agent to draft the issue and for the system to assemble the layout."
                     : "This step is for rough notes, bullets, and links. The school-specific agent layer should work behind the scenes, so editors should not have to manage agent actions manually here."}
                 </p>
               </section>
@@ -608,16 +508,7 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
 
           {activeStep === "media" ? (
             <>
-              {isQuickMode ? null : (
-                <>
-                  <OrganizationBrandingPanel
-                    document={document}
-                    onOrganizationColorChange={updateOrganizationColor}
-                    onOrganizationFieldChange={updateOrganizationField}
-                  />
-                  <MediaUploadPanel document={document} />
-                </>
-              )}
+              <MediaUploadPanel document={document} />
             </>
           ) : null}
 
@@ -658,13 +549,13 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
 function getStepInstruction(stepId: string) {
   switch (stepId) {
     case "setup":
-      return "Set the issue title, intro, email text, school settings, and branding first. This step establishes the school identity that will carry through the entire newsletter.";
+      return "Set the title, the core message, and any email text first. In the instant path, this is the main handoff to the school agent.";
     case "content":
-      return "Build the main story structure. Turn sections on or off and use the school agent if you want help drafting copy.";
+      return "This is where the system should take the high-level notes, links, and chosen sections and turn them into the actual newsletter draft.";
     case "events":
       return "Review the calendar, clubs, quick links, and other event-driven modules. This is where the newsletter becomes useful for families.";
     case "media":
-      return "Upload logos, images, audio, or video and confirm the right school colors. Media is compressed automatically where possible.";
+      return "Add the images or media that belong in this issue. Branding stays in school settings, but issue-specific media belongs here.";
     case "review":
       return "Check the rendered result before publishing. Use the preview column to switch channels and confirm the output looks right.";
     case "distribution":
