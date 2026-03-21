@@ -17,16 +17,25 @@ import { WorkspaceSettingsPanel } from "@/components/newsletter/WorkspaceSetting
 
 const channels: Channel[] = ["web", "email", "pdf", "html", "blog"];
 
-export function IssueWizard() {
+type BuildMode = "quick" | "custom";
+
+export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMode }) {
   const { session } = useAuthSession();
+  const isQuickMode = initialMode === "quick";
   const [activeStep, setActiveStep] = useState<string>(buildSteps[0].id);
   const [activeChannel, setActiveChannel] = useState<Channel>("web");
   const [document, setDocument] = useState(sampleNewsletter);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [saveMessage, setSaveMessage] = useState("Local draft loaded.");
+  const [quickNotes, setQuickNotes] = useState("");
+  const [quickLinks, setQuickLinks] = useState("");
+  const [quickSections, setQuickSections] = useState<string[]>(["top_story", "news_grid", "arts_events"]);
   const initialLoadComplete = useRef(false);
-  const activeStepIndex = buildSteps.findIndex((step) => step.id === activeStep);
-  const activeStepConfig = buildSteps[activeStepIndex] ?? buildSteps[0];
+  const stepList = isQuickMode
+    ? buildSteps.filter((step) => ["setup", "content", "review", "distribution"].includes(step.id))
+    : buildSteps;
+  const activeStepIndex = stepList.findIndex((step) => step.id === activeStep);
+  const activeStepConfig = stepList[activeStepIndex] ?? stepList[0];
 
   const updateField = (field: "title" | "intro" | "subjectLine" | "previewText", value: string) => {
     setDocument((current) => ({
@@ -80,6 +89,14 @@ export function IssueWizard() {
         option.channel === channel ? { ...option, selected: !option.selected } : option
       )
     }));
+  };
+
+  const toggleQuickSection = (sectionType: string) => {
+    setQuickSections((current) =>
+      current.includes(sectionType)
+        ? current.filter((item) => item !== sectionType)
+        : [...current, sectionType]
+    );
   };
 
   const updatePublishMode = (publishMode: PublishMode) => {
@@ -158,13 +175,13 @@ export function IssueWizard() {
 
   const goToPreviousStep = () => {
     if (activeStepIndex > 0) {
-      setActiveStep(buildSteps[activeStepIndex - 1].id);
+      setActiveStep(stepList[activeStepIndex - 1].id);
     }
   };
 
   const goToNextStep = () => {
-    if (activeStepIndex < buildSteps.length - 1) {
-      setActiveStep(buildSteps[activeStepIndex + 1].id);
+    if (activeStepIndex < stepList.length - 1) {
+      setActiveStep(stepList[activeStepIndex + 1].id);
     }
   };
 
@@ -257,6 +274,31 @@ export function IssueWizard() {
   }, [session?.user?.email]);
 
   useEffect(() => {
+    if (!initialLoadComplete.current || !isQuickMode) {
+      return;
+    }
+
+    const nextIntro = quickLinks.trim()
+      ? `${quickNotes.trim()}\n\nSources:\n${quickLinks.trim()}`
+      : quickNotes.trim();
+
+    setDocument((current) => ({
+      ...current,
+      intro: nextIntro || current.intro,
+      sections: current.sections.map((section) => {
+        if (["hero", "quote_or_mission", "footer"].includes(section.type)) {
+          return section;
+        }
+
+        return {
+          ...section,
+          enabled: quickSections.includes(section.type)
+        };
+      })
+    }));
+  }, [isQuickMode, quickLinks, quickNotes, quickSections]);
+
+  useEffect(() => {
     if (!initialLoadComplete.current) {
       return;
     }
@@ -317,7 +359,7 @@ export function IssueWizard() {
             </div>
 
             <div className="mt-6 grid gap-3">
-              {buildSteps.map((step, index) => {
+              {stepList.map((step, index) => {
                 const selected = activeStep === step.id;
 
                 return (
@@ -378,7 +420,7 @@ export function IssueWizard() {
               </button>
               <button
                 className="rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white disabled:cursor-not-allowed disabled:opacity-40"
-                disabled={activeStepIndex === buildSteps.length - 1}
+                disabled={activeStepIndex === stepList.length - 1}
                 onClick={goToNextStep}
                 type="button"
               >
@@ -410,11 +452,20 @@ export function IssueWizard() {
                   </label>
 
                   <label className="grid gap-2">
-                    <span className="text-sm font-semibold text-brand-text">Intro paragraph</span>
+                    <span className="text-sm font-semibold text-brand-text">
+                      {isQuickMode ? "What do you want to say?" : "Intro paragraph"}
+                    </span>
                     <textarea
                       className="min-h-28 rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
-                      onChange={(event) => updateField("intro", event.target.value)}
-                      value={document.intro}
+                      onChange={(event) =>
+                        isQuickMode ? setQuickNotes(event.target.value) : updateField("intro", event.target.value)
+                      }
+                      placeholder={
+                        isQuickMode
+                          ? "Type the message, bullets, or rough thoughts. The system should turn this into the release."
+                          : undefined
+                      }
+                      value={isQuickMode ? quickNotes : document.intro}
                     />
                   </label>
 
@@ -440,22 +491,82 @@ export function IssueWizard() {
                 </div>
               </section>
 
-              <WorkspaceSettingsPanel
-                document={document}
-                onAssistantReferenceChange={updateAssistantReference}
-                onGenerationProviderChange={updateGenerationProvider}
-                onIntegrationEndpointChange={updateIntegrationEndpoint}
-                onKnowledgeProviderChange={updateKnowledgeProvider}
-                onKnowledgeRefChange={updateKnowledgeRef}
-                onPublishModeChange={updatePublishMode}
-                onSyncProviderChange={updateSyncProvider}
-              />
+              {isQuickMode ? (
+                <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
+                  <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">
+                    Quick release
+                  </p>
+                  <h2 className="mt-2 font-display text-3xl text-brand-navy">Dead simple input</h2>
+                  <p className="mt-3 text-sm leading-6 text-brand-muted">
+                    Paste links, add bullets, and choose the blocks you want. The system should handle the
+                    rewriting and layout after this point.
+                  </p>
+                  <div className="mt-6 grid gap-4">
+                    <label className="grid gap-2">
+                      <span className="text-sm font-semibold text-brand-text">Links or sources</span>
+                      <textarea
+                        className="min-h-24 rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
+                        onChange={(event) => setQuickLinks(event.target.value)}
+                        placeholder="Paste links, one per line."
+                        value={quickLinks}
+                      />
+                    </label>
 
-              <OrganizationBrandingPanel
-                document={document}
-                onOrganizationColorChange={updateOrganizationColor}
-                onOrganizationFieldChange={updateOrganizationField}
-              />
+                    <div className="grid gap-3">
+                      <span className="text-sm font-semibold text-brand-text">Sections to include</span>
+                      <div className="grid gap-3 md:grid-cols-2">
+                        {[
+                          ["top_story", "Top story"],
+                          ["news_grid", "Campus news"],
+                          ["arts_events", "Events"],
+                          ["calendar_snapshot", "Calendar"],
+                          ["quick_links", "Quick links"],
+                          ["clubs_and_organizations", "Clubs"]
+                        ].map(([sectionType, label]) => {
+                          const selected = quickSections.includes(sectionType);
+
+                          return (
+                            <button
+                              key={sectionType}
+                              className={`rounded-[24px] border px-4 py-4 text-left ${
+                                selected
+                                  ? "border-brand-primary bg-brand-background"
+                                  : "border-slate-200 bg-white"
+                              }`}
+                              onClick={() => toggleQuickSection(sectionType)}
+                              type="button"
+                            >
+                              <div className="text-sm font-semibold text-brand-text">{label}</div>
+                              <div className="mt-1 text-sm leading-6 text-brand-muted">
+                                {selected ? "Included in this release." : "Not included."}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </section>
+              ) : (
+                <>
+                  <WorkspaceSettingsPanel
+                    document={document}
+                    onAssistantReferenceChange={updateAssistantReference}
+                    onGenerationProviderChange={updateGenerationProvider}
+                    onIntegrationEndpointChange={updateIntegrationEndpoint}
+                    onKnowledgeProviderChange={updateKnowledgeProvider}
+                    onKnowledgeRefChange={updateKnowledgeRef}
+                    onPublishModeChange={updatePublishMode}
+                    onSyncProviderChange={updateSyncProvider}
+                  />
+
+                  <OrganizationBrandingPanel
+                    document={document}
+                    onOrganizationColorChange={updateOrganizationColor}
+                    onOrganizationFieldChange={updateOrganizationField}
+                  />
+                </>
+              )}
             </>
           ) : null}
 
@@ -467,18 +578,20 @@ export function IssueWizard() {
                 </p>
                 <h2 className="mt-2 font-display text-3xl text-brand-navy">Write rough, publish clean</h2>
                 <p className="mt-4 text-sm leading-7 text-brand-muted">
-                  This step is for rough notes, bullets, and links. The school-specific agent layer should
-                  work behind the scenes, so editors should not have to manage agent actions manually here.
+                  {isQuickMode
+                    ? "This is the review point for the quick release. The system should take the notes, links, and section choices from the first step and turn them into the finished draft automatically."
+                    : "This step is for rough notes, bullets, and links. The school-specific agent layer should work behind the scenes, so editors should not have to manage agent actions manually here."}
                 </p>
               </section>
               <AssistantEmbedPanel document={document} />
-              <SectionLibrary onToggle={toggleSection} sections={document.sections} />
+              {!isQuickMode ? <SectionLibrary onToggle={toggleSection} sections={document.sections} /> : null}
             </>
           ) : null}
 
           {activeStep === "events" ? (
             <>
               <SectionLibrary onToggle={toggleSection} sections={document.sections} />
+              {isQuickMode ? null : (
               <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
                 <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">
                   Step 3 guidance
@@ -489,23 +602,28 @@ export function IssueWizard() {
                   quick links, and CTA modules. The final version should break those into direct fields.
                 </p>
               </section>
+              )}
             </>
           ) : null}
 
           {activeStep === "media" ? (
             <>
-              <OrganizationBrandingPanel
-                document={document}
-                onOrganizationColorChange={updateOrganizationColor}
-                onOrganizationFieldChange={updateOrganizationField}
-              />
-              <MediaUploadPanel document={document} />
+              {isQuickMode ? null : (
+                <>
+                  <OrganizationBrandingPanel
+                    document={document}
+                    onOrganizationColorChange={updateOrganizationColor}
+                    onOrganizationFieldChange={updateOrganizationField}
+                  />
+                  <MediaUploadPanel document={document} />
+                </>
+              )}
             </>
           ) : null}
 
           {activeStep === "review" ? (
             <>
-              <SectionLibrary onToggle={toggleSection} sections={document.sections} />
+              {!isQuickMode ? <SectionLibrary onToggle={toggleSection} sections={document.sections} /> : null}
               <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
                 <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Step 5</p>
                 <h2 className="mt-2 font-display text-3xl text-brand-navy">Review the preview on the right</h2>

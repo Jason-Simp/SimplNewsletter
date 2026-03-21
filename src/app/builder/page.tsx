@@ -5,7 +5,13 @@ import { IssueWizard } from "@/components/newsletter/IssueWizard";
 import { HomeLink } from "@/components/navigation/HomeLink";
 import { schoolAmplifiedBrand } from "@/lib/brand";
 
-export default function BuilderPage() {
+export default function BuilderPage({
+  searchParams
+}: {
+  searchParams?: { mode?: string };
+}) {
+  const buildMode = searchParams?.mode === "quick" ? "quick" : "custom";
+
   return (
     <main className="min-h-screen bg-[linear-gradient(180deg,#123A69_0%,#0F2745_100%)] px-6 py-8 lg:px-10">
       <div className="mx-auto grid max-w-7xl gap-8">
@@ -23,7 +29,9 @@ export default function BuilderPage() {
               <div className="text-sm font-semibold uppercase tracking-[0.18em] text-brand-secondary">
                 {schoolAmplifiedBrand.name}
               </div>
-              <div className="text-lg font-semibold text-brand-navy">Publishing Workspace</div>
+              <div className="text-lg font-semibold text-brand-navy">
+                {buildMode === "quick" ? "Quick Release Workspace" : "Publishing Workspace"}
+              </div>
             </div>
           </div>
 
@@ -38,7 +46,7 @@ export default function BuilderPage() {
           </div>
         </header>
 
-        <IssueWizard />
+        <IssueWizard initialMode={buildMode} />
       </div>
     </main>
   );
