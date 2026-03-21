@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { schoolAmplifiedBrand } from "@/lib/brand";
@@ -17,10 +17,15 @@ export function LoginForm({ initialMode = "signin" }: { initialMode?: AuthMode }
   const [confirmPassword, setConfirmPassword] = useState("");
   const [signupCode, setSignupCode] = useState("");
   const [status, setStatus] = useState("Choose how you want to access The Wire.");
+  const [redirectTarget, setRedirectTarget] = useState<"/admin" | "/setup" | null>(null);
 
-  if (session) {
-    router.replace("/admin");
-  }
+  useEffect(() => {
+    if (!session) {
+      return;
+    }
+
+    router.replace(redirectTarget ?? "/admin");
+  }, [redirectTarget, router, session]);
 
   const signIn = async () => {
     if (!supabase) {
@@ -37,8 +42,7 @@ export function LoginForm({ initialMode = "signin" }: { initialMode?: AuthMode }
     }
 
     setStatus("Signed in.");
-    router.push("/setup");
-    router.refresh();
+    setRedirectTarget("/admin");
   };
 
   const sendMagicLink = async () => {
@@ -107,8 +111,7 @@ export function LoginForm({ initialMode = "signin" }: { initialMode?: AuthMode }
     }
 
     setStatus("Account created.");
-    router.push("/admin");
-    router.refresh();
+    setRedirectTarget("/setup");
   };
 
   const heading =
