@@ -9,7 +9,7 @@ const emptySchool: SchoolProfile = {
   id: "demo-new-school",
   name: "",
   tagline: "",
-  logoUrl: "/brand/the-wire-logo.png",
+  logoUrl: "/brand/the-wire-logo.svg",
   websiteUrl: "",
   contactEmail: "",
   phone: "",
