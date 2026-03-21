@@ -10,6 +10,7 @@ export async function POST(request: Request) {
   const formData = await request.formData();
   const file = formData.get("file");
   const newsletterId = String(formData.get("newsletterId") ?? "");
+  const schoolId = String(formData.get("schoolId") ?? "");
   const organizationName = String(formData.get("organizationName") ?? "school");
 
   if (!(file instanceof File)) {
@@ -37,6 +38,13 @@ export async function POST(request: Request) {
     });
   }
 
+  if (!isUuid(schoolId)) {
+    return NextResponse.json(
+      { message: "Upload is missing a valid school workspace." },
+      { status: 400 }
+    );
+  }
+
   const objectPath = buildStoragePath(organizationName, newsletterId, file.name);
   const arrayBuffer = await file.arrayBuffer();
 
@@ -55,9 +63,9 @@ export async function POST(request: Request) {
     .from(serverConfig.storageBucket)
     .getPublicUrl(objectPath);
 
-  await supabase.from("assets").insert({
-    school_id: "00000000-0000-0000-0000-000000000001",
-    newsletter_id: null,
+  const { error: assetError } = await supabase.from("assets").insert({
+    school_id: schoolId,
+    newsletter_id: isUuid(newsletterId) ? newsletterId : null,
     kind: resolveAssetKind(file.type),
     original_filename: file.name,
     mime_type: file.type,
@@ -70,6 +78,10 @@ export async function POST(request: Request) {
     },
     expires_at: new Date(Date.now() + serverConfig.assetRetentionDays * 24 * 60 * 60 * 1000).toISOString()
   });
+
+  if (assetError) {
+    return NextResponse.json({ message: assetError.message }, { status: 500 });
+  }
 
   return NextResponse.json({
     status: "ok",
@@ -120,4 +132,8 @@ function resolveAssetKind(mimeType: string) {
   }
 
   return "document";
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }

@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 
 import { IssueWizard } from "@/components/newsletter/IssueWizard";
 import { HomeLink } from "@/components/navigation/HomeLink";
@@ -28,12 +29,12 @@ export default function BuilderPage() {
 
           <div className="flex flex-wrap gap-3">
             <HomeLink className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text" />
-            <a
+            <Link
               className="rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white"
-              href="/TASKS.md"
+              href="/admin"
             >
-              Build phases
-            </a>
+              School dashboard
+            </Link>
           </div>
         </header>
 

@@ -14,6 +14,6 @@ export type SchoolProfile = {
   textColor: string;
   publishMode: "instant" | "approval";
   agentId: string;
-  vectorProvider: "supabase" | "openai" | "none";
+  vectorProvider: "supabase" | "openai" | "elevenlabs" | "none";
   encryptedProjectCode: string;
 };

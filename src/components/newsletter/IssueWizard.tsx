@@ -271,6 +271,16 @@ export function IssueWizard() {
             <p className="mt-3 text-sm leading-6 text-brand-muted">
               Pick a step and the workspace below changes to the exact task for that stage.
             </p>
+            <div className="mt-4 rounded-[24px] bg-brand-background p-4">
+              <div className="text-xs font-bold uppercase tracking-[0.25em] text-brand-secondary">
+                Current school
+              </div>
+              <div className="mt-2 text-lg font-semibold text-brand-text">{document.organization.name}</div>
+              <div className="mt-1 text-sm leading-6 text-brand-muted">
+                Everything in this builder should save under this school workspace, including branding,
+                assets, exports, and publishing settings.
+              </div>
+            </div>
 
             <div className="mt-6 grid gap-3">
               {buildSteps.map((step, index) => {

@@ -68,6 +68,7 @@ export function WorkspaceSettingsPanel({
             >
               <option value="supabase">Supabase vector store</option>
               <option value="openai">OpenAI vector store</option>
+              <option value="elevenlabs">ElevenLabs knowledge base</option>
               <option value="none">None yet</option>
             </select>
           </label>

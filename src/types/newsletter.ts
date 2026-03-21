@@ -96,7 +96,7 @@ export type WorkspaceSettings = {
   archiveDays: number;
   usersManagedBySchool: boolean;
   agentId?: string;
-  vectorProvider: "supabase" | "openai" | "none";
+  vectorProvider: "supabase" | "openai" | "elevenlabs" | "none";
   encryptedProjectCode: string;
   mediaConstraints: MediaConstraint[];
   roles: UserRole[];

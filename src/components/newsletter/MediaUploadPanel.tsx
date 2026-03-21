@@ -39,6 +39,7 @@ export function MediaUploadPanel({ document }: Props) {
         const formData = new FormData();
         formData.append("file", preparedFile);
         formData.append("newsletterId", document.id);
+        formData.append("schoolId", document.workspace.schoolId ?? "");
         formData.append("organizationName", document.organization.name);
 
         const response = await fetch("/api/media/upload", {
