@@ -35,7 +35,7 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
   const [quickSections, setQuickSections] = useState<string[]>(["top_story", "news_grid", "arts_events"]);
   const initialLoadComplete = useRef(false);
   const stepList = isQuickMode
-    ? buildSteps.filter((step) => ["setup", "content", "media", "review", "distribution"].includes(step.id))
+    ? buildSteps.filter((step) => ["setup", "review", "distribution"].includes(step.id))
     : buildSteps;
   const activeStepIndex = stepList.findIndex((step) => step.id === activeStep);
   const activeStepConfig = stepList[activeStepIndex] ?? stepList[0];
@@ -331,7 +331,7 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
 
   return (
     <div className="grid gap-8">
-      <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+      <section className={isQuickMode ? "grid gap-6" : "grid gap-6 xl:grid-cols-[0.9fr_1.1fr]"}>
         <div className="grid gap-6">
           <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
             <div className="flex flex-wrap items-end justify-between gap-4">
@@ -492,73 +492,77 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
               </section>
 
               {isQuickMode ? (
-                <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
-                  <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">
-                    Quick release
-                  </p>
-                  <h2 className="mt-2 font-display text-3xl text-brand-navy">Dead simple input</h2>
-                  <p className="mt-3 text-sm leading-6 text-brand-muted">
-                    Give the high-level points, paste any links, choose the blocks you want, and let the
-                    system write and build the issue for you.
-                  </p>
-                  <div className="mt-6 grid gap-4">
-                    <label className="grid gap-2">
-                      <span className="text-sm font-semibold text-brand-text">Links or sources</span>
-                      <textarea
-                        className="min-h-24 rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
-                        onChange={(event) => setQuickLinks(event.target.value)}
-                        placeholder="Paste links, one per line."
-                        value={quickLinks}
-                      />
-                    </label>
+                <>
+                  <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
+                    <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">
+                      Quick release
+                    </p>
+                    <h2 className="mt-2 font-display text-3xl text-brand-navy">Dead simple input</h2>
+                    <p className="mt-3 text-sm leading-6 text-brand-muted">
+                      Give the high-level points, paste any links, choose the blocks you want, and let the
+                      system write and build the issue for you.
+                    </p>
+                    <div className="mt-6 grid gap-4">
+                      <label className="grid gap-2">
+                        <span className="text-sm font-semibold text-brand-text">Links or sources</span>
+                        <textarea
+                          className="min-h-24 rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
+                          onChange={(event) => setQuickLinks(event.target.value)}
+                          placeholder="Paste links, one per line."
+                          value={quickLinks}
+                        />
+                      </label>
 
-                    <div className="grid gap-3">
-                      <span className="text-sm font-semibold text-brand-text">Sections to include</span>
-                      <div className="grid gap-3 md:grid-cols-2">
-                        {[
-                          ["top_story", "Top story"],
-                          ["news_grid", "Campus news"],
-                          ["arts_events", "Events"],
-                          ["calendar_snapshot", "Calendar"],
-                          ["quick_links", "Quick links"],
-                          ["clubs_and_organizations", "Clubs"]
-                        ].map(([sectionType, label]) => {
-                          const selected = quickSections.includes(sectionType);
+                      <div className="grid gap-3">
+                        <span className="text-sm font-semibold text-brand-text">Sections to include</span>
+                        <div className="grid gap-3 md:grid-cols-2">
+                          {[
+                            ["top_story", "Top story"],
+                            ["news_grid", "Campus news"],
+                            ["arts_events", "Events"],
+                            ["calendar_snapshot", "Calendar"],
+                            ["quick_links", "Quick links"],
+                            ["clubs_and_organizations", "Clubs"]
+                          ].map(([sectionType, label]) => {
+                            const selected = quickSections.includes(sectionType);
 
-                          return (
-                            <button
-                              key={sectionType}
-                              className={`rounded-[24px] border px-4 py-4 text-left ${
-                                selected
-                                  ? "border-brand-primary bg-brand-background"
-                                  : "border-slate-200 bg-white"
-                              }`}
-                              onClick={() => toggleQuickSection(sectionType)}
-                              type="button"
-                            >
-                              <div className="text-sm font-semibold text-brand-text">{label}</div>
-                              <div className="mt-1 text-sm leading-6 text-brand-muted">
-                                {selected ? "Included in this release." : "Not included."}
-                              </div>
-                            </button>
-                          );
-                        })}
+                            return (
+                              <button
+                                key={sectionType}
+                                className={`rounded-[24px] border px-4 py-4 text-left ${
+                                  selected
+                                    ? "border-brand-primary bg-brand-background"
+                                    : "border-slate-200 bg-white"
+                                }`}
+                                onClick={() => toggleQuickSection(sectionType)}
+                                type="button"
+                              >
+                                <div className="text-sm font-semibold text-brand-text">{label}</div>
+                                <div className="mt-1 text-sm leading-6 text-brand-muted">
+                                  {selected ? "Included in this release." : "Not included."}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div
+                        className={`rounded-[24px] p-4 text-sm leading-6 ${
+                          generationState === "error"
+                            ? "bg-red-50 text-red-700"
+                            : generationState === "ready"
+                              ? "bg-emerald-50 text-emerald-700"
+                              : "bg-[#EAF2FB] text-brand-muted"
+                        }`}
+                      >
+                        {generationMessage}
                       </div>
                     </div>
+                  </section>
 
-                    <div
-                      className={`rounded-[24px] p-4 text-sm leading-6 ${
-                        generationState === "error"
-                          ? "bg-red-50 text-red-700"
-                          : generationState === "ready"
-                            ? "bg-emerald-50 text-emerald-700"
-                            : "bg-[#EAF2FB] text-brand-muted"
-                      }`}
-                    >
-                      {generationMessage}
-                    </div>
-                  </div>
-                </section>
+                  <MediaUploadPanel document={document} />
+                </>
               ) : (
                 <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
                   <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">
@@ -627,30 +631,49 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
               {!isQuickMode ? <SectionLibrary onToggle={toggleSection} sections={document.sections} /> : null}
               <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
                 <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Step 5</p>
-                <h2 className="mt-2 font-display text-3xl text-brand-navy">Review the preview on the right</h2>
+                <h2 className="mt-2 font-display text-3xl text-brand-navy">
+                  {isQuickMode ? "Review your newsletter" : "Review the preview on the right"}
+                </h2>
                 <p className="mt-4 text-sm leading-7 text-brand-muted">
-                  Use the channel buttons in the preview column to check web, email, PDF, HTML, and blog
-                  modes before you publish.
+                  {isQuickMode
+                    ? "The first draft should now be on screen. Read through it, switch output formats if needed, and make sure it looks right before publishing."
+                    : "Use the channel buttons in the preview column to check web, email, PDF, HTML, and blog modes before you publish."}
                 </p>
               </section>
+              {isQuickMode ? (
+                <NewsletterPreview
+                  channel={activeChannel}
+                  document={document}
+                  onChannelChange={setActiveChannel}
+                />
+              ) : null}
             </>
           ) : null}
 
           {activeStep === "distribution" ? (
             <>
               <DistributionSelector onToggle={toggleDistribution} options={document.distributionOptions} />
+              {isQuickMode ? (
+                <NewsletterPreview
+                  channel={activeChannel}
+                  document={document}
+                  onChannelChange={setActiveChannel}
+                />
+              ) : null}
               <DistributionPanel />
             </>
           ) : null}
         </div>
 
-        <div className="grid gap-6 xl:sticky xl:top-8 xl:self-start">
-          <NewsletterPreview
-            channel={activeChannel}
-            document={document}
-            onChannelChange={setActiveChannel}
-          />
-        </div>
+        {!isQuickMode ? (
+          <div className="grid gap-6 xl:sticky xl:top-8 xl:self-start">
+            <NewsletterPreview
+              channel={activeChannel}
+              document={document}
+              onChannelChange={setActiveChannel}
+            />
+          </div>
+        ) : null}
       </section>
     </div>
   );
