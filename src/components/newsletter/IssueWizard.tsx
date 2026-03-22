@@ -31,8 +31,6 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
     "Fill in the form, then continue and the system will write the first draft for you."
   );
   const [quickNotes, setQuickNotes] = useState("");
-  const [quickLinks, setQuickLinks] = useState("");
-  const [quickSections, setQuickSections] = useState<string[]>(["top_story", "news_grid", "arts_events"]);
   const initialLoadComplete = useRef(false);
   const stepList = isQuickMode
     ? buildSteps.filter((step) => ["setup", "review", "distribution"].includes(step.id))
@@ -65,14 +63,6 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
     }));
   };
 
-  const toggleQuickSection = (sectionType: string) => {
-    setQuickSections((current) =>
-      current.includes(sectionType)
-        ? current.filter((item) => item !== sectionType)
-        : [...current, sectionType]
-    );
-  };
-
   const goToStep = (stepId: string) => {
     setActiveStep(stepId);
   };
@@ -92,6 +82,8 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
   };
 
   const applyGeneratedDraft = (generated: ContentGenerateResponse) => {
+    const generatedSectionTypes = new Set(generated.sections?.map((item) => item.sectionType) ?? []);
+
     setDocument((current) => ({
       ...current,
       title: generated.title || current.title,
@@ -111,6 +103,15 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
             ...section.content,
             ...nextSection.content
           }
+        };
+      }).map((section) => {
+        if (["hero", "quote_or_mission", "footer"].includes(section.type)) {
+          return section;
+        }
+
+        return {
+          ...section,
+          enabled: generatedSectionTypes.has(section.type)
         };
       })
     }));
@@ -139,13 +140,8 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
           assistantReference: document.workspace.assistantReference,
           integrationEndpoint: document.workspace.integrationEndpoint,
           encryptedKnowledgeRef: document.workspace.encryptedKnowledgeRef,
-          prompt: `Write a school newsletter from the provided top-level notes. Use the school's tone and return clean newsletter-ready content for the selected sections.\n\nTitle: ${document.title}\n\nNotes:\n${quickNotes}`,
-          links: quickLinks
-            .split("\n")
-            .map((item) => item.trim())
-            .filter(Boolean),
-          notes: quickNotes,
-          sectionTypes: quickSections
+          prompt: `Write a school newsletter from the provided request. Decide which newsletter sections are needed, write those sections, and return a clean finished draft in the school's tone.\n\nWhat the newsletter should be about:\n${quickNotes}`,
+          notes: quickNotes
         })
       });
 
@@ -274,31 +270,6 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
   }, [session?.user?.email]);
 
   useEffect(() => {
-    if (!initialLoadComplete.current || !isQuickMode) {
-      return;
-    }
-
-    const nextIntro = quickLinks.trim()
-      ? `${quickNotes.trim()}\n\nSources:\n${quickLinks.trim()}`
-      : quickNotes.trim();
-
-    setDocument((current) => ({
-      ...current,
-      intro: nextIntro || current.intro,
-      sections: current.sections.map((section) => {
-        if (["hero", "quote_or_mission", "footer"].includes(section.type)) {
-          return section;
-        }
-
-        return {
-          ...section,
-          enabled: quickSections.includes(section.type)
-        };
-      })
-    }));
-  }, [isQuickMode, quickLinks, quickNotes, quickSections]);
-
-  useEffect(() => {
     if (!initialLoadComplete.current) {
       return;
     }
@@ -352,7 +323,7 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
                 </h1>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-brand-muted">
                   {isQuickMode
-                    ? "Use the simplest path possible: add the main message, a few links, and a couple of images, then review the finished issue."
+                    ? "Use the simplest path possible: describe what the newsletter should be about, then review the finished issue."
                     : "Use the guided workflow to shape the issue, review the structure, and control how it will be published."}
                 </p>
               </div>
@@ -436,37 +407,75 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
 
           {activeStep === "setup" ? (
             <>
-              <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
-                <div className="flex items-end justify-between gap-4">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">
-                      Step 1
-                    </p>
-                    <h2 className="mt-2 font-display text-3xl text-brand-navy">Issue setup</h2>
+              {isQuickMode ? (
+                <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
+                  <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">
+                    Simple form
+                  </p>
+                  <h2 className="mt-2 font-display text-3xl text-brand-navy">Create your newsletter</h2>
+                  <p className="mt-3 text-sm leading-6 text-brand-muted">
+                    Tell the system what you want the newsletter to be about and what it should say. The
+                    system should decide the right sections, write them, and build the newsletter.
+                  </p>
+                  <div className="mt-6 grid gap-4">
+                    <label className="grid gap-2">
+                      <span className="text-sm font-semibold text-brand-text">
+                        What would you like your newsletter to be about and say?
+                      </span>
+                      <textarea
+                        className="min-h-40 rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
+                        onChange={(event) => setQuickNotes(event.target.value)}
+                        placeholder="Example: Share our back-to-school updates, welcome families, mention key dates, highlight athletics, and remind everyone about open house."
+                        value={quickNotes}
+                      />
+                    </label>
+
+                    <div
+                      className={`rounded-[24px] p-4 text-sm leading-6 ${
+                        generationState === "error"
+                          ? "bg-red-50 text-red-700"
+                          : generationState === "ready"
+                            ? "bg-emerald-50 text-emerald-700"
+                            : "bg-[#EAF2FB] text-brand-muted"
+                      }`}
+                    >
+                      {generationMessage}
+                    </div>
+
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        className="rounded-full bg-brand-primary px-6 py-4 text-sm font-semibold uppercase tracking-[0.12em] text-white disabled:cursor-not-allowed disabled:opacity-40"
+                        disabled={generationState === "generating"}
+                        onClick={() => void createInstantNewsletter()}
+                        type="button"
+                      >
+                        {generationState === "generating" ? "Creating newsletter..." : "Create newsletter"}
+                      </button>
+                    </div>
                   </div>
-                </div>
+                </section>
+              ) : (
+                <>
+                  <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
+                    <div className="flex items-end justify-between gap-4">
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">
+                          Step 1
+                        </p>
+                        <h2 className="mt-2 font-display text-3xl text-brand-navy">Issue setup</h2>
+                      </div>
+                    </div>
 
-                <div className="mt-6 grid gap-4">
-                  <label className="grid gap-2">
-                    <span className="text-sm font-semibold text-brand-text">
-                      {isQuickMode ? "What do you want to say?" : "Intro paragraph"}
-                    </span>
-                    <textarea
-                      className="min-h-36 rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
-                      onChange={(event) =>
-                        isQuickMode ? setQuickNotes(event.target.value) : updateField("intro", event.target.value)
-                      }
-                      placeholder={
-                        isQuickMode
-                          ? "Type the message, bullets, or rough thoughts."
-                          : undefined
-                      }
-                      value={isQuickMode ? quickNotes : document.intro}
-                    />
-                  </label>
+                    <div className="mt-6 grid gap-4">
+                      <label className="grid gap-2">
+                        <span className="text-sm font-semibold text-brand-text">Intro paragraph</span>
+                        <textarea
+                          className="min-h-36 rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
+                          onChange={(event) => updateField("intro", event.target.value)}
+                          value={document.intro}
+                        />
+                      </label>
 
-                  {!isQuickMode ? (
-                    <>
                       <label className="grid gap-2">
                         <span className="text-sm font-semibold text-brand-text">Newsletter title</span>
                         <input
@@ -495,94 +504,9 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
                           />
                         </label>
                       </div>
-                    </>
-                  ) : null}
-                </div>
-              </section>
-
-              {isQuickMode ? (
-                <>
-                  <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
-                    <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">
-                      Simple form
-                    </p>
-                    <h2 className="mt-2 font-display text-3xl text-brand-navy">Create your newsletter</h2>
-                    <p className="mt-3 text-sm leading-6 text-brand-muted">
-                      Fill out this form, click create, and the system will write the first draft for you.
-                    </p>
-                    <div className="mt-6 grid gap-4">
-                      <label className="grid gap-2">
-                        <span className="text-sm font-semibold text-brand-text">Links or sources</span>
-                        <textarea
-                          className="min-h-24 rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
-                          onChange={(event) => setQuickLinks(event.target.value)}
-                          placeholder="Paste links, one per line."
-                          value={quickLinks}
-                        />
-                      </label>
-
-                    <div className="grid gap-3">
-                      <span className="text-sm font-semibold text-brand-text">What should be included?</span>
-                      <div className="grid gap-3 md:grid-cols-2">
-                          {[
-                            ["top_story", "Top story"],
-                            ["news_grid", "Campus news"],
-                            ["arts_events", "Events"],
-                            ["calendar_snapshot", "Calendar"],
-                            ["quick_links", "Quick links"],
-                            ["clubs_and_organizations", "Clubs"]
-                          ].map(([sectionType, label]) => {
-                            const selected = quickSections.includes(sectionType);
-
-                            return (
-                              <button
-                                key={sectionType}
-                                className={`rounded-[24px] border px-4 py-4 text-left ${
-                                  selected
-                                    ? "border-brand-primary bg-brand-background"
-                                    : "border-slate-200 bg-white"
-                                }`}
-                                onClick={() => toggleQuickSection(sectionType)}
-                                type="button"
-                              >
-                              <div className="text-sm font-semibold text-brand-text">{label}</div>
-                              <div className="mt-1 text-sm leading-6 text-brand-muted">
-                                {selected ? "Yes" : "No"}
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                      </div>
-
-                      <div
-                        className={`rounded-[24px] p-4 text-sm leading-6 ${
-                          generationState === "error"
-                            ? "bg-red-50 text-red-700"
-                            : generationState === "ready"
-                              ? "bg-emerald-50 text-emerald-700"
-                              : "bg-[#EAF2FB] text-brand-muted"
-                        }`}
-                      >
-                        {generationMessage}
-                      </div>
-
-                      <div className="flex flex-wrap gap-3">
-                        <button
-                          className="rounded-full bg-brand-primary px-6 py-4 text-sm font-semibold uppercase tracking-[0.12em] text-white disabled:cursor-not-allowed disabled:opacity-40"
-                          disabled={generationState === "generating"}
-                          onClick={() => void createInstantNewsletter()}
-                          type="button"
-                        >
-                          {generationState === "generating" ? "Creating newsletter..." : "Create newsletter"}
-                        </button>
-                      </div>
                     </div>
                   </section>
 
-                  <MediaUploadPanel document={document} />
-                </>
-              ) : (
                 <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
                   <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">
                     School settings
@@ -599,6 +523,7 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
                     Open school settings
                   </a>
                 </section>
+                </>
               )}
             </>
           ) : null}
@@ -612,7 +537,7 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
                 <h2 className="mt-2 font-display text-3xl text-brand-navy">Write rough, publish clean</h2>
                 <p className="mt-4 text-sm leading-7 text-brand-muted">
                   {isQuickMode
-                    ? "This is your first draft. The system should already have taken the main message, links, and selected sections and turned them into the issue below."
+                    ? "This is your first draft. The system should already have taken your request and turned it into the issue below."
                     : "This step is for rough notes, bullets, and links. The school-specific agent layer should work behind the scenes, so editors should not have to manage agent actions manually here."}
                 </p>
               </section>
