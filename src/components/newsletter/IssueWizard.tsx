@@ -25,9 +25,11 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
   const [activeChannel, setActiveChannel] = useState<Channel>("web");
   const [document, setDocument] = useState(sampleNewsletter);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
-  const [saveMessage, setSaveMessage] = useState("Local draft loaded.");
+  const [saveMessage, setSaveMessage] = useState("Draft ready.");
   const [generationState, setGenerationState] = useState<"idle" | "generating" | "ready" | "error">("idle");
-  const [generationMessage, setGenerationMessage] = useState("Fill in the form and move forward to draft with the school assistant.");
+  const [generationMessage, setGenerationMessage] = useState(
+    "Fill in the form, then continue and the system will write the first draft for you."
+  );
   const [quickNotes, setQuickNotes] = useState("");
   const [quickLinks, setQuickLinks] = useState("");
   const [quickSections, setQuickSections] = useState<string[]>(["top_story", "news_grid", "arts_events"]);
@@ -109,12 +111,12 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
   const generateInstantDraft = async () => {
     if (!quickNotes.trim()) {
       setGenerationState("error");
-      setGenerationMessage("Add the core message first so the assistant has something to write from.");
+      setGenerationMessage("Add the main message first so the system has something to build from.");
       return false;
     }
 
     setGenerationState("generating");
-    setGenerationMessage("Connecting to the school assistant and drafting the newsletter...");
+    setGenerationMessage("Writing your first draft...");
 
     try {
       const response = await fetch("/api/agent/generate", {
@@ -150,12 +152,12 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
       }
 
       setGenerationState("ready");
-      setGenerationMessage("Draft created from the school assistant. Review the content and continue.");
+      setGenerationMessage("Your first draft is ready. Review it and keep going.");
       return true;
     } catch (error) {
       setGenerationState("error");
       setGenerationMessage(
-        error instanceof Error ? error.message : "The assistant draft failed. Check the school integration settings."
+        error instanceof Error ? error.message : "The draft could not be created. Please try again."
       );
       return false;
     }
@@ -245,11 +247,11 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
             : nextDocument;
 
           setDocument(mergedDocument);
-          setSaveMessage("Draft loaded from workspace.");
+          setSaveMessage("Draft loaded.");
         }
       } catch {
         if (!cancelled) {
-          setSaveMessage("Using local starter draft.");
+          setSaveMessage("Starting with a new draft.");
         }
       } finally {
         initialLoadComplete.current = true;
@@ -315,12 +317,12 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
         setSaveState("saved");
         setSaveMessage(
           payload.mode === "supabase"
-            ? "Saved to Supabase."
-            : "Saved locally. Add service keys to persist remotely."
+            ? "All changes saved."
+            : "Changes saved on this device."
         );
       } catch {
         setSaveState("error");
-        setSaveMessage("Save failed. Check API configuration.");
+        setSaveMessage("We could not save your changes.");
       }
     }, 900);
 
@@ -342,7 +344,7 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
                 </h1>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-brand-muted">
                   {isQuickMode
-                    ? "Use the simplest path possible: drop in the message, links, and section choices, then review the finished issue."
+                    ? "Use the simplest path possible: add the main message, a few links, and a couple of images, then review the finished issue."
                     : "Use the guided workflow to shape the issue, review the structure, and control how it will be published."}
                 </p>
               </div>
@@ -496,8 +498,8 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
                   </p>
                   <h2 className="mt-2 font-display text-3xl text-brand-navy">Dead simple input</h2>
                   <p className="mt-3 text-sm leading-6 text-brand-muted">
-                    Give the high-level points, paste any source links, choose the few blocks you want, and
-                    let the school agent write the issue while the system handles the design.
+                    Give the high-level points, paste any links, choose the blocks you want, and let the
+                    system write and build the issue for you.
                   </p>
                   <div className="mt-6 grid gap-4">
                     <label className="grid gap-2">
@@ -587,7 +589,7 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
                 <h2 className="mt-2 font-display text-3xl text-brand-navy">Write rough, publish clean</h2>
                 <p className="mt-4 text-sm leading-7 text-brand-muted">
                   {isQuickMode
-                    ? "This is the assistant-written draft. The school assistant should already have taken the high-level notes, links, and selected sections and turned them into the issue below."
+                    ? "This is your first draft. The system should already have taken the main message, links, and selected sections and turned them into the issue below."
                     : "This step is for rough notes, bullets, and links. The school-specific agent layer should work behind the scenes, so editors should not have to manage agent actions manually here."}
                 </p>
               </section>
