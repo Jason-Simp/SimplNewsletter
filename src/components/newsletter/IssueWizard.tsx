@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { useAuthSession } from "@/lib/auth-client";
 import { buildSteps, sampleNewsletter } from "@/lib/sample-data";
+import type { ContentGenerateResponse } from "@/types/integration";
 import type { Channel } from "@/types/newsletter";
 import type { SchoolProfile } from "@/types/school";
 import { AssistantEmbedPanel } from "@/components/newsletter/AssistantEmbedPanel";
@@ -25,12 +26,14 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
   const [document, setDocument] = useState(sampleNewsletter);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [saveMessage, setSaveMessage] = useState("Local draft loaded.");
+  const [generationState, setGenerationState] = useState<"idle" | "generating" | "ready" | "error">("idle");
+  const [generationMessage, setGenerationMessage] = useState("Fill in the form and move forward to draft with the school assistant.");
   const [quickNotes, setQuickNotes] = useState("");
   const [quickLinks, setQuickLinks] = useState("");
   const [quickSections, setQuickSections] = useState<string[]>(["top_story", "news_grid", "arts_events"]);
   const initialLoadComplete = useRef(false);
   const stepList = isQuickMode
-    ? buildSteps.filter((step) => ["setup", "content", "review", "distribution"].includes(step.id))
+    ? buildSteps.filter((step) => ["setup", "content", "media", "review", "distribution"].includes(step.id))
     : buildSteps;
   const activeStepIndex = stepList.findIndex((step) => step.id === activeStep);
   const activeStepConfig = stepList[activeStepIndex] ?? stepList[0];
@@ -78,7 +81,95 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
     }
   };
 
-  const goToNextStep = () => {
+  const applyGeneratedDraft = (generated: ContentGenerateResponse) => {
+    setDocument((current) => ({
+      ...current,
+      title: generated.title || current.title,
+      intro: generated.intro || current.intro,
+      sections: current.sections.map((section) => {
+        const nextSection = generated.sections?.find((item) => item.sectionType === section.type);
+
+        if (!nextSection) {
+          return section;
+        }
+
+        return {
+          ...section,
+          title: nextSection.title || section.title,
+          enabled: true,
+          content: {
+            ...section.content,
+            ...nextSection.content
+          }
+        };
+      })
+    }));
+  };
+
+  const generateInstantDraft = async () => {
+    if (!quickNotes.trim()) {
+      setGenerationState("error");
+      setGenerationMessage("Add the core message first so the assistant has something to write from.");
+      return false;
+    }
+
+    setGenerationState("generating");
+    setGenerationMessage("Connecting to the school assistant and drafting the newsletter...");
+
+    try {
+      const response = await fetch("/api/agent/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          schoolName: document.organization.name,
+          generationProvider: document.workspace.generationProvider,
+          knowledgeProvider: document.workspace.knowledgeProvider,
+          assistantReference: document.workspace.assistantReference,
+          integrationEndpoint: document.workspace.integrationEndpoint,
+          encryptedKnowledgeRef: document.workspace.encryptedKnowledgeRef,
+          prompt: `Write a school newsletter from the provided top-level notes. Use the school's tone and return clean newsletter-ready content for the selected sections.\n\nTitle: ${document.title}\n\nNotes:\n${quickNotes}`,
+          links: quickLinks
+            .split("\n")
+            .map((item) => item.trim())
+            .filter(Boolean),
+          notes: quickNotes,
+          sectionTypes: quickSections
+        })
+      });
+
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload?.message ?? "The assistant could not generate the draft.");
+      }
+
+      if (payload?.data) {
+        applyGeneratedDraft(payload.data);
+      }
+
+      setGenerationState("ready");
+      setGenerationMessage("Draft created from the school assistant. Review the content and continue.");
+      return true;
+    } catch (error) {
+      setGenerationState("error");
+      setGenerationMessage(
+        error instanceof Error ? error.message : "The assistant draft failed. Check the school integration settings."
+      );
+      return false;
+    }
+  };
+
+  const goToNextStep = async () => {
+    if (isQuickMode && activeStep === "setup") {
+      const generated = await generateInstantDraft();
+
+      if (!generated) {
+        return;
+      }
+    }
+
     if (activeStepIndex < stepList.length - 1) {
       setActiveStep(stepList[activeStepIndex + 1].id);
     }
@@ -263,7 +354,7 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
               </a>
             </div>
 
-            <div className="mt-6 flex flex-wrap gap-3">
+                <div className="mt-6 flex flex-wrap gap-3">
               {stepList.map((step, index) => {
                 const selected = activeStep === step.id;
 
@@ -322,11 +413,16 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
               </button>
               <button
                 className="rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white disabled:cursor-not-allowed disabled:opacity-40"
-                disabled={activeStepIndex === stepList.length - 1}
+                disabled={
+                  activeStepIndex === stepList.length - 1 ||
+                  (isQuickMode && activeStep === "setup" && generationState === "generating")
+                }
                 onClick={goToNextStep}
                 type="button"
               >
-                Next step
+                {isQuickMode && activeStep === "setup" && generationState === "generating"
+                  ? "Writing draft..."
+                  : "Next step"}
               </button>
             </div>
           </section>
@@ -447,6 +543,18 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
                         })}
                       </div>
                     </div>
+
+                    <div
+                      className={`rounded-[24px] p-4 text-sm leading-6 ${
+                        generationState === "error"
+                          ? "bg-red-50 text-red-700"
+                          : generationState === "ready"
+                            ? "bg-emerald-50 text-emerald-700"
+                            : "bg-[#EAF2FB] text-brand-muted"
+                      }`}
+                    >
+                      {generationMessage}
+                    </div>
                   </div>
                 </section>
               ) : (
@@ -479,7 +587,7 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
                 <h2 className="mt-2 font-display text-3xl text-brand-navy">Write rough, publish clean</h2>
                 <p className="mt-4 text-sm leading-7 text-brand-muted">
                   {isQuickMode
-                    ? "This is the quick-release handoff. The notes, links, selected sections, and uploaded images should be enough for the school agent to draft the issue and for the system to assemble the layout."
+                    ? "This is the assistant-written draft. The school assistant should already have taken the high-level notes, links, and selected sections and turned them into the issue below."
                     : "This step is for rough notes, bullets, and links. The school-specific agent layer should work behind the scenes, so editors should not have to manage agent actions manually here."}
                 </p>
               </section>
