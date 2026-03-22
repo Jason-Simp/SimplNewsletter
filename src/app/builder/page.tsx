@@ -88,6 +88,9 @@ export default function BuilderPage({
                   Enter the message, paste links, choose a few sections, and let the system draft and
                   design the newsletter.
                 </p>
+                <span className="mt-8 inline-flex rounded-full bg-brand-primary px-6 py-4 text-sm font-semibold uppercase tracking-[0.12em] text-white">
+                  Instant newsletter
+                </span>
               </Link>
 
               <Link
@@ -102,6 +105,9 @@ export default function BuilderPage({
                   Use a fuller workflow to shape sections, review the structure, and control how the issue
                   gets published.
                 </p>
+                <span className="mt-8 inline-flex rounded-full bg-brand-primary px-6 py-4 text-sm font-semibold uppercase tracking-[0.12em] text-white">
+                  Advanced newsletter
+                </span>
               </Link>
             </div>
           </section>
