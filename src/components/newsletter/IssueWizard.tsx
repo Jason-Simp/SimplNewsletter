@@ -448,51 +448,55 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
 
                 <div className="mt-6 grid gap-4">
                   <label className="grid gap-2">
-                    <span className="text-sm font-semibold text-brand-text">Newsletter title</span>
-                    <input
-                      className="rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
-                      onChange={(event) => updateField("title", event.target.value)}
-                      value={document.title}
-                    />
-                  </label>
-
-                  <label className="grid gap-2">
                     <span className="text-sm font-semibold text-brand-text">
                       {isQuickMode ? "What do you want to say?" : "Intro paragraph"}
                     </span>
                     <textarea
-                      className="min-h-28 rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
+                      className="min-h-36 rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
                       onChange={(event) =>
                         isQuickMode ? setQuickNotes(event.target.value) : updateField("intro", event.target.value)
                       }
                       placeholder={
                         isQuickMode
-                          ? "Type the message, bullets, or rough thoughts. The system should turn this into the release."
+                          ? "Type the message, bullets, or rough thoughts."
                           : undefined
                       }
                       value={isQuickMode ? quickNotes : document.intro}
                     />
                   </label>
 
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <label className="grid gap-2">
-                      <span className="text-sm font-semibold text-brand-text">Email subject line</span>
-                      <input
-                        className="rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
-                        onChange={(event) => updateField("subjectLine", event.target.value)}
-                        value={document.subjectLine}
-                      />
-                    </label>
+                  {!isQuickMode ? (
+                    <>
+                      <label className="grid gap-2">
+                        <span className="text-sm font-semibold text-brand-text">Newsletter title</span>
+                        <input
+                          className="rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
+                          onChange={(event) => updateField("title", event.target.value)}
+                          value={document.title}
+                        />
+                      </label>
 
-                    <label className="grid gap-2">
-                      <span className="text-sm font-semibold text-brand-text">Preview text</span>
-                      <input
-                        className="rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
-                        onChange={(event) => updateField("previewText", event.target.value)}
-                        value={document.previewText}
-                      />
-                    </label>
-                  </div>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <label className="grid gap-2">
+                          <span className="text-sm font-semibold text-brand-text">Email subject line</span>
+                          <input
+                            className="rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
+                            onChange={(event) => updateField("subjectLine", event.target.value)}
+                            value={document.subjectLine}
+                          />
+                        </label>
+
+                        <label className="grid gap-2">
+                          <span className="text-sm font-semibold text-brand-text">Preview text</span>
+                          <input
+                            className="rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
+                            onChange={(event) => updateField("previewText", event.target.value)}
+                            value={document.previewText}
+                          />
+                        </label>
+                      </div>
+                    </>
+                  ) : null}
                 </div>
               </section>
 
@@ -517,9 +521,9 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
                         />
                       </label>
 
-                      <div className="grid gap-3">
-                        <span className="text-sm font-semibold text-brand-text">Sections to include</span>
-                        <div className="grid gap-3 md:grid-cols-2">
+                    <div className="grid gap-3">
+                      <span className="text-sm font-semibold text-brand-text">What should be included?</span>
+                      <div className="grid gap-3 md:grid-cols-2">
                           {[
                             ["top_story", "Top story"],
                             ["news_grid", "Campus news"],
@@ -541,14 +545,14 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
                                 onClick={() => toggleQuickSection(sectionType)}
                                 type="button"
                               >
-                                <div className="text-sm font-semibold text-brand-text">{label}</div>
-                                <div className="mt-1 text-sm leading-6 text-brand-muted">
-                                  {selected ? "Included in this release." : "Not included."}
-                                </div>
-                              </button>
-                            );
-                          })}
-                        </div>
+                              <div className="text-sm font-semibold text-brand-text">{label}</div>
+                              <div className="mt-1 text-sm leading-6 text-brand-muted">
+                                {selected ? "Yes" : "No"}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
                       </div>
 
                       <div

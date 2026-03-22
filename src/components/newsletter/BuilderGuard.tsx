@@ -23,16 +23,35 @@ export function BuilderGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const email = session?.user?.email;
+    const authUserId = session?.user?.id;
 
-    if (!email || !supabase) {
+    if (loading) {
+      return;
+    }
+
+    if (!session || !email || !authUserId || !supabase) {
       setMemberLoading(false);
       return;
     }
 
     let cancelled = false;
     const memberEmail = email;
+    const memberAuthUserId = authUserId;
 
     async function loadMember() {
+      setMemberLoading(true);
+
+      await fetch("/api/members/link-session", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          email: memberEmail,
+          authUserId: memberAuthUserId
+        })
+      });
+
       const response = await fetch(`/api/members/me?email=${encodeURIComponent(memberEmail)}`);
 
       if (!response.ok) {
@@ -55,7 +74,7 @@ export function BuilderGuard({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [session?.user?.email, supabase]);
+  }, [loading, session, session?.user?.email, session?.user?.id, supabase]);
 
   if (loading || memberLoading) {
     return <main className="min-h-screen bg-[linear-gradient(180deg,#123A69_0%,#0F2745_100%)]" />;
