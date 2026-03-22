@@ -71,7 +71,7 @@ export default function HomePage() {
               <div className="mt-8">
                 <div className="grid gap-3">
                   <Link
-                    className="inline-flex w-full items-center justify-center rounded-full bg-brand-primary px-6 py-4 text-sm font-semibold uppercase tracking-[0.12em] text-white"
+                    className="inline-flex w-full items-center justify-center rounded-full border border-white/20 bg-[#1E4C86] px-6 py-4 text-sm font-semibold uppercase tracking-[0.12em] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]"
                     href="/login"
                   >
                     Member login

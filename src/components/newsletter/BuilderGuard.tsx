@@ -58,7 +58,7 @@ export function BuilderGuard({ children }: { children: React.ReactNode }) {
   }, [session?.user?.email, supabase]);
 
   if (loading || memberLoading) {
-    return <main className="min-h-screen bg-brand-navy px-6 py-10 text-white">Loading builder...</main>;
+    return <main className="min-h-screen bg-[linear-gradient(180deg,#123A69_0%,#0F2745_100%)]" />;
   }
 
   if (!session && supabase) {

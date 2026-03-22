@@ -83,6 +83,14 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
     }
   };
 
+  const createInstantNewsletter = async () => {
+    const generated = await generateInstantDraft();
+
+    if (generated) {
+      setActiveStep("review");
+    }
+  };
+
   const applyGeneratedDraft = (generated: ContentGenerateResponse) => {
     setDocument((current) => ({
       ...current,
@@ -381,53 +389,50 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
             </div>
           </section>
 
-          <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
-            <div className="flex flex-wrap items-end justify-between gap-4">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Current step</p>
-                <h2 className="mt-2 font-display text-3xl text-brand-navy">{activeStepConfig.title}</h2>
+          {!isQuickMode ? (
+            <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
+              <div className="flex flex-wrap items-end justify-between gap-4">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Current step</p>
+                  <h2 className="mt-2 font-display text-3xl text-brand-navy">{activeStepConfig.title}</h2>
+                </div>
+                <span
+                  className={`rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] ${
+                    saveState === "error"
+                      ? "bg-red-100 text-red-700"
+                      : saveState === "saved"
+                        ? "bg-emerald-100 text-emerald-700"
+                        : "bg-brand-background text-brand-primary"
+                  }`}
+                >
+                  {saveMessage}
+                </span>
               </div>
-              <span
-                className={`rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] ${
-                  saveState === "error"
-                    ? "bg-red-100 text-red-700"
-                    : saveState === "saved"
-                      ? "bg-emerald-100 text-emerald-700"
-                      : "bg-brand-background text-brand-primary"
-                }`}
-              >
-                {saveMessage}
-              </span>
-            </div>
 
-            <div className="mt-4 rounded-[24px] bg-[#EAF2FB] p-4 text-sm leading-6 text-brand-muted">
-              {getStepInstruction(activeStep)}
-            </div>
+              <div className="mt-4 rounded-[24px] bg-[#EAF2FB] p-4 text-sm leading-6 text-brand-muted">
+                {getStepInstruction(activeStep)}
+              </div>
 
-            <div className="mt-6 flex flex-wrap gap-3">
-              <button
-                className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text disabled:cursor-not-allowed disabled:opacity-40"
-                disabled={activeStepIndex === 0}
-                onClick={goToPreviousStep}
-                type="button"
-              >
-                Previous step
-              </button>
-              <button
-                className="rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white disabled:cursor-not-allowed disabled:opacity-40"
-                disabled={
-                  activeStepIndex === stepList.length - 1 ||
-                  (isQuickMode && activeStep === "setup" && generationState === "generating")
-                }
-                onClick={goToNextStep}
-                type="button"
-              >
-                {isQuickMode && activeStep === "setup" && generationState === "generating"
-                  ? "Writing draft..."
-                  : "Next step"}
-              </button>
-            </div>
-          </section>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <button
+                  className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={activeStepIndex === 0}
+                  onClick={goToPreviousStep}
+                  type="button"
+                >
+                  Previous step
+                </button>
+                <button
+                  className="rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={activeStepIndex === stepList.length - 1}
+                  onClick={goToNextStep}
+                  type="button"
+                >
+                  Next step
+                </button>
+              </div>
+            </section>
+          ) : null}
 
           {activeStep === "setup" ? (
             <>
@@ -495,12 +500,11 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
                 <>
                   <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
                     <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">
-                      Quick release
+                      Simple form
                     </p>
-                    <h2 className="mt-2 font-display text-3xl text-brand-navy">Dead simple input</h2>
+                    <h2 className="mt-2 font-display text-3xl text-brand-navy">Create your newsletter</h2>
                     <p className="mt-3 text-sm leading-6 text-brand-muted">
-                      Give the high-level points, paste any links, choose the blocks you want, and let the
-                      system write and build the issue for you.
+                      Fill out this form, click create, and the system will write the first draft for you.
                     </p>
                     <div className="mt-6 grid gap-4">
                       <label className="grid gap-2">
@@ -557,6 +561,17 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
                         }`}
                       >
                         {generationMessage}
+                      </div>
+
+                      <div className="flex flex-wrap gap-3">
+                        <button
+                          className="rounded-full bg-brand-primary px-6 py-4 text-sm font-semibold uppercase tracking-[0.12em] text-white disabled:cursor-not-allowed disabled:opacity-40"
+                          disabled={generationState === "generating"}
+                          onClick={() => void createInstantNewsletter()}
+                          type="button"
+                        >
+                          {generationState === "generating" ? "Creating newsletter..." : "Create newsletter"}
+                        </button>
                       </div>
                     </div>
                   </section>
@@ -639,6 +654,24 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
                     ? "The first draft should now be on screen. Read through it, switch output formats if needed, and make sure it looks right before publishing."
                     : "Use the channel buttons in the preview column to check web, email, PDF, HTML, and blog modes before you publish."}
                 </p>
+                {isQuickMode ? (
+                  <div className="mt-6 flex flex-wrap gap-3">
+                    <button
+                      className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
+                      onClick={() => setActiveStep("setup")}
+                      type="button"
+                    >
+                      Back to form
+                    </button>
+                    <button
+                      className="rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white"
+                      onClick={() => setActiveStep("distribution")}
+                      type="button"
+                    >
+                      Continue
+                    </button>
+                  </div>
+                ) : null}
               </section>
               {isQuickMode ? (
                 <NewsletterPreview
@@ -659,6 +692,17 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
                   document={document}
                   onChannelChange={setActiveChannel}
                 />
+              ) : null}
+              {isQuickMode ? (
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
+                    onClick={() => setActiveStep("review")}
+                    type="button"
+                  >
+                    Back to review
+                  </button>
+                </div>
               ) : null}
               <DistributionPanel />
             </>

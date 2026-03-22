@@ -22,9 +22,15 @@ export function MediaUploadPanel({ document }: Props) {
   const [uploading, setUploading] = useState(false);
 
   const acceptedExtensions = useMemo(() => getAcceptedExtensions(document).join(","), [document]);
+  const canUpload = Boolean(document.workspace.schoolId);
 
   const handleFiles = async (fileList: FileList | null) => {
     if (!fileList?.length) {
+      return;
+    }
+
+    if (!document.workspace.schoolId) {
+      setMessage("Finish loading the school profile before uploading files.");
       return;
     }
 
@@ -86,6 +92,7 @@ export function MediaUploadPanel({ document }: Props) {
         <input
           accept={acceptedExtensions}
           className="hidden"
+          disabled={!canUpload}
           multiple
           onChange={(event) => void handleFiles(event.target.files)}
           type="file"
@@ -95,6 +102,11 @@ export function MediaUploadPanel({ document }: Props) {
           Images up to 4 MB, MP3 up to 4 MB, MP4 up to 5 MB, PDF up to 4 MB. Images are compressed
           before upload when possible.
         </div>
+        {!canUpload ? (
+          <div className="mt-3 text-sm font-semibold text-red-600">
+            School profile is still loading. Uploads will turn on in a moment.
+          </div>
+        ) : null}
       </label>
 
       <div className="mt-6 grid gap-3">
