@@ -203,7 +203,9 @@ export function SchoolManager() {
           </p>
         </div>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
+        <div className="mt-6 rounded-[24px] border border-slate-200 p-5">
+          <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Basic school info</div>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
           <Input label="School name" value={form.name} onChange={(value) => updateField("name", value)} />
           <Input label="Tagline" value={form.tagline} onChange={(value) => updateField("tagline", value)} />
           <Input label="Website" value={form.websiteUrl} onChange={(value) => updateField("websiteUrl", value)} />
@@ -211,6 +213,32 @@ export function SchoolManager() {
           <Input label="Phone" value={form.phone} onChange={(value) => updateField("phone", value)} />
           <Input label="Address" value={form.address} onChange={(value) => updateField("address", value)} />
           <Input label="Logo URL" value={form.logoUrl} onChange={(value) => updateField("logoUrl", value)} />
+          </div>
+        </div>
+
+        <div className="mt-6 rounded-[24px] border border-slate-200 p-5">
+          <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Assistant setup</div>
+          <div className="mt-3 rounded-[20px] bg-brand-background p-4 text-sm leading-7 text-brand-muted">
+            <p className="font-semibold text-brand-text">Typical ElevenLabs setup</p>
+            <p className="mt-2">
+              1. Set <span className="font-semibold text-brand-text">Who writes the newsletter?</span> to
+              <span className="font-semibold text-brand-text"> ElevenLabs</span>.
+            </p>
+            <p>
+              2. Paste the school&apos;s agent ID into
+              <span className="font-semibold text-brand-text"> Assistant ID</span>.
+            </p>
+            <p>
+              3. Paste the assistant&apos;s full chat or embed link into
+              <span className="font-semibold text-brand-text"> Assistant chat link</span>.
+            </p>
+            <p>
+              4. Choose where the assistant&apos;s knowledge lives and paste that school&apos;s knowledge
+              code if you have one.
+            </p>
+          </div>
+
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
           <Input
             help="Enter the school's assistant or agent ID."
             label="Assistant ID"
@@ -274,6 +302,7 @@ export function SchoolManager() {
             ]}
             value={form.syncProvider}
           />
+          </div>
         </div>
 
         <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-[24px] bg-brand-background p-4">
