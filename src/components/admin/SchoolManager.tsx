@@ -33,10 +33,15 @@ const emptySchool: SchoolProfile = {
 export function SchoolManager() {
   const { session } = useAuthSession();
   const [schools, setSchools] = useState<SchoolProfile[]>([]);
+  const [members, setMembers] = useState<MemberRecord[]>([]);
   const [activeSchoolId, setActiveSchoolId] = useState("");
   const [form, setForm] = useState<SchoolProfile>(emptySchool);
   const [status, setStatus] = useState("Loading schools...");
   const [member, setMember] = useState<MemberRecord | null>(null);
+  const [userEmail, setUserEmail] = useState("");
+  const [userName, setUserName] = useState("");
+  const [userRole, setUserRole] = useState<"school_admin" | "editor">("editor");
+  const [logoStatus, setLogoStatus] = useState("No logo uploaded.");
 
   useEffect(() => {
     async function loadMember() {
@@ -54,15 +59,25 @@ export function SchoolManager() {
 
   useEffect(() => {
     async function loadSchools() {
-      const response = await fetch("/api/schools");
-      const payload = await response.json();
-      const allSchools = payload.data as SchoolProfile[];
+      const [schoolsResponse, membersResponse] = await Promise.all([
+        fetch("/api/schools"),
+        fetch("/api/members")
+      ]);
+      const schoolsPayload = await schoolsResponse.json();
+      const membersPayload = await membersResponse.json();
+      const allSchools = schoolsPayload.data as SchoolProfile[];
+      const allMembers = (membersPayload.data as MemberRecord[]) ?? [];
       const nextSchools =
         member?.role === "company_admin"
           ? allSchools
           : allSchools.filter((school) => school.id === member?.schoolId);
+      const nextMembers =
+        member?.role === "company_admin"
+          ? allMembers
+          : allMembers.filter((item) => item.schoolId === member?.schoolId);
 
       setSchools(nextSchools);
+      setMembers(nextMembers);
       if (nextSchools.length > 0) {
         setActiveSchoolId(nextSchools[0].id);
         setForm(nextSchools[0]);
@@ -94,6 +109,11 @@ export function SchoolManager() {
     }));
   };
 
+  const schoolMembers = useMemo(
+    () => members.filter((item) => item.schoolId === activeSchoolId),
+    [activeSchoolId, members]
+  );
+
   const saveSchool = async () => {
     setStatus("Saving school profile...");
     const response = await fetch("/api/schools", {
@@ -101,7 +121,12 @@ export function SchoolManager() {
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify(form)
+      body: JSON.stringify({
+        ...form,
+        generationProvider: "elevenlabs",
+        knowledgeProvider: "elevenlabs",
+        syncProvider: "elevenlabs"
+      })
     });
     const payload = await response.json();
 
@@ -138,6 +163,90 @@ export function SchoolManager() {
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Color extraction failed.");
     }
+  };
+
+  const uploadLogo = async (file: File | null) => {
+    if (!file) {
+      return;
+    }
+
+    if (!activeSchoolId) {
+      setLogoStatus("Save the school once before uploading a logo.");
+      return;
+    }
+
+    setLogoStatus("Uploading logo...");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("newsletterId", "");
+      formData.append("schoolId", activeSchoolId);
+      formData.append("organizationName", form.name || "school");
+
+      const response = await fetch("/api/media/upload", {
+        method: "POST",
+        body: formData
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload?.message ?? "Unable to upload logo.");
+      }
+
+      const nextLogoUrl = payload?.data?.url ?? URL.createObjectURL(file);
+      setForm((current) => ({
+        ...current,
+        logoUrl: nextLogoUrl
+      }));
+      setLogoStatus("Logo uploaded.");
+      const palette = await extractPaletteFromImage(nextLogoUrl);
+      setForm((current) => ({
+        ...current,
+        logoUrl: nextLogoUrl,
+        primaryColor: palette.primary,
+        secondaryColor: palette.secondary,
+        accentColor: palette.accent
+      }));
+    } catch (error) {
+      setLogoStatus(error instanceof Error ? error.message : "Logo upload failed.");
+    }
+  };
+
+  const addSchoolUser = async () => {
+    if (!activeSchoolId || !userEmail.trim()) {
+      setStatus("Add a user email first.");
+      return;
+    }
+
+    setStatus("Saving school user...");
+
+    const response = await fetch("/api/members", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        schoolId: activeSchoolId,
+        email: userEmail.trim(),
+        fullName: userName.trim(),
+        role: userRole,
+        isActive: true
+      })
+    });
+
+    const payload = await response.json();
+
+    if (!response.ok) {
+      setStatus(payload?.message ?? "Unable to save school user.");
+      return;
+    }
+
+    setMembers((current) => [payload.data, ...current.filter((item) => item.id !== payload.data.id)]);
+    setUserEmail("");
+    setUserName("");
+    setUserRole("editor");
+    setStatus("School user saved.");
   };
 
   return (
@@ -189,20 +298,6 @@ export function SchoolManager() {
           </div>
         </div>
 
-        <div className="mt-6 rounded-[24px] bg-[#EAF2FB] p-5 text-sm leading-7 text-brand-muted">
-          <p className="font-semibold text-brand-text">How to fill this out</p>
-          <p className="mt-2">
-            This page sets up one school&apos;s branding and assistant. Global API keys stay in Render.
-            This form is only for the school-specific assistant ID, assistant chat link, and knowledge
-            base reference.
-          </p>
-          <p className="mt-2">
-            If this school uses ElevenLabs, choose ElevenLabs as the writing provider, enter that
-            school&apos;s ElevenLabs agent ID, paste the assistant chat link, and choose where the
-            knowledge lives.
-          </p>
-        </div>
-
         <div className="mt-6 rounded-[24px] border border-slate-200 p-5">
           <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Basic school info</div>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -217,90 +312,25 @@ export function SchoolManager() {
         </div>
 
         <div className="mt-6 rounded-[24px] border border-slate-200 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Assistant setup</div>
-          <div className="mt-3 rounded-[20px] bg-brand-background p-4 text-sm leading-7 text-brand-muted">
-            <p className="font-semibold text-brand-text">Typical ElevenLabs setup</p>
-            <p className="mt-2">
-              1. Set <span className="font-semibold text-brand-text">Who writes the newsletter?</span> to
-              <span className="font-semibold text-brand-text"> ElevenLabs</span>.
-            </p>
-            <p>
-              2. Paste the school&apos;s agent ID into
-              <span className="font-semibold text-brand-text"> Assistant ID</span>.
-            </p>
-            <p>
-              3. Paste the assistant&apos;s full chat or embed link into
-              <span className="font-semibold text-brand-text"> Assistant chat link</span>.
-            </p>
-            <p>
-              4. Choose where the assistant&apos;s knowledge lives and paste that school&apos;s knowledge
-              code if you have one.
-            </p>
+            <div className="rounded-full bg-brand-background px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-brand-primary">
+              ElevenLabs MVP
+            </div>
           </div>
 
           <div className="mt-4 grid gap-4 md:grid-cols-2">
           <Input
             help="Enter the school's assistant or agent ID."
-            label="Assistant ID"
+            label="Agent ID"
             value={form.assistantReference}
             onChange={(value) => updateField("assistantReference", value)}
           />
           <Input
-            help="Paste the full assistant chat or embed link if you want it inside the builder."
-            label="Assistant chat link"
+            help="Enter the API or connection value for this school's ElevenLabs agent."
+            label="Agent API"
             value={form.integrationEndpoint}
             onChange={(value) => updateField("integrationEndpoint", value)}
-          />
-          <Input
-            help="Enter the school-specific code or reference for the knowledge base."
-            label="Knowledge base code"
-            value={form.encryptedKnowledgeRef}
-            onChange={(value) => updateField("encryptedKnowledgeRef", value)}
-          />
-          <SelectField
-            help="Choose the system that should write this school's newsletters."
-            label="Who writes the newsletter?"
-            onChange={(value) =>
-              updateField("generationProvider", value as SchoolProfile["generationProvider"])
-            }
-            options={[
-              ["elevenlabs", "ElevenLabs"],
-              ["openai", "OpenAI"],
-              ["n8n", "n8n"],
-              ["custom", "Custom bridge"],
-              ["none", "Manual only"]
-            ]}
-            value={form.generationProvider}
-          />
-          <SelectField
-            help="Choose where the assistant gets its knowledge."
-            label="Where does the assistant's knowledge live?"
-            onChange={(value) =>
-              updateField("knowledgeProvider", value as SchoolProfile["knowledgeProvider"])
-            }
-            options={[
-              ["supabase", "Supabase vector store"],
-              ["openai", "OpenAI vector store"],
-              ["elevenlabs", "ElevenLabs knowledge base"],
-              ["n8n", "n8n"],
-              ["custom", "Custom bridge"],
-              ["none", "None"]
-            ]}
-            value={form.knowledgeProvider}
-          />
-          <SelectField
-            help="Choose where finished newsletters should be sent back after publishing."
-            label="Where should finished newsletters sync?"
-            onChange={(value) => updateField("syncProvider", value as SchoolProfile["syncProvider"])}
-            options={[
-              ["elevenlabs", "ElevenLabs"],
-              ["openai", "OpenAI"],
-              ["supabase", "Supabase"],
-              ["n8n", "n8n"],
-              ["custom", "Custom bridge"],
-              ["none", "No sync"]
-            ]}
-            value={form.syncProvider}
           />
           </div>
         </div>
@@ -317,6 +347,29 @@ export function SchoolManager() {
           >
             Match logo colors
           </button>
+        </div>
+
+        <div className="mt-4 rounded-[24px] border border-slate-200 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="font-semibold text-brand-text">School logo</div>
+              <div className="mt-1 text-sm text-brand-muted">
+                Upload a logo, then the system will pull the main colors automatically.
+              </div>
+            </div>
+            <label className="rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white">
+              Upload logo
+              <input
+                accept=".png,.jpg,.jpeg,.svg,.webp"
+                className="hidden"
+                onChange={(event) => void uploadLogo(event.target.files?.[0] ?? null)}
+                type="file"
+              />
+            </label>
+          </div>
+          <div className="mt-4 rounded-2xl bg-brand-background px-4 py-3 text-sm text-brand-muted">
+            {logoStatus}
+          </div>
         </div>
 
         <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -346,6 +399,54 @@ export function SchoolManager() {
           >
             Save school profile
           </button>
+        </div>
+
+        <div className="mt-8 rounded-[24px] border border-slate-200 p-5">
+          <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">School users</div>
+          <h3 className="mt-2 text-xl font-semibold text-brand-text">Add users for this school</h3>
+          <p className="mt-2 text-sm leading-6 text-brand-muted">
+            Add the people at this school who should be able to log in and work on newsletters.
+          </p>
+
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            <Input label="Full name" value={userName} onChange={setUserName} />
+            <Input label="Email" value={userEmail} onChange={setUserEmail} />
+            <SelectField
+              label="Access level"
+              onChange={(value) => setUserRole(value as "school_admin" | "editor")}
+              options={[
+                ["school_admin", "School admin"],
+                ["editor", "Editor"]
+              ]}
+              value={userRole}
+            />
+          </div>
+
+          <div className="mt-5 flex flex-wrap gap-3">
+            <button
+              className="rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white"
+              onClick={() => void addSchoolUser()}
+              type="button"
+            >
+              Add school user
+            </button>
+          </div>
+
+          <div className="mt-6 grid gap-3">
+            {schoolMembers.map((item) => (
+              <div key={item.id} className="rounded-2xl border border-slate-200 px-4 py-4">
+                <div className="font-semibold text-brand-text">{item.fullName || item.email}</div>
+                <div className="mt-1 text-sm text-brand-muted">
+                  {item.email} · {item.role === "school_admin" ? "School admin" : "Editor"}
+                </div>
+              </div>
+            ))}
+            {schoolMembers.length === 0 ? (
+              <div className="rounded-2xl bg-brand-background px-4 py-4 text-sm text-brand-muted">
+                No users added for this school yet.
+              </div>
+            ) : null}
+          </div>
         </div>
       </section>
     </div>
