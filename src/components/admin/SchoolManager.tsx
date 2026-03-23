@@ -42,6 +42,7 @@ export function SchoolManager() {
   const [userName, setUserName] = useState("");
   const [userRole, setUserRole] = useState<"school_admin" | "editor">("editor");
   const [logoStatus, setLogoStatus] = useState("No logo uploaded.");
+  const [agentStatus, setAgentStatus] = useState("Not verified yet.");
 
   useEffect(() => {
     async function loadMember() {
@@ -231,6 +232,37 @@ export function SchoolManager() {
     setStatus(payload?.data?.inviteSent ? "Invite email sent." : "School user saved.");
   };
 
+  const verifyAgent = async () => {
+    if (!form.assistantReference.trim() || !form.integrationEndpoint.trim()) {
+      setAgentStatus("Add both Agent ID and Agent API first.");
+      return;
+    }
+
+    setAgentStatus("Checking agent connection...");
+
+    const response = await fetch("/api/agent/verify", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        schoolName: form.name,
+        assistantReference: form.assistantReference,
+        integrationEndpoint: form.integrationEndpoint,
+        encryptedKnowledgeRef: form.encryptedKnowledgeRef
+      })
+    });
+
+    const payload = await response.json();
+
+    if (!response.ok) {
+      setAgentStatus(payload?.message ?? "Agent connection failed.");
+      return;
+    }
+
+    setAgentStatus(payload?.message ?? "Agent connected.");
+  };
+
   return (
     <div className="grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
       <section className="rounded-editorial border border-slate-200 bg-[#F7F9FC] p-6">
@@ -314,6 +346,18 @@ export function SchoolManager() {
             value={form.integrationEndpoint}
             onChange={(value) => updateField("integrationEndpoint", value)}
           />
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <button
+              className="rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white"
+              onClick={() => void verifyAgent()}
+              type="button"
+            >
+              Verify agent connection
+            </button>
+            <div className="rounded-full bg-brand-background px-4 py-2 text-sm text-brand-muted">
+              {agentStatus}
+            </div>
           </div>
         </div>
 
