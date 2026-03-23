@@ -70,6 +70,48 @@ export async function listSchools() {
   })) as SchoolProfile[];
 }
 
+export async function getSchoolById(schoolId: string) {
+  const supabase = getServiceSupabase();
+
+  if (!supabase) {
+    return fallbackSchools.find((school) => school.id === schoolId) ?? null;
+  }
+
+  const { data, error } = await supabase.from("schools").select("*").eq("id", schoolId).single();
+
+  if (error || !data) {
+    return null;
+  }
+
+  const secret = process.env.VECTOR_PROJECT_SECRET;
+
+  return {
+    id: data.id,
+    name: data.name,
+    tagline: data.tagline ?? "",
+    logoUrl: data.logo_url ?? schoolAmplifiedBrand.logoUrl,
+    websiteUrl: data.website_url ?? "",
+    contactEmail: data.contact_email ?? "",
+    phone: data.phone ?? "",
+    address: data.address ?? "",
+    primaryColor: data.primary_color,
+    secondaryColor: data.secondary_color,
+    accentColor: data.accent_color,
+    backgroundColor: data.background_color,
+    textColor: data.text_color,
+    publishMode: data.publish_mode,
+    generationProvider: data.agent_id ? "elevenlabs" : "none",
+    knowledgeProvider: data.vector_provider,
+    syncProvider: data.agent_id ? "elevenlabs" : "none",
+    assistantReference: data.agent_id ?? "",
+    integrationEndpoint: data.agent_api ?? "",
+    encryptedKnowledgeRef:
+      data.encrypted_project_code && secret
+        ? decryptProjectCode(data.encrypted_project_code, secret)
+        : data.encrypted_project_code ?? ""
+  } satisfies SchoolProfile;
+}
+
 export async function saveSchool(profile: SchoolProfile) {
   const supabase = getServiceSupabase();
 

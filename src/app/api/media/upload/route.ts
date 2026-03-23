@@ -103,10 +103,12 @@ export async function POST(request: Request) {
 
 function validateFile(file: File) {
   const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
-  const constraint = mediaConstraints.find((candidate) => candidate.extensions.includes(extension));
+  const constraint =
+    mediaConstraints.find((candidate) => candidate.extensions.includes(extension)) ??
+    mediaConstraints.find((candidate) => matchesMimeType(candidate.type, file.type));
 
   if (!constraint) {
-    return "Unsupported file type.";
+    return `"${file.name}" is not supported. Use PNG, JPG, JPEG, GIF, WEBP, SVG, MP3, MP4, MOV, WEBM, WAV, M4A, or PDF.`;
   }
 
   const sizeMb = file.size / (1024 * 1024);
@@ -141,4 +143,12 @@ function resolveAssetKind(mimeType: string) {
 
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function matchesMimeType(type: "image" | "audio" | "video" | "document", mimeType: string) {
+  if (type === "document") {
+    return mimeType === "application/pdf";
+  }
+
+  return mimeType.startsWith(`${type}/`);
 }

@@ -1,6 +1,7 @@
 import type { IntegrationProvider } from "@/types/newsletter";
 
 export type ContentGenerateRequest = {
+  schoolId?: string;
   schoolName: string;
   generationProvider: IntegrationProvider;
   knowledgeProvider: IntegrationProvider;

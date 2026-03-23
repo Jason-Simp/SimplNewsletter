@@ -134,6 +134,7 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
+          schoolId: document.workspace.schoolId,
           schoolName: document.organization.name,
           generationProvider: document.workspace.generationProvider,
           knowledgeProvider: document.workspace.knowledgeProvider,
