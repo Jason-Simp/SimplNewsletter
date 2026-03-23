@@ -11,9 +11,39 @@ type Props = {
 };
 
 function getAcceptedExtensions(document: NewsletterDocument) {
-  return document.workspace.mediaConstraints.flatMap((constraint) =>
-    constraint.extensions.map((extension) => `.${extension}`)
-  );
+  const accepted = new Set<string>();
+
+  for (const constraint of document.workspace.mediaConstraints) {
+    for (const extension of constraint.extensions) {
+      accepted.add(`.${extension}`);
+    }
+
+    if (constraint.type === "image") {
+      accepted.add("image/png");
+      accepted.add("image/jpeg");
+      accepted.add("image/gif");
+      accepted.add("image/webp");
+      accepted.add("image/svg+xml");
+    }
+
+    if (constraint.type === "audio") {
+      accepted.add("audio/mpeg");
+      accepted.add("audio/mp4");
+      accepted.add("audio/wav");
+    }
+
+    if (constraint.type === "video") {
+      accepted.add("video/mp4");
+      accepted.add("video/quicktime");
+      accepted.add("video/webm");
+    }
+
+    if (constraint.type === "document") {
+      accepted.add("application/pdf");
+    }
+  }
+
+  return [...accepted];
 }
 
 export function MediaUploadPanel({ document }: Props) {
