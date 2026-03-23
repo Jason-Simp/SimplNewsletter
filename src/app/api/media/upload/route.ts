@@ -56,7 +56,12 @@ export async function POST(request: Request) {
     });
 
   if (uploadError) {
-    return NextResponse.json({ message: uploadError.message }, { status: 500 });
+    const message =
+      uploadError.message.toLowerCase().includes("bucket")
+        ? `Upload bucket not found. Create a Supabase storage bucket named "${serverConfig.storageBucket}" or update SUPABASE_STORAGE_BUCKET.`
+        : uploadError.message;
+
+    return NextResponse.json({ message }, { status: 500 });
   }
 
   const { data: publicUrlData } = supabase.storage
