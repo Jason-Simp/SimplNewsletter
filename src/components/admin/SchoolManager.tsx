@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { ActionNotice } from "@/components/ui/ActionNotice";
 import { extractPaletteFromImage } from "@/lib/color-extraction";
 import { useAuthSession } from "@/lib/auth-client";
 import type { SchoolProfile } from "@/types/school";
@@ -43,6 +44,7 @@ export function SchoolManager() {
   const [userRole, setUserRole] = useState<"school_admin" | "editor">("editor");
   const [logoStatus, setLogoStatus] = useState("No logo uploaded.");
   const [agentStatus, setAgentStatus] = useState("Not verified yet.");
+  const [notice, setNotice] = useState<{ message: string; tone: "success" | "error" | "info" } | null>(null);
 
   useEffect(() => {
     async function loadMember() {
@@ -105,6 +107,10 @@ export function SchoolManager() {
     }));
   };
 
+  const showNotice = (message: string, tone: "success" | "error" | "info") => {
+    setNotice({ message, tone });
+  };
+
   const schoolMembers = useMemo(
     () => members.filter((item) => item.schoolId === activeSchoolId),
     [activeSchoolId, members]
@@ -127,7 +133,9 @@ export function SchoolManager() {
     const payload = await response.json();
 
     if (!response.ok) {
-      setStatus(payload?.message ?? "Unable to save school.");
+      const message = payload?.message ?? "Unable to save school.";
+      setStatus(message);
+      showNotice(message, "error");
       return;
     }
 
@@ -143,6 +151,7 @@ export function SchoolManager() {
     setActiveSchoolId(saved.id);
     setForm(saved);
     setStatus("School profile saved.");
+    showNotice("School profile saved.", "success");
   };
 
   const uploadLogo = async (file: File | null) => {
@@ -152,6 +161,7 @@ export function SchoolManager() {
 
     if (!activeSchoolId) {
       setLogoStatus("Save the school once before uploading a logo.");
+      showNotice("Save the school profile first, then upload the logo.", "error");
       return;
     }
 
@@ -188,14 +198,18 @@ export function SchoolManager() {
         secondaryColor: palette.secondary,
         accentColor: palette.accent
       }));
+      showNotice("Logo uploaded and colors updated.", "success");
     } catch (error) {
-      setLogoStatus(error instanceof Error ? error.message : "Logo upload failed.");
+      const message = error instanceof Error ? error.message : "Logo upload failed.";
+      setLogoStatus(message);
+      showNotice(message, "error");
     }
   };
 
   const addSchoolUser = async () => {
     if (!activeSchoolId || !userEmail.trim()) {
       setStatus("Add a user email first.");
+      showNotice("Add a user email before sending the invite.", "error");
       return;
     }
 
@@ -219,7 +233,9 @@ export function SchoolManager() {
     const payload = await response.json();
 
     if (!response.ok) {
-      setStatus(payload?.message ?? "Unable to save school user.");
+      const message = payload?.message ?? "Unable to save school user.";
+      setStatus(message);
+      showNotice(message, "error");
       return;
     }
 
@@ -229,12 +245,16 @@ export function SchoolManager() {
     setUserEmail("");
     setUserName("");
     setUserRole("editor");
-    setStatus(payload?.data?.inviteSent ? "Invite email sent." : "School user saved.");
+    const message = payload?.data?.inviteSent ? "Invite email sent." : "School user saved.";
+    setStatus(message);
+    showNotice(message, "success");
   };
 
   const verifyAgent = async () => {
     if (!form.assistantReference.trim() || !form.integrationEndpoint.trim()) {
-      setAgentStatus("Add both Agent ID and Agent API first.");
+      const message = "Add both Agent ID and Agent API first.";
+      setAgentStatus(message);
+      showNotice(message, "error");
       return;
     }
 
@@ -256,15 +276,21 @@ export function SchoolManager() {
     const payload = await response.json();
 
     if (!response.ok) {
-      setAgentStatus(payload?.message ?? "Agent connection failed.");
+      const message = payload?.message ?? "Agent connection failed.";
+      setAgentStatus(message);
+      showNotice(message, "error");
       return;
     }
 
-    setAgentStatus(payload?.message ?? "Agent connected.");
+    const message = payload?.message ?? "Agent connected.";
+    setAgentStatus(message);
+    showNotice(message, "success");
   };
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
+    <>
+      {notice ? <ActionNotice message={notice.message} onDismiss={() => setNotice(null)} tone={notice.tone} /> : null}
+      <div className="grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
       <section className="rounded-editorial border border-slate-200 bg-[#F7F9FC] p-6">
         <div className="flex items-end justify-between gap-4">
           <div>
@@ -458,7 +484,8 @@ export function SchoolManager() {
           </div>
         </div>
       </section>
-    </div>
+      </div>
+    </>
   );
 }
 
