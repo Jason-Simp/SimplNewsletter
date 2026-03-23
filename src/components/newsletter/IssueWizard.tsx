@@ -430,6 +430,8 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
                       />
                     </label>
 
+                    <MediaUploadPanel document={document} />
+
                     <div
                       className={`rounded-[24px] p-4 text-sm leading-6 ${
                         generationState === "error"
