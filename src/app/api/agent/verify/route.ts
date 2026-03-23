@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { generateContentWithProvider } from "@/lib/integration-client";
+import { verifyElevenLabsAgent } from "@/lib/elevenlabs";
 
 export async function POST(request: Request) {
   try {
@@ -21,14 +21,9 @@ export async function POST(request: Request) {
       );
     }
 
-    await generateContentWithProvider({
-      schoolName: payload.schoolName?.trim() || "School",
-      generationProvider: "elevenlabs",
-      knowledgeProvider: "elevenlabs",
-      assistantReference: payload.assistantReference.trim(),
-      integrationEndpoint: payload.integrationEndpoint.trim(),
-      encryptedKnowledgeRef: payload.encryptedKnowledgeRef?.trim() || "",
-      prompt: "Connection test. Reply with a short confirmation."
+    await verifyElevenLabsAgent({
+      agentId: payload.assistantReference.trim(),
+      apiKey: payload.integrationEndpoint.trim()
     });
 
     return NextResponse.json({
