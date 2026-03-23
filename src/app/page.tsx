@@ -42,12 +42,6 @@ export default function HomePage() {
                 >
                   Open builder
                 </Link>
-                <a
-                  className="rounded-full border border-slate-200 bg-white px-6 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
-                  href="/AGENTS.md"
-                >
-                  Read build brief
-                </a>
               </div>
             </div>
 
