@@ -109,8 +109,9 @@ export function MediaUploadPanel({ document }: Props) {
         />
         <div className="font-semibold text-brand-text">Add up to 10 photos for this newsletter</div>
         <div className="mt-2 text-sm leading-6 text-brand-muted">
-          Add up to 10 photos per newsletter. Use descriptive file names when you can so the system has
-          better clues about which images fit the story. Images are compressed automatically before upload.
+          Add up to 10 photos per newsletter. PNG, JPG, GIF, WEBP, SVG, MP3, MP4, and PDF files are
+          supported. Use descriptive file names when you can so the system has better clues about which
+          images fit the story. Images are compressed automatically before upload.
         </div>
         <div className="mt-2 text-sm leading-6 text-brand-muted">
           Example file names: `football-team.jpg`, `spring-concert-stage.jpg`, `science-fair-winners.png`.
@@ -120,6 +121,11 @@ export function MediaUploadPanel({ document }: Props) {
         </div>
         <div className="mt-2 text-sm leading-6 text-brand-muted">
           Images up to 4 MB, MP3 up to 4 MB, MP4 up to 5 MB, PDF up to 4 MB.
+        </div>
+        <div className="mt-5">
+          <span className="inline-flex rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white">
+            Upload photos and media
+          </span>
         </div>
         {!canUpload ? (
           <div className="mt-3 text-sm font-semibold text-red-600">
