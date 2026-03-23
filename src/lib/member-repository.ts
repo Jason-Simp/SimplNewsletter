@@ -1,4 +1,5 @@
 import { getServiceSupabase } from "@/lib/supabase/server";
+import { serverConfig } from "@/lib/server-config";
 import type { MemberRecord } from "@/types/member";
 import type { SchoolProfile } from "@/types/school";
 
@@ -104,6 +105,48 @@ export async function saveMember(member: Omit<MemberRecord, "id" | "schoolName">
     role: (data as MemberRow).role,
     isActive: (data as MemberRow).is_active
   } satisfies MemberRecord;
+}
+
+export async function inviteMember(input: Omit<MemberRecord, "id" | "schoolName">) {
+  const supabase = getServiceSupabase();
+
+  if (!supabase) {
+    return {
+      member: {
+        ...input,
+        id: `demo-member-${Date.now()}`,
+        schoolName: "Demo School"
+      } satisfies MemberRecord,
+      inviteSent: false
+    };
+  }
+
+  const existingMember = await getMemberByEmail(input.email);
+
+  if (!existingMember) {
+    await saveMember(input);
+  } else if (existingMember.schoolId !== input.schoolId || existingMember.role !== input.role) {
+    await saveMember(input);
+  }
+
+  const { error: inviteError } = await supabase.auth.admin.inviteUserByEmail(input.email, {
+    redirectTo: `${serverConfig.renderExternalUrl}/login`
+  });
+
+  if (inviteError && !inviteError.message.toLowerCase().includes("already")) {
+    throw new Error(inviteError.message);
+  }
+
+  const member = await getMemberByEmail(input.email);
+
+  if (!member) {
+    throw new Error("School user record was not created.");
+  }
+
+  return {
+    member,
+    inviteSent: !inviteError
+  };
 }
 
 export async function bootstrapSchoolAdmin(input: {

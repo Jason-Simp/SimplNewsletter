@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { listMembers, saveMember } from "@/lib/member-repository";
+import { inviteMember, listMembers, saveMember } from "@/lib/member-repository";
 
 export async function GET() {
   const data = await listMembers();
@@ -14,7 +14,8 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const payload = await request.json();
-    const data = await saveMember(payload);
+    const invite = Boolean(payload?.invite);
+    const data = invite ? await inviteMember(payload) : await saveMember(payload);
 
     return NextResponse.json({
       status: "ok",

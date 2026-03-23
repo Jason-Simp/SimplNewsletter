@@ -219,7 +219,7 @@ export function SchoolManager() {
       return;
     }
 
-    setStatus("Saving school user...");
+    setStatus("Sending school invite...");
 
     const response = await fetch("/api/members", {
       method: "POST",
@@ -231,7 +231,8 @@ export function SchoolManager() {
         email: userEmail.trim(),
         fullName: userName.trim(),
         role: userRole,
-        isActive: true
+        isActive: true,
+        invite: true
       })
     });
 
@@ -242,11 +243,13 @@ export function SchoolManager() {
       return;
     }
 
-    setMembers((current) => [payload.data, ...current.filter((item) => item.id !== payload.data.id)]);
+    const nextMember = payload?.data?.member ?? payload?.data;
+
+    setMembers((current) => [nextMember, ...current.filter((item) => item.id !== nextMember.id)]);
     setUserEmail("");
     setUserName("");
     setUserRole("editor");
-    setStatus("School user saved.");
+    setStatus(payload?.data?.inviteSent ? "Invite email sent." : "School user saved.");
   };
 
   return (
@@ -405,7 +408,8 @@ export function SchoolManager() {
           <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">School users</div>
           <h3 className="mt-2 text-xl font-semibold text-brand-text">Add users for this school</h3>
           <p className="mt-2 text-sm leading-6 text-brand-muted">
-            Add the people at this school who should be able to log in and work on newsletters.
+            Add the people at this school who should be able to log in and work on newsletters. They
+            will get an invite email and can set their own password.
           </p>
 
           <div className="mt-5 grid gap-4 md:grid-cols-2">
@@ -428,7 +432,7 @@ export function SchoolManager() {
               onClick={() => void addSchoolUser()}
               type="button"
             >
-              Add school user
+              Send school invite
             </button>
           </div>
 
