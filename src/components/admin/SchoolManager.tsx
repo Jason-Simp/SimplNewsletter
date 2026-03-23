@@ -181,12 +181,26 @@ export function SchoolManager() {
       <section className="rounded-editorial border border-slate-200 bg-white p-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Admin form</div>
-            <h2 className="mt-2 font-display text-3xl text-brand-navy">School profile setup</h2>
+            <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">School setup</div>
+            <h2 className="mt-2 font-display text-3xl text-brand-navy">Profile and assistant connection</h2>
           </div>
           <div className="rounded-full bg-brand-background px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-brand-primary">
             {status}
           </div>
+        </div>
+
+        <div className="mt-6 rounded-[24px] bg-[#EAF2FB] p-5 text-sm leading-7 text-brand-muted">
+          <p className="font-semibold text-brand-text">How to fill this out</p>
+          <p className="mt-2">
+            This page sets up one school&apos;s branding and assistant. Global API keys stay in Render.
+            This form is only for the school-specific assistant ID, assistant chat link, and knowledge
+            base reference.
+          </p>
+          <p className="mt-2">
+            If this school uses ElevenLabs, choose ElevenLabs as the writing provider, enter that
+            school&apos;s ElevenLabs agent ID, paste the assistant chat link, and choose where the
+            knowledge lives.
+          </p>
         </div>
 
         <div className="mt-6 grid gap-4 md:grid-cols-2">
@@ -198,22 +212,26 @@ export function SchoolManager() {
           <Input label="Address" value={form.address} onChange={(value) => updateField("address", value)} />
           <Input label="Logo URL" value={form.logoUrl} onChange={(value) => updateField("logoUrl", value)} />
           <Input
-            label="Assistant reference"
+            help="Enter the school's assistant or agent ID."
+            label="Assistant ID"
             value={form.assistantReference}
             onChange={(value) => updateField("assistantReference", value)}
           />
           <Input
-            label="Integration or embed URL"
+            help="Paste the full assistant chat or embed link if you want it inside the builder."
+            label="Assistant chat link"
             value={form.integrationEndpoint}
             onChange={(value) => updateField("integrationEndpoint", value)}
           />
           <Input
-            label="Encrypted knowledge reference"
+            help="Enter the school-specific code or reference for the knowledge base."
+            label="Knowledge base code"
             value={form.encryptedKnowledgeRef}
             onChange={(value) => updateField("encryptedKnowledgeRef", value)}
           />
           <SelectField
-            label="Rewrite provider"
+            help="Choose the system that should write this school's newsletters."
+            label="Who writes the newsletter?"
             onChange={(value) =>
               updateField("generationProvider", value as SchoolProfile["generationProvider"])
             }
@@ -227,7 +245,8 @@ export function SchoolManager() {
             value={form.generationProvider}
           />
           <SelectField
-            label="Knowledge provider"
+            help="Choose where the assistant gets its knowledge."
+            label="Where does the assistant's knowledge live?"
             onChange={(value) =>
               updateField("knowledgeProvider", value as SchoolProfile["knowledgeProvider"])
             }
@@ -242,7 +261,8 @@ export function SchoolManager() {
             value={form.knowledgeProvider}
           />
           <SelectField
-            label="Sync provider"
+            help="Choose where finished newsletters should be sent back after publishing."
+            label="Where should finished newsletters sync?"
             onChange={(value) => updateField("syncProvider", value as SchoolProfile["syncProvider"])}
             options={[
               ["elevenlabs", "ElevenLabs"],
@@ -303,10 +323,21 @@ export function SchoolManager() {
   );
 }
 
-function Input({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+function Input({
+  label,
+  value,
+  onChange,
+  help
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  help?: string;
+}) {
   return (
     <label className="grid gap-2">
       <span className="text-sm font-semibold text-brand-text">{label}</span>
+      {help ? <span className="text-sm leading-6 text-brand-muted">{help}</span> : null}
       <input className="rounded-2xl border border-slate-200 px-4 py-3" onChange={(event) => onChange(event.target.value)} value={value} />
     </label>
   );
@@ -328,16 +359,19 @@ function SelectField({
   label,
   value,
   onChange,
-  options
+  options,
+  help
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   options: [string, string][];
+  help?: string;
 }) {
   return (
     <label className="grid gap-2">
       <span className="text-sm font-semibold text-brand-text">{label}</span>
+      {help ? <span className="text-sm leading-6 text-brand-muted">{help}</span> : null}
       <select
         className="rounded-2xl border border-slate-200 px-4 py-3"
         onChange={(event) => onChange(event.target.value)}
