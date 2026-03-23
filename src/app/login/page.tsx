@@ -4,10 +4,11 @@ import { HomeLink } from "@/components/navigation/HomeLink";
 export default function LoginPage({
   searchParams
 }: {
-  searchParams?: { mode?: string };
+  searchParams?: { mode?: string; role?: string };
 }) {
   const initialMode =
     searchParams?.mode === "signup" || searchParams?.mode === "magic" ? searchParams.mode : "signin";
+  const audience = searchParams?.role === "admin" ? "admin" : "member";
 
   return (
     <main className="min-h-screen bg-[linear-gradient(180deg,#123A69_0%,#0F2745_100%)] px-6 py-10">
@@ -18,16 +19,19 @@ export default function LoginPage({
             The Wire by SchoolAmplified
           </div>
           <h1 className="mt-4 max-w-3xl font-display text-6xl leading-none">
-            Secure access for school newsletter teams.
+            {audience === "admin"
+              ? "Admin access for multi-school implementation."
+              : "Secure access for school newsletter teams."}
           </h1>
           <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-200">
-            Existing members can sign in. New invited users can create an account with their signup
-            code and start working inside their school workspace.
+            {audience === "admin"
+              ? "Use this login for implementation and admin dashboard work across multiple schools."
+              : "Existing members can sign in. New invited users can create an account with their signup code and start working inside their school workspace."}
           </p>
         </section>
 
         <div className="flex justify-center lg:justify-end">
-          <LoginForm initialMode={initialMode} />
+          <LoginForm audience={audience} initialMode={initialMode} />
         </div>
       </div>
     </main>

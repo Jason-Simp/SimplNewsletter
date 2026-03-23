@@ -8,7 +8,13 @@ import { useAuthSession } from "@/lib/auth-client";
 
 type AuthMode = "signin" | "signup" | "magic";
 
-export function LoginForm({ initialMode = "signin" }: { initialMode?: AuthMode }) {
+export function LoginForm({
+  initialMode = "signin",
+  audience = "member"
+}: {
+  initialMode?: AuthMode;
+  audience?: "member" | "admin";
+}) {
   const router = useRouter();
   const { supabase, session } = useAuthSession();
   const [mode, setMode] = useState<AuthMode>(initialMode);
@@ -115,10 +121,18 @@ export function LoginForm({ initialMode = "signin" }: { initialMode?: AuthMode }
   };
 
   const heading =
-    mode === "signin" ? "Member login" : mode === "signup" ? "Create account" : "Email magic link";
+    mode === "signin"
+      ? audience === "admin"
+        ? "Admin dashboards"
+        : "Member login"
+      : mode === "signup"
+        ? "Create account"
+        : "Email magic link";
   const description =
     mode === "signin"
-      ? "Sign in with your existing member credentials."
+      ? audience === "admin"
+        ? "Sign in as an admin or implementer to manage multiple schools."
+        : "Sign in with your existing member credentials."
       : mode === "signup"
         ? "Use your invite code to create a member account for your school."
         : "Request a sign-in link by email if your account is already set up.";
