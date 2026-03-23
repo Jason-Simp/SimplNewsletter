@@ -212,11 +212,15 @@ async function maybeCompressFile(file: File, document: NewsletterDocument) {
   const imageConstraint = document.workspace.mediaConstraints.find((constraint) => constraint.type === "image");
   const maxSizeMB = imageConstraint?.compressionTargetMb ?? 1.5;
 
-  return imageCompression(file, {
-    maxSizeMB,
-    maxWidthOrHeight: 2200,
-    useWebWorker: true
-  });
+  try {
+    return await imageCompression(file, {
+      maxSizeMB,
+      maxWidthOrHeight: 2200,
+      useWebWorker: true
+    });
+  } catch {
+    return file;
+  }
 }
 
 function validateFile(file: File, document: NewsletterDocument) {

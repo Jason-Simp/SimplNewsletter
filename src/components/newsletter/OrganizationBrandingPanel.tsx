@@ -35,13 +35,10 @@ export function OrganizationBrandingPanel({
     try {
       setStatus("Uploading logo...");
 
-      const preparedFile = file.type.startsWith("image/") && shouldCompressImage(file)
-        ? await imageCompression(file, {
-            maxSizeMB: 1,
-            maxWidthOrHeight: 1800,
-            useWebWorker: true
-          })
-        : file;
+      const preparedFile =
+        file.type.startsWith("image/") && shouldCompressImage(file)
+          ? await compressLogo(file)
+          : file;
 
       const formData = new FormData();
       formData.append("file", preparedFile);
@@ -244,4 +241,16 @@ function normalizeHex(value: string) {
 
 function shouldCompressImage(file: File) {
   return !["image/gif", "image/svg+xml"].includes(file.type);
+}
+
+async function compressLogo(file: File) {
+  try {
+    return await imageCompression(file, {
+      maxSizeMB: 1,
+      maxWidthOrHeight: 1800,
+      useWebWorker: true
+    });
+  } catch {
+    return file;
+  }
 }

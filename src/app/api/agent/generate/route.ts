@@ -1,11 +1,22 @@
 import { NextResponse } from "next/server";
 
+import { generateNewsletterWithElevenLabs } from "@/lib/elevenlabs-generate";
 import { generateContentWithProvider } from "@/lib/integration-client";
+import type { ContentGenerateRequest } from "@/types/integration";
 
 export async function POST(request: Request) {
   try {
-    const payload = await request.json();
-    const result = await generateContentWithProvider(payload);
+    const payload = (await request.json()) as ContentGenerateRequest;
+    const result =
+      payload.generationProvider === "elevenlabs" &&
+      payload.assistantReference?.trim() &&
+      payload.integrationEndpoint?.trim()
+        ? await generateNewsletterWithElevenLabs({
+            agentId: payload.assistantReference.trim(),
+            apiKey: payload.integrationEndpoint.trim(),
+            prompt: `${payload.prompt}\n\nReturn only valid JSON with this shape: {"title":"...","intro":"...","sections":[{"sectionType":"top_story","title":"...","content":{}}]}`
+          })
+        : await generateContentWithProvider(payload);
 
     return NextResponse.json({
       status: "ok",
