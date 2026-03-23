@@ -23,6 +23,7 @@ export function MediaUploadPanel({ document }: Props) {
 
   const acceptedExtensions = useMemo(() => getAcceptedExtensions(document).join(","), [document]);
   const canUpload = Boolean(document.workspace.schoolId);
+  const imageUploads = assets.filter((asset) => asset.type.startsWith("image/")).length;
 
   const handleFiles = async (fileList: FileList | null) => {
     if (!fileList?.length) {
@@ -38,9 +39,17 @@ export function MediaUploadPanel({ document }: Props) {
     setMessage("Processing files...");
 
     const nextAssets: UploadedAsset[] = [];
+    let nextImageCount = imageUploads;
 
     try {
       for (const rawFile of Array.from(fileList)) {
+        if (rawFile.type.startsWith("image/")) {
+          if (nextImageCount >= 10) {
+            throw new Error("You can upload up to 10 photos per newsletter.");
+          }
+          nextImageCount += 1;
+        }
+
         const preparedFile = await maybeCompressFile(rawFile, document);
         const formData = new FormData();
         formData.append("file", preparedFile);
@@ -99,12 +108,20 @@ export function MediaUploadPanel({ document }: Props) {
         />
         <div className="font-semibold text-brand-text">Drop files here or click to upload</div>
         <div className="mt-2 text-sm leading-6 text-brand-muted">
-          Images up to 4 MB, MP3 up to 4 MB, MP4 up to 5 MB, PDF up to 4 MB. Images are compressed
-          before upload when possible.
+          Add up to 10 photos per newsletter. Use descriptive file names when you can so the system has
+          better clues about which images fit the story. Images are compressed automatically before upload.
+        </div>
+        <div className="mt-2 text-sm leading-6 text-brand-muted">
+          Images up to 4 MB, MP3 up to 4 MB, MP4 up to 5 MB, PDF up to 4 MB.
         </div>
         {!canUpload ? (
           <div className="mt-3 text-sm font-semibold text-red-600">
             School profile is still loading. Uploads will turn on in a moment.
+          </div>
+        ) : null}
+        {canUpload ? (
+          <div className="mt-3 text-sm font-semibold text-brand-text">
+            {imageUploads}/10 photos uploaded
           </div>
         ) : null}
       </label>

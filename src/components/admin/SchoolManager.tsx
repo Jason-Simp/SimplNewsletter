@@ -97,11 +97,6 @@ export function SchoolManager() {
     }
   }, [activeSchoolId, schools]);
 
-  const swatches = useMemo(
-    () => [form.primaryColor, form.secondaryColor, form.accentColor, form.backgroundColor],
-    [form]
-  );
-
   const updateField = (field: keyof SchoolProfile, value: string) => {
     setForm((current) => ({
       ...current,
@@ -147,22 +142,6 @@ export function SchoolManager() {
     setActiveSchoolId(saved.id);
     setForm(saved);
     setStatus("School profile saved.");
-  };
-
-  const pullColors = async () => {
-    try {
-      setStatus("Pulling colors from logo...");
-      const palette = await extractPaletteFromImage(form.logoUrl);
-      setForm((current) => ({
-        ...current,
-        primaryColor: palette.primary,
-        secondaryColor: palette.secondary,
-        accentColor: palette.accent
-      }));
-      setStatus("Logo colors matched.");
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Color extraction failed.");
-    }
   };
 
   const uploadLogo = async (file: File | null) => {
@@ -338,18 +317,12 @@ export function SchoolManager() {
           </div>
         </div>
 
-        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-[24px] bg-brand-background p-4">
-          <div>
-            <div className="font-semibold text-brand-text">Brand colors</div>
-            <div className="mt-1 text-sm text-brand-muted">Use logo colors or set exact hex values.</div>
+        <div className="mt-6 rounded-[24px] bg-brand-background p-4">
+          <div className="font-semibold text-brand-text">Brand colors</div>
+          <div className="mt-1 text-sm text-brand-muted">
+            Colors are pulled automatically from the uploaded logo. You can still change them here if you
+            want something different.
           </div>
-          <button
-            className="rounded-full bg-brand-secondary px-4 py-2 text-sm font-semibold uppercase tracking-[0.12em] text-white"
-            onClick={() => void pullColors()}
-            type="button"
-          >
-            Match logo colors
-          </button>
         </div>
 
         <div className="mt-4 rounded-[24px] border border-slate-200 p-5">
@@ -380,18 +353,6 @@ export function SchoolManager() {
           <ColorField label="Secondary" value={form.secondaryColor} onChange={(value) => updateField("secondaryColor", value)} />
           <ColorField label="Accent" value={form.accentColor} onChange={(value) => updateField("accentColor", value)} />
           <ColorField label="Background" value={form.backgroundColor} onChange={(value) => updateField("backgroundColor", value)} />
-        </div>
-
-        <div className="mt-6 rounded-[24px] border border-slate-200 p-4">
-          <div className="text-sm font-semibold text-brand-text">Live palette</div>
-          <div className="mt-3 flex flex-wrap gap-3">
-            {swatches.map((swatch) => (
-              <div key={swatch} className="flex items-center gap-3 rounded-full border border-slate-200 px-3 py-2">
-                <span className="h-6 w-6 rounded-full border border-slate-200" style={{ backgroundColor: swatch }} />
-                <span className="text-sm font-semibold text-brand-text">{swatch}</span>
-              </div>
-            ))}
-          </div>
         </div>
 
         <div className="mt-6">
