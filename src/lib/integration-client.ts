@@ -19,7 +19,7 @@ function getHeaders() {
 
 async function callIntegration<T>(path: string, body: unknown): Promise<T> {
   if (!serverConfig.hasIntegrationBridge) {
-    throw new Error("Integration bridge base URL is not configured.");
+    throw new Error("The newsletter writing connection is not set up yet.");
   }
 
   const controller = new AbortController();

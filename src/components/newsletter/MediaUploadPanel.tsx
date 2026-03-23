@@ -23,7 +23,8 @@ export function MediaUploadPanel({ document }: Props) {
 
   const acceptedExtensions = useMemo(() => getAcceptedExtensions(document).join(","), [document]);
   const canUpload = Boolean(document.workspace.schoolId);
-  const imageUploads = assets.filter((asset) => asset.type.startsWith("image/")).length;
+  const photoUploads = assets.filter((asset) => asset.type.startsWith("image/")).length;
+  const otherUploads = assets.filter((asset) => !asset.type.startsWith("image/")).length;
 
   const handleFiles = async (fileList: FileList | null) => {
     if (!fileList?.length) {
@@ -39,7 +40,7 @@ export function MediaUploadPanel({ document }: Props) {
     setMessage("Processing files...");
 
     const nextAssets: UploadedAsset[] = [];
-    let nextImageCount = imageUploads;
+    let nextImageCount = photoUploads;
 
     try {
       for (const rawFile of Array.from(fileList)) {
@@ -72,7 +73,7 @@ export function MediaUploadPanel({ document }: Props) {
       }
 
       setAssets((current) => [...nextAssets, ...current]);
-      setMessage("Uploads processed.");
+      setMessage(nextAssets.length === 1 ? "1 file uploaded." : `${nextAssets.length} files uploaded.`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Upload failed.";
       setMessage(errorMessage);
@@ -127,7 +128,8 @@ export function MediaUploadPanel({ document }: Props) {
         ) : null}
         {canUpload ? (
           <div className="mt-3 text-sm font-semibold text-brand-text">
-            {imageUploads}/10 photos uploaded
+            {photoUploads}/10 photos uploaded
+            {otherUploads > 0 ? ` · ${otherUploads} other file${otherUploads === 1 ? "" : "s"} uploaded` : ""}
           </div>
         ) : null}
       </label>
