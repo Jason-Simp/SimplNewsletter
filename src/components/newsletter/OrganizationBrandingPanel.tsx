@@ -58,8 +58,21 @@ export function OrganizationBrandingPanel({
         throw new Error(payload?.message ?? "Unable to upload logo.");
       }
 
-      onOrganizationFieldChange("logoUrl", payload.data.url ?? document.organization.logoUrl);
+      const nextLogoUrl = payload.data.url ?? document.organization.logoUrl;
+      onOrganizationFieldChange("logoUrl", nextLogoUrl);
       setStatus("Logo uploaded.");
+
+      try {
+        const localPreviewUrl = URL.createObjectURL(file);
+        const palette = await extractPaletteFromImage(localPreviewUrl);
+        URL.revokeObjectURL(localPreviewUrl);
+        onOrganizationColorChange("primary", palette.primary);
+        onOrganizationColorChange("secondary", palette.secondary);
+        onOrganizationColorChange("accent", palette.accent);
+        setStatus("Logo uploaded and colors updated.");
+      } catch {
+        setStatus("Logo uploaded.");
+      }
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Logo upload failed.");
     }

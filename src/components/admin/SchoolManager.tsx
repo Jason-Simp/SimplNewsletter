@@ -190,15 +190,23 @@ export function SchoolManager() {
         logoUrl: nextLogoUrl
       }));
       setLogoStatus("Logo uploaded.");
-      const palette = await extractPaletteFromImage(nextLogoUrl);
-      setForm((current) => ({
-        ...current,
-        logoUrl: nextLogoUrl,
-        primaryColor: palette.primary,
-        secondaryColor: palette.secondary,
-        accentColor: palette.accent
-      }));
-      showNotice("Logo uploaded and colors updated.", "success");
+
+      try {
+        const localPreviewUrl = URL.createObjectURL(file);
+        const palette = await extractPaletteFromImage(localPreviewUrl);
+        URL.revokeObjectURL(localPreviewUrl);
+
+        setForm((current) => ({
+          ...current,
+          logoUrl: nextLogoUrl,
+          primaryColor: palette.primary,
+          secondaryColor: palette.secondary,
+          accentColor: palette.accent
+        }));
+        showNotice("Logo uploaded and colors updated.", "success");
+      } catch {
+        showNotice("Logo uploaded.", "success");
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Logo upload failed.";
       setLogoStatus(message);
