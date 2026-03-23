@@ -23,6 +23,7 @@ type SchoolRow = {
   muted_text_color: string;
   publish_mode: "instant" | "approval";
   agent_id: string | null;
+  agent_api: string | null;
   archive_days: number;
   users_managed_by_school: boolean;
   vector_provider: "supabase" | "openai" | "none";
@@ -101,7 +102,7 @@ function toDocument(
       knowledgeProvider: school.vector_provider,
       syncProvider: school.agent_id ? "elevenlabs" : "none",
       assistantReference: school.agent_id ?? "",
-      integrationEndpoint: "",
+      integrationEndpoint: school.agent_api ?? "",
       encryptedKnowledgeRef:
         school.encrypted_project_code && secret
           ? decryptProjectCode(school.encrypted_project_code, secret)
@@ -209,6 +210,7 @@ export async function saveNewsletter(document: NewsletterDocument) {
     muted_text_color: document.organization.colors.muted,
     publish_mode: document.workspace.publishMode,
     agent_id: document.workspace.assistantReference ?? null,
+    agent_api: document.workspace.integrationEndpoint ?? null,
     archive_days: document.workspace.archiveDays,
     users_managed_by_school: document.workspace.usersManagedBySchool,
     vector_provider: document.workspace.knowledgeProvider,

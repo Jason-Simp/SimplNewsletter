@@ -226,7 +226,11 @@ function validateFile(file: File, document: NewsletterDocument) {
   );
 
   if (!constraint) {
-    throw new Error(`Unsupported file type: ${file.name}`);
+    const supportedTypes = document.workspace.mediaConstraints
+      .flatMap((candidate) => candidate.extensions)
+      .map((candidate) => candidate.toUpperCase())
+      .join(", ");
+    throw new Error(`"${file.name}" is not supported. Use: ${supportedTypes}.`);
   }
 
   const sizeMb = file.size / (1024 * 1024);

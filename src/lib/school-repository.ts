@@ -62,7 +62,7 @@ export async function listSchools() {
     knowledgeProvider: school.vector_provider,
     syncProvider: (school.agent_id ? "elevenlabs" : "none"),
     assistantReference: school.agent_id ?? "",
-    integrationEndpoint: "",
+    integrationEndpoint: school.agent_api ?? "",
     encryptedKnowledgeRef:
       school.encrypted_project_code && secret
         ? decryptProjectCode(school.encrypted_project_code, secret)
@@ -96,6 +96,7 @@ export async function saveSchool(profile: SchoolProfile) {
       text_color: profile.textColor,
       publish_mode: profile.publishMode,
       agent_id: profile.assistantReference,
+      agent_api: profile.integrationEndpoint,
       vector_provider: profile.knowledgeProvider,
       encrypted_project_code:
         profile.encryptedKnowledgeRef && secret
@@ -128,7 +129,7 @@ export async function saveSchool(profile: SchoolProfile) {
     knowledgeProvider: profile.knowledgeProvider,
     syncProvider: profile.syncProvider,
     assistantReference: data.agent_id ?? "",
-    integrationEndpoint: profile.integrationEndpoint,
+    integrationEndpoint: data.agent_api ?? "",
     encryptedKnowledgeRef: profile.encryptedKnowledgeRef
   } satisfies SchoolProfile;
 }
