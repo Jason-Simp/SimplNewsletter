@@ -406,7 +406,7 @@ export function SchoolManager() {
             <label className="rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white">
               Upload logo
               <input
-                accept=".png,.jpg,.jpeg,.svg,.webp"
+                accept=".png,.jpg,.jpeg,.gif,.svg,.webp"
                 className="hidden"
                 onChange={(event) => void uploadLogo(event.target.files?.[0] ?? null)}
                 type="file"

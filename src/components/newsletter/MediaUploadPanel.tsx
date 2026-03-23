@@ -167,6 +167,10 @@ async function maybeCompressFile(file: File, document: NewsletterDocument) {
 
   validateFile(file, document);
 
+  if (["image/gif", "image/svg+xml"].includes(file.type)) {
+    return file;
+  }
+
   const imageConstraint = document.workspace.mediaConstraints.find((constraint) => constraint.type === "image");
   const maxSizeMB = imageConstraint?.compressionTargetMb ?? 1.5;
 

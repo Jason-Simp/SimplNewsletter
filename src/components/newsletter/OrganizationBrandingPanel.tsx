@@ -35,7 +35,7 @@ export function OrganizationBrandingPanel({
     try {
       setStatus("Uploading logo...");
 
-      const preparedFile = file.type.startsWith("image/")
+      const preparedFile = file.type.startsWith("image/") && shouldCompressImage(file)
         ? await imageCompression(file, {
             maxSizeMB: 1,
             maxWidthOrHeight: 1800,
@@ -108,7 +108,12 @@ export function OrganizationBrandingPanel({
           </div>
 
           <label className="block rounded-[24px] border border-dashed border-brand-primary/30 bg-brand-background p-5">
-            <input className="hidden" onChange={(event) => void handleLogoUpload(event.target.files)} type="file" accept=".png,.jpg,.jpeg,.webp,.svg" />
+            <input
+              accept=".png,.jpg,.jpeg,.gif,.webp,.svg"
+              className="hidden"
+              onChange={(event) => void handleLogoUpload(event.target.files)}
+              type="file"
+            />
             <div className="font-semibold text-brand-text">Upload school logo</div>
             <div className="mt-2 text-sm leading-6 text-brand-muted">
               Upload a logo image. The app will compress it and save it as the school brand asset.
@@ -222,4 +227,8 @@ function normalizeHex(value: string) {
   }
 
   return value;
+}
+
+function shouldCompressImage(file: File) {
+  return !["image/gif", "image/svg+xml"].includes(file.type);
 }
