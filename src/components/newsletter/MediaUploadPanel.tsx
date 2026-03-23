@@ -86,7 +86,7 @@ export function MediaUploadPanel({ document }: Props) {
       <div className="flex items-end justify-between gap-4">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Media</p>
-          <h2 className="mt-2 font-display text-3xl text-brand-navy">Upload and compress assets</h2>
+          <h2 className="mt-2 font-display text-3xl text-brand-navy">Add photos and files</h2>
         </div>
         <div
           className={`rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] ${
@@ -106,10 +106,16 @@ export function MediaUploadPanel({ document }: Props) {
           onChange={(event) => void handleFiles(event.target.files)}
           type="file"
         />
-        <div className="font-semibold text-brand-text">Drop files here or click to upload</div>
+        <div className="font-semibold text-brand-text">Add up to 10 photos for this newsletter</div>
         <div className="mt-2 text-sm leading-6 text-brand-muted">
           Add up to 10 photos per newsletter. Use descriptive file names when you can so the system has
           better clues about which images fit the story. Images are compressed automatically before upload.
+        </div>
+        <div className="mt-2 text-sm leading-6 text-brand-muted">
+          Example file names: `football-team.jpg`, `spring-concert-stage.jpg`, `science-fair-winners.png`.
+        </div>
+        <div className="mt-2 text-sm leading-6 text-brand-muted">
+          The system will choose the images that best fit the newsletter it builds.
         </div>
         <div className="mt-2 text-sm leading-6 text-brand-muted">
           Images up to 4 MB, MP3 up to 4 MB, MP4 up to 5 MB, PDF up to 4 MB.
