@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { generateNewsletterWithElevenLabs } from "@/lib/elevenlabs-generate";
 import { generateContentWithProvider } from "@/lib/integration-client";
+import { buildNewsletterGenerationPrompt } from "@/lib/newsletter-generation-prompt";
 import { getSchoolById } from "@/lib/school-repository";
 import type { ContentGenerateRequest } from "@/types/integration";
 
@@ -18,6 +19,15 @@ export async function POST(request: Request) {
       payload.generationProvider === "none" && schoolProfile?.generationProvider
         ? schoolProfile.generationProvider
         : payload.generationProvider;
+    const generationPrompt = buildNewsletterGenerationPrompt({
+      ...payload,
+      schoolName: payload.schoolName || schoolProfile?.name || "the school"
+    });
+    const generationRequest: ContentGenerateRequest = {
+      ...payload,
+      schoolName: payload.schoolName || schoolProfile?.name || "the school",
+      prompt: generationPrompt
+    };
 
     const result =
       resolvedGenerationProvider === "elevenlabs" &&
@@ -26,9 +36,9 @@ export async function POST(request: Request) {
         ? await generateNewsletterWithElevenLabs({
             agentId: resolvedAssistantReference,
             apiKey: resolvedIntegrationEndpoint,
-            prompt: `${payload.prompt}\n\nReturn only valid JSON with this shape: {"title":"...","intro":"...","sections":[{"sectionType":"top_story","title":"...","content":{}}]}`
+            prompt: generationPrompt
           })
-        : await generateContentWithProvider(payload);
+        : await generateContentWithProvider(generationRequest);
 
     return NextResponse.json({
       status: "ok",
