@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAuthSession } from "@/lib/auth-client";
 import { buildSteps, sampleNewsletter } from "@/lib/sample-data";
 import type { ContentGenerateResponse } from "@/types/integration";
+import type { UploadedAsset } from "@/types/media";
 import type { Channel } from "@/types/newsletter";
 import type { SchoolProfile } from "@/types/school";
 import { AssistantEmbedPanel } from "@/components/newsletter/AssistantEmbedPanel";
@@ -31,6 +32,7 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
     "Fill in the form, then continue and the system will write the first draft for you."
   );
   const [quickNotes, setQuickNotes] = useState("");
+  const [uploadedAssets, setUploadedAssets] = useState<UploadedAsset[]>([]);
   const initialLoadComplete = useRef(false);
   const stepList = isQuickMode
     ? buildSteps.filter((step) => ["setup", "review", "distribution"].includes(step.id))
@@ -83,13 +85,56 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
 
   const applyGeneratedDraft = (generated: ContentGenerateResponse) => {
     const generatedSectionTypes = new Set(generated.sections?.map((item) => item.sectionType) ?? []);
+    const fallbackTitle = getGeneratedTitle(generated, quickNotes);
+    const fallbackIntro = getGeneratedIntro(generated, quickNotes);
+    const firstUploadedImage = uploadedAssets.find(
+      (asset) => asset.type.startsWith("image/") && asset.url
+    )?.url;
 
     setDocument((current) => ({
       ...current,
-      title: generated.title || current.title,
-      intro: generated.intro || current.intro,
+      title: fallbackTitle,
+      intro: fallbackIntro,
       sections: current.sections.map((section) => {
         const nextSection = generated.sections?.find((item) => item.sectionType === section.type);
+
+        if (section.type === "hero") {
+          return {
+            ...section,
+            enabled: true,
+            content: {
+              ...section.content,
+              eyebrow: current.organization.name,
+              headline: nextSection?.title || fallbackTitle,
+              body:
+                typeof nextSection?.content?.body === "string"
+                  ? nextSection.content.body
+                  : fallbackIntro,
+              heroImage:
+                typeof nextSection?.content?.heroImage === "string"
+                  ? nextSection.content.heroImage
+                  : firstUploadedImage || (section.content as { heroImage?: string }).heroImage,
+              stats: Array.isArray(nextSection?.content?.stats) ? nextSection.content.stats : []
+            }
+          };
+        }
+
+        if (section.type === "top_story" && !nextSection) {
+          return {
+            ...section,
+            enabled: true,
+            content: {
+              ...section.content,
+              headline: fallbackTitle,
+              summary:
+                typeof generated.raw === "string" && generated.raw.trim()
+                  ? generated.raw.trim()
+                  : fallbackIntro,
+              url: "#",
+              image: firstUploadedImage || (section.content as { image?: string }).image
+            }
+          };
+        }
 
         if (!nextSection) {
           return section;
@@ -101,11 +146,14 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
           enabled: true,
           content: {
             ...section.content,
-            ...nextSection.content
+            ...nextSection.content,
+            ...(section.type === "top_story" && firstUploadedImage
+              ? { image: firstUploadedImage }
+              : {})
           }
         };
       }).map((section) => {
-        if (["hero", "quote_or_mission", "footer"].includes(section.type)) {
+        if (["hero", "footer"].includes(section.type)) {
           return section;
         }
 
@@ -431,7 +479,7 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
                       />
                     </label>
 
-                    <MediaUploadPanel document={document} />
+                    <MediaUploadPanel document={document} onAssetsChange={setUploadedAssets} />
 
                     <div
                       className={`rounded-[24px] p-4 text-sm leading-6 ${
@@ -672,4 +720,37 @@ function getStepInstruction(stepId: string) {
     default:
       return "Complete this step, then move to the next one.";
   }
+}
+
+function getGeneratedTitle(generated: ContentGenerateResponse, quickNotes: string) {
+  const title = generated.title?.trim();
+
+  if (title && title.toLowerCase() !== "generated newsletter draft") {
+    return title;
+  }
+
+  const firstSentence = quickNotes
+    .split(/[.!?]/)
+    .map((part) => part.trim())
+    .find(Boolean);
+
+  if (!firstSentence) {
+    return "School newsletter";
+  }
+
+  return firstSentence.length > 90 ? `${firstSentence.slice(0, 87).trim()}...` : firstSentence;
+}
+
+function getGeneratedIntro(generated: ContentGenerateResponse, quickNotes: string) {
+  const intro = generated.intro?.trim();
+
+  if (intro && intro.toLowerCase() !== "generated newsletter draft") {
+    return intro;
+  }
+
+  if (typeof generated.raw === "string" && generated.raw.trim()) {
+    return generated.raw.trim();
+  }
+
+  return quickNotes.trim();
 }

@@ -8,6 +8,7 @@ import type { UploadedAsset } from "@/types/media";
 
 type Props = {
   document: NewsletterDocument;
+  onAssetsChange?: (assets: UploadedAsset[]) => void;
 };
 
 function getAcceptedExtensions(document: NewsletterDocument) {
@@ -46,7 +47,7 @@ function getAcceptedExtensions(document: NewsletterDocument) {
   return [...accepted];
 }
 
-export function MediaUploadPanel({ document }: Props) {
+export function MediaUploadPanel({ document, onAssetsChange }: Props) {
   const [assets, setAssets] = useState<UploadedAsset[]>([]);
   const [message, setMessage] = useState("No uploads yet.");
   const [uploading, setUploading] = useState(false);
@@ -102,7 +103,11 @@ export function MediaUploadPanel({ document }: Props) {
         nextAssets.push(payload.data as UploadedAsset);
       }
 
-      setAssets((current) => [...nextAssets, ...current]);
+      setAssets((current) => {
+        const mergedAssets = [...nextAssets, ...current];
+        onAssetsChange?.(mergedAssets);
+        return mergedAssets;
+      });
       setMessage(nextAssets.length === 1 ? "1 file uploaded." : `${nextAssets.length} files uploaded.`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Upload failed.";
