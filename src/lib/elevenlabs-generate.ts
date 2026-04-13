@@ -48,9 +48,9 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
       if (!resolved) {
         resolved = true;
         socket.close();
-        reject(new Error("The assistant took too long to respond."));
+        reject(new Error("The assistant took too long to respond. Please try again in a moment."));
       }
-    }, 45000);
+    }, 20000);
 
     const finish = (callback: () => void) => {
       if (!resolved) {
@@ -113,12 +113,16 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
     });
 
     socket.on("error", () => {
-      finish(() => reject(new Error("Unable to connect to the ElevenLabs assistant.")));
+      finish(() =>
+        reject(new Error("Unable to connect to the school's writing agent right now."))
+      );
     });
 
     socket.on("close", () => {
       if (!resolved) {
-        finish(() => reject(new Error("The ElevenLabs assistant closed the conversation too early.")));
+        finish(() =>
+          reject(new Error("The school's writing agent closed the conversation too early."))
+        );
       }
     });
   });

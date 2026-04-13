@@ -6,6 +6,8 @@ import { buildNewsletterGenerationPrompt } from "@/lib/newsletter-generation-pro
 import { getSchoolById } from "@/lib/school-repository";
 import type { ContentGenerateRequest } from "@/types/integration";
 
+export const runtime = "nodejs";
+
 export async function POST(request: Request) {
   try {
     const payload = (await request.json()) as ContentGenerateRequest;
@@ -28,11 +30,22 @@ export async function POST(request: Request) {
       schoolName: payload.schoolName || schoolProfile?.name || "the school",
       prompt: generationPrompt
     };
+    const hasElevenLabsConnection = Boolean(
+      resolvedAssistantReference.trim() && resolvedIntegrationEndpoint.trim()
+    );
+
+    if (!hasElevenLabsConnection && resolvedGenerationProvider === "elevenlabs") {
+      return NextResponse.json(
+        {
+          status: "error",
+          message: "Save the school's Agent ID and Agent API on the school profile before creating a newsletter."
+        },
+        { status: 400 }
+      );
+    }
 
     const result =
-      resolvedGenerationProvider === "elevenlabs" &&
-      resolvedAssistantReference &&
-      resolvedIntegrationEndpoint
+      hasElevenLabsConnection
         ? await generateNewsletterWithElevenLabs({
             agentId: resolvedAssistantReference,
             apiKey: resolvedIntegrationEndpoint,

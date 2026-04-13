@@ -224,10 +224,7 @@ async function maybeCompressFile(file: File, document: NewsletterDocument) {
 }
 
 function validateFile(file: File, document: NewsletterDocument) {
-  const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
-  const constraint = document.workspace.mediaConstraints.find((candidate) =>
-    candidate.extensions.includes(extension)
-  );
+  const constraint = findConstraintForFile(file, document);
 
   if (!constraint) {
     const supportedTypes = document.workspace.mediaConstraints
@@ -241,4 +238,33 @@ function validateFile(file: File, document: NewsletterDocument) {
   if (sizeMb > constraint.maxSizeMb) {
     throw new Error(`${file.name} exceeds the ${constraint.maxSizeMb} MB limit.`);
   }
+}
+
+function findConstraintForFile(file: File, document: NewsletterDocument) {
+  const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+  const byExtension = document.workspace.mediaConstraints.find((candidate) =>
+    candidate.extensions.includes(extension)
+  );
+
+  if (byExtension) {
+    return byExtension;
+  }
+
+  if (file.type.startsWith("image/")) {
+    return document.workspace.mediaConstraints.find((candidate) => candidate.type === "image");
+  }
+
+  if (file.type.startsWith("audio/")) {
+    return document.workspace.mediaConstraints.find((candidate) => candidate.type === "audio");
+  }
+
+  if (file.type.startsWith("video/")) {
+    return document.workspace.mediaConstraints.find((candidate) => candidate.type === "video");
+  }
+
+  if (file.type === "application/pdf") {
+    return document.workspace.mediaConstraints.find((candidate) => candidate.type === "document");
+  }
+
+  return null;
 }
