@@ -126,7 +126,7 @@ export function SchoolManager() {
       body: JSON.stringify({
         ...form,
         generationProvider: "elevenlabs",
-        knowledgeProvider: "elevenlabs",
+        knowledgeProvider: "none",
         syncProvider: "elevenlabs"
       })
     });

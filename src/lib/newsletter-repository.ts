@@ -5,6 +5,10 @@ import { sampleNewsletter } from "@/lib/sample-data";
 import { getServiceSupabase } from "@/lib/supabase/server";
 import type { Channel, NewsletterDocument, NewsletterSection } from "@/types/newsletter";
 
+function normalizeVectorProvider(value: NewsletterDocument["workspace"]["knowledgeProvider"]) {
+  return value === "supabase" || value === "openai" ? value : "none";
+}
+
 type SchoolRow = {
   id: string;
   name: string;
@@ -213,7 +217,7 @@ export async function saveNewsletter(document: NewsletterDocument) {
     agent_api: document.workspace.integrationEndpoint ?? null,
     archive_days: document.workspace.archiveDays,
     users_managed_by_school: document.workspace.usersManagedBySchool,
-    vector_provider: document.workspace.knowledgeProvider,
+    vector_provider: normalizeVectorProvider(document.workspace.knowledgeProvider),
     encrypted_project_code:
       document.workspace.encryptedKnowledgeRef && secret
         ? encryptProjectCode(document.workspace.encryptedKnowledgeRef, secret)

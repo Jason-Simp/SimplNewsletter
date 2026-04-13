@@ -3,6 +3,10 @@ import { decryptProjectCode, encryptProjectCode } from "@/lib/crypto";
 import { getServiceSupabase } from "@/lib/supabase/server";
 import type { SchoolProfile } from "@/types/school";
 
+function normalizeVectorProvider(value: SchoolProfile["knowledgeProvider"]) {
+  return value === "supabase" || value === "openai" ? value : "none";
+}
+
 const fallbackSchools: SchoolProfile[] = [
   {
     id: "demo-school-1",
@@ -139,7 +143,7 @@ export async function saveSchool(profile: SchoolProfile) {
       publish_mode: profile.publishMode,
       agent_id: profile.assistantReference,
       agent_api: profile.integrationEndpoint,
-      vector_provider: profile.knowledgeProvider,
+      vector_provider: normalizeVectorProvider(profile.knowledgeProvider),
       encrypted_project_code:
         profile.encryptedKnowledgeRef && secret
           ? encryptProjectCode(profile.encryptedKnowledgeRef, secret)

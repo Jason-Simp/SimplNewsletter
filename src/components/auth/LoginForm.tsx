@@ -47,8 +47,17 @@ export function LoginForm({
       return;
     }
 
-    setStatus("Signed in.");
-    setRedirectTarget("/admin");
+    try {
+      const response = await fetch(`/api/members/me?email=${encodeURIComponent(email.trim().toLowerCase())}`);
+      const payload = response.ok ? await response.json() : null;
+      const hasMember = Boolean(payload?.data);
+
+      setStatus("Signed in.");
+      setRedirectTarget(hasMember ? "/admin" : "/setup");
+    } catch {
+      setStatus("Signed in.");
+      setRedirectTarget("/setup");
+    }
   };
 
   const sendMagicLink = async () => {
