@@ -213,14 +213,27 @@ async function maybeCompressFile(file: File, document: NewsletterDocument) {
   const maxSizeMB = imageConstraint?.compressionTargetMb ?? 1.5;
 
   try {
-    return await imageCompression(file, {
+    const compressed = await imageCompression(file, {
       maxSizeMB,
       maxWidthOrHeight: 2200,
       useWebWorker: true
     });
+
+    return preserveOriginalFileName(compressed, file);
   } catch {
     return file;
   }
+}
+
+function preserveOriginalFileName(candidate: File | Blob, originalFile: File) {
+  if (candidate instanceof File && candidate.name && candidate.name !== "blob") {
+    return candidate;
+  }
+
+  return new File([candidate], originalFile.name, {
+    type: candidate.type || originalFile.type,
+    lastModified: originalFile.lastModified
+  });
 }
 
 function validateFile(file: File, document: NewsletterDocument) {
