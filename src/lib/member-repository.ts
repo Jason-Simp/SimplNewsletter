@@ -107,6 +107,60 @@ export async function saveMember(member: Omit<MemberRecord, "id" | "schoolName">
   } satisfies MemberRecord;
 }
 
+export async function updateMember(member: Omit<MemberRecord, "schoolName">) {
+  const supabase = getServiceSupabase();
+
+  if (!supabase) {
+    return {
+      ...member,
+      schoolName: "Demo School"
+    } satisfies MemberRecord;
+  }
+
+  const { data, error } = await supabase
+    .from("school_users")
+    .update({
+      school_id: member.schoolId,
+      email: member.email,
+      full_name: member.fullName,
+      role: member.role,
+      is_active: member.isActive
+    })
+    .eq("id", member.id)
+    .select("id,school_id,email,full_name,role,is_active,schools(name)")
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message ?? "Unable to update member.");
+  }
+
+  return {
+    id: (data as MemberRow).id,
+    schoolId: (data as MemberRow).school_id,
+    schoolName: resolveSchoolName((data as MemberRow).schools),
+    email: (data as MemberRow).email,
+    fullName: (data as MemberRow).full_name ?? "",
+    role: (data as MemberRow).role,
+    isActive: (data as MemberRow).is_active
+  } satisfies MemberRecord;
+}
+
+export async function deleteMember(memberId: string) {
+  const supabase = getServiceSupabase();
+
+  if (!supabase) {
+    return { success: true };
+  }
+
+  const { error } = await supabase.from("school_users").delete().eq("id", memberId);
+
+  if (error) {
+    throw new Error(error.message || "Unable to remove member.");
+  }
+
+  return { success: true };
+}
+
 export async function inviteMember(input: Omit<MemberRecord, "id" | "schoolName">) {
   const supabase = getServiceSupabase();
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { ActionNotice } from "@/components/ui/ActionNotice";
 import { useAuthSession } from "@/lib/auth-client";
 import type { MemberRecord } from "@/types/member";
 import type { SchoolProfile } from "@/types/school";
@@ -16,6 +17,8 @@ export function MemberManager() {
   const [role, setRole] = useState<"school_admin" | "editor">("editor");
   const [schoolId, setSchoolId] = useState("");
   const [member, setMember] = useState<MemberRecord | null>(null);
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ message: string; tone: "success" | "error" | "info" } | null>(null);
 
   useEffect(() => {
     async function loadMember() {
@@ -63,15 +66,28 @@ export function MemberManager() {
     }
   }, [member, session?.user?.email]);
 
-  const inviteMember = async () => {
-    setStatus("Saving member...");
+  const resetForm = () => {
+    setEditingMemberId(null);
+    setEmail("");
+    setFullName("");
+    setRole("editor");
+    setSchoolId(schools[0]?.id ?? member?.schoolId ?? "");
+  };
+
+  const showNotice = (message: string, tone: "success" | "error" | "info") => {
+    setNotice({ message, tone });
+  };
+
+  const saveOrUpdateMember = async () => {
+    setStatus(editingMemberId ? "Updating member..." : "Saving member...");
 
     const response = await fetch("/api/members", {
-      method: "POST",
+      method: editingMemberId ? "PUT" : "POST",
       headers: {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
+        id: editingMemberId,
         schoolId,
         email,
         fullName,
@@ -83,19 +99,74 @@ export function MemberManager() {
     const payload = await response.json();
 
     if (!response.ok) {
-      setStatus(payload?.message ?? "Unable to save member.");
+      const message = payload?.message ?? "Unable to save member.";
+      setStatus(message);
+      showNotice(message, "error");
       return;
     }
 
     setMembers((current) => [payload.data, ...current.filter((item) => item.id !== payload.data.id)]);
-    setEmail("");
-    setFullName("");
-    setRole("editor");
-    setStatus("Member saved.");
+    resetForm();
+    const message = editingMemberId ? "Member updated." : "Member saved.";
+    setStatus(message);
+    showNotice(message, "success");
+  };
+
+  const startEdit = (memberToEdit: MemberRecord) => {
+    setEditingMemberId(memberToEdit.id);
+    setEmail(memberToEdit.email);
+    setFullName(memberToEdit.fullName);
+    setRole(memberToEdit.role === "company_admin" ? "school_admin" : memberToEdit.role);
+    setSchoolId(memberToEdit.schoolId);
+    setStatus("Editing member.");
+  };
+
+  const removeMember = async (memberToRemove: MemberRecord) => {
+    if (memberToRemove.email === session?.user?.email) {
+      const message = "You cannot remove the account you are currently using.";
+      setStatus(message);
+      showNotice(message, "error");
+      return;
+    }
+
+    const confirmed = window.confirm(`Remove ${memberToRemove.email} from this school?`);
+
+    if (!confirmed) {
+      return;
+    }
+
+    setStatus("Removing member...");
+
+    const response = await fetch("/api/members", {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        id: memberToRemove.id
+      })
+    });
+
+    const payload = await response.json();
+
+    if (!response.ok) {
+      const message = payload?.message ?? "Unable to remove member.";
+      setStatus(message);
+      showNotice(message, "error");
+      return;
+    }
+
+    setMembers((current) => current.filter((item) => item.id !== memberToRemove.id));
+    if (editingMemberId === memberToRemove.id) {
+      resetForm();
+    }
+    setStatus("Member removed.");
+    showNotice("Member removed.", "success");
   };
 
   return (
     <section className="grid gap-6">
+      {notice ? <ActionNotice message={notice.message} onDismiss={() => setNotice(null)} tone={notice.tone} /> : null}
       <div>
         <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Members</div>
         <h1 className="mt-2 font-display text-4xl text-brand-navy">Login and access</h1>
@@ -108,7 +179,9 @@ export function MemberManager() {
 
       <div className="grid gap-4 md:grid-cols-2">
         <article className="rounded-editorial border border-slate-200 bg-[#F7F9FC] p-6">
-          <div className="text-sm font-semibold text-brand-text">Invite member</div>
+          <div className="text-sm font-semibold text-brand-text">
+            {editingMemberId ? "Edit member" : "Invite member"}
+          </div>
           <div className="mt-4 grid gap-3">
             <input
               className="rounded-2xl border border-slate-200 px-4 py-3"
@@ -144,10 +217,19 @@ export function MemberManager() {
             </select>
             <button
               className="rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white"
-              onClick={() => void inviteMember()}
+              onClick={() => void saveOrUpdateMember()}
             >
-              Save member
+              {editingMemberId ? "Update member" : "Save member"}
             </button>
+            {editingMemberId ? (
+              <button
+                className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
+                onClick={resetForm}
+                type="button"
+              >
+                Cancel edit
+              </button>
+            ) : null}
             <div className="rounded-2xl bg-white px-4 py-3 text-sm text-brand-muted">{status}</div>
           </div>
         </article>
@@ -157,13 +239,33 @@ export function MemberManager() {
           <div className="mt-4 grid gap-3">
             {members.map((member) => (
               <div key={member.id} className="rounded-2xl border border-slate-200 px-4 py-4">
-                <div className="font-semibold text-brand-text">{member.email}</div>
-                <div className="mt-1 text-sm text-brand-muted">
-                  {member.role} · {member.schoolName}
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="font-semibold text-brand-text">{member.email}</div>
+                    <div className="mt-1 text-sm text-brand-muted">
+                      {member.role} · {member.schoolName}
+                    </div>
+                    {member.fullName ? (
+                      <div className="mt-1 text-sm text-brand-muted">{member.fullName}</div>
+                    ) : null}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-brand-text"
+                      onClick={() => startEdit(member)}
+                      type="button"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className="rounded-full bg-brand-secondary px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white"
+                      onClick={() => void removeMember(member)}
+                      type="button"
+                    >
+                      Remove
+                    </button>
+                  </div>
                 </div>
-                {member.fullName ? (
-                  <div className="mt-1 text-sm text-brand-muted">{member.fullName}</div>
-                ) : null}
               </div>
             ))}
           </div>
