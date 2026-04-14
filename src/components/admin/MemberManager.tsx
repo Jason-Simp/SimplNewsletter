@@ -16,6 +16,7 @@ export function MemberManager() {
   const [fullName, setFullName] = useState("");
   const [role, setRole] = useState<"school_admin" | "editor">("editor");
   const [schoolId, setSchoolId] = useState("");
+  const [isActive, setIsActive] = useState(true);
   const [member, setMember] = useState<MemberRecord | null>(null);
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ message: string; tone: "success" | "error" | "info" } | null>(null);
@@ -71,6 +72,7 @@ export function MemberManager() {
     setEmail("");
     setFullName("");
     setRole("editor");
+    setIsActive(true);
     setSchoolId(schools[0]?.id ?? member?.schoolId ?? "");
   };
 
@@ -92,7 +94,7 @@ export function MemberManager() {
         email,
         fullName,
         role,
-        isActive: true
+        isActive
       })
     });
 
@@ -117,6 +119,7 @@ export function MemberManager() {
     setEmail(memberToEdit.email);
     setFullName(memberToEdit.fullName);
     setRole(memberToEdit.role === "company_admin" ? "school_admin" : memberToEdit.role);
+    setIsActive(memberToEdit.isActive);
     setSchoolId(memberToEdit.schoolId);
     setStatus("Editing member.");
   };
@@ -162,6 +165,41 @@ export function MemberManager() {
     }
     setStatus("Member removed.");
     showNotice("Member removed.", "success");
+  };
+
+  const runMemberAction = async (action: "password_reset" | "resend_invite") => {
+    if (!editingMemberId || !email.trim()) {
+      const message = "Open a member first so we know which account to manage.";
+      setStatus(message);
+      showNotice(message, "error");
+      return;
+    }
+
+    setStatus(action === "password_reset" ? "Sending password reset..." : "Resending invite...");
+
+    const response = await fetch("/api/members/actions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        action,
+        email
+      })
+    });
+
+    const payload = await response.json();
+
+    if (!response.ok) {
+      const message = payload?.message ?? "Unable to complete that member action.";
+      setStatus(message);
+      showNotice(message, "error");
+      return;
+    }
+
+    const message = payload?.message ?? "Member action completed.";
+    setStatus(message);
+    showNotice(message, "success");
   };
 
   return (
@@ -215,6 +253,14 @@ export function MemberManager() {
               <option value="school_admin">school_admin</option>
               <option value="editor">editor</option>
             </select>
+            <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-brand-text">
+              <input
+                checked={isActive}
+                onChange={(event) => setIsActive(event.target.checked)}
+                type="checkbox"
+              />
+              Active member
+            </label>
             <button
               className="rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white"
               onClick={() => void saveOrUpdateMember()}
@@ -229,6 +275,31 @@ export function MemberManager() {
               >
                 Cancel edit
               </button>
+            ) : null}
+            {editingMemberId ? (
+              <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="text-sm font-semibold text-brand-text">Account actions</div>
+                <p className="text-sm leading-6 text-brand-muted">
+                  Send the member an email so they can set or reset their password without you having
+                  to manage it directly.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-brand-text"
+                    onClick={() => void runMemberAction("password_reset")}
+                    type="button"
+                  >
+                    Send password reset
+                  </button>
+                  <button
+                    className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-brand-text"
+                    onClick={() => void runMemberAction("resend_invite")}
+                    type="button"
+                  >
+                    Resend invite
+                  </button>
+                </div>
+              </div>
             ) : null}
             <div className="rounded-2xl bg-white px-4 py-3 text-sm text-brand-muted">{status}</div>
           </div>

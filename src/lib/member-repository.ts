@@ -161,6 +161,42 @@ export async function deleteMember(memberId: string) {
   return { success: true };
 }
 
+export async function sendMemberPasswordReset(email: string) {
+  const supabase = getServiceSupabase();
+
+  if (!supabase) {
+    return { sent: false };
+  }
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${serverConfig.renderExternalUrl}/login`
+  });
+
+  if (error) {
+    throw new Error(error.message || "Unable to send password reset email.");
+  }
+
+  return { sent: true };
+}
+
+export async function resendMemberInvite(email: string) {
+  const supabase = getServiceSupabase();
+
+  if (!supabase) {
+    return { sent: false };
+  }
+
+  const { error } = await supabase.auth.admin.inviteUserByEmail(email, {
+    redirectTo: `${serverConfig.renderExternalUrl}/login`
+  });
+
+  if (error && !error.message.toLowerCase().includes("already")) {
+    throw new Error(error.message || "Unable to resend invite email.");
+  }
+
+  return { sent: !error };
+}
+
 export async function inviteMember(input: Omit<MemberRecord, "id" | "schoolName">) {
   const supabase = getServiceSupabase();
 
