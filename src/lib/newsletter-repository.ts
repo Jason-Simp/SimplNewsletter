@@ -277,7 +277,7 @@ export async function saveNewsletter(document: NewsletterDocument) {
       label: option.label,
       description: option.description
     }
-  })).filter((option) => option.channel !== "webhook");
+  }));
 
   const [{ error: sectionsError }, { error: distributionError }] = await Promise.all([
     supabase.from("newsletter_sections").insert(sectionsPayload),
