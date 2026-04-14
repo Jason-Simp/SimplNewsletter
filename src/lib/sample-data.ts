@@ -303,32 +303,17 @@ export const sampleNewsletter: NewsletterDocument = {
 export const buildSteps = [
   {
     id: "setup",
-    title: "Issue setup",
-    description: "Brand profile, issue date, audience, and newsletter framing."
-  },
-  {
-    id: "content",
-    title: "Story content",
-    description: "Leadership note, stories, spotlight, and core school updates."
-  },
-  {
-    id: "events",
-    title: "Events and links",
-    description: "Calendar, clubs, quick links, and CTA destinations."
-  },
-  {
-    id: "media",
-    title: "Media",
-    description: "Logos, hero image, section imagery, and alt text handling."
+    title: "Create",
+    description: "Describe the newsletter, add images, and let the system build the first draft."
   },
   {
     id: "review",
     title: "Review",
-    description: "Channel previews, section toggles, and final editorial cleanup."
+    description: "Read the draft, check the design, and make sure it feels ready."
   },
   {
     id: "distribution",
-    title: "Distribution",
-    description: "Hosted page, email send, blog post, HTML export, and PDF."
+    title: "Share",
+    description: "Choose where the newsletter should go once it is approved."
   }
 ] as const;

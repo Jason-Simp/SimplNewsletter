@@ -1,4 +1,5 @@
 import type { ContentGenerateResponse } from "@/types/integration";
+import { validateGeneratedNewsletterPackage } from "@/lib/generated-newsletter-schema";
 
 const ELEVENLABS_API_BASE_URL = "https://api.elevenlabs.io";
 
@@ -205,30 +206,24 @@ function normalizeSocketError(message: string) {
 function parseGeneratedNewsletter(rawResponse: string): ContentGenerateResponse {
   const extractedJson = extractJsonBlock(rawResponse);
 
-  if (extractedJson) {
-    try {
-      return JSON.parse(extractedJson) as ContentGenerateResponse;
-    } catch {
-      // fall through to text fallback
-    }
+  if (!extractedJson) {
+    throw new Error(
+      "The school's writing agent returned plain text instead of the required newsletter package."
+    );
   }
 
-  return {
-    title: "Generated Newsletter Draft",
-    intro: rawResponse,
-    sections: [
-      {
-        sectionType: "top_story",
-        title: "Top story",
-        content: {
-          headline: "Generated draft",
-          summary: rawResponse,
-          url: "#"
-        }
-      }
-    ],
-    raw: rawResponse
-  };
+  try {
+    const parsed = JSON.parse(extractedJson) as unknown;
+    return validateGeneratedNewsletterPackage(parsed);
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error;
+    }
+
+    throw new Error(
+      "The school's writing agent returned a newsletter package that could not be read."
+    );
+  }
 }
 
 function extractJsonBlock(raw: string) {

@@ -67,48 +67,34 @@ export default function AdminPage() {
             <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">
               Add new
             </div>
-            <h2 className="mt-2 font-display text-3xl text-brand-navy">Choose how to build</h2>
+            <h2 className="mt-2 font-display text-3xl text-brand-navy">Create a newsletter</h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-brand-muted">
-              Start with a fast guided release or open the full custom workspace. Both save into the same
-              school newsletter system.
+              Open one simple creation flow. Describe what the newsletter should say, add photos if you
+              want them included, and let the system build the first draft for you.
             </p>
-            <div className="mt-6 grid gap-4 md:grid-cols-2">
+            <div className="mt-6">
               <Link
-                className="rounded-[28px] border border-slate-200 bg-white p-5 transition hover:border-brand-primary hover:bg-brand-background"
-                href="/builder?mode=quick"
+                className="block rounded-[28px] border border-slate-200 bg-white p-5 transition hover:border-brand-primary hover:bg-brand-background"
+                href="/builder"
               >
                 <div className="text-xs font-bold uppercase tracking-[0.25em] text-brand-secondary">
-                  Quick release
+                  Guided builder
                 </div>
-                <div className="mt-2 text-xl font-semibold text-brand-text">Simple form, instant draft</div>
+                <div className="mt-2 text-xl font-semibold text-brand-text">Simple form, finished newsletter</div>
                 <div className="mt-2 text-sm leading-6 text-brand-muted">
-                  Enter what you want to say, paste bullets or links, pick sections, and let the system
-                  assemble the release.
-                </div>
-              </Link>
-
-              <Link
-                className="rounded-[28px] border border-slate-200 bg-white p-5 transition hover:border-brand-primary hover:bg-brand-background"
-                href="/builder?mode=custom"
-              >
-                <div className="text-xs font-bold uppercase tracking-[0.25em] text-brand-secondary">
-                  Custom build
-                </div>
-                <div className="mt-2 text-xl font-semibold text-brand-text">Full workspace control</div>
-                <div className="mt-2 text-sm leading-6 text-brand-muted">
-                  Use the complete builder, preview system, branding tools, uploads, and publishing setup.
+                  Write the main message, upload photos, review the draft, and choose where to share it.
                 </div>
               </Link>
             </div>
           </article>
 
           <article className="rounded-editorial border border-slate-200 bg-white p-6">
-            <div className="text-sm font-semibold text-brand-text">What the quick mode should do</div>
+            <div className="text-sm font-semibold text-brand-text">What this flow should do</div>
             <ul className="mt-4 grid gap-3 text-sm leading-6 text-brand-muted">
               <li>Let a superintendent or principal type rough notes quickly</li>
-              <li>Accept bullets, pasted links, or short updates without forcing layout decisions</li>
-              <li>Use the school&apos;s configured provider stack to rewrite and polish the draft</li>
-              <li>Apply the template and branding automatically before preview and publish</li>
+              <li>Use one clear prompt instead of asking them to design the newsletter themselves</li>
+              <li>Use the school&apos;s configured agent to rewrite and structure the content</li>
+              <li>Apply the template and branding automatically before review and publish</li>
             </ul>
           </article>
         </section>

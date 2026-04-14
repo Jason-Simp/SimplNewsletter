@@ -8,20 +8,15 @@ import type { ContentGenerateResponse } from "@/types/integration";
 import type { UploadedAsset } from "@/types/media";
 import type { Channel } from "@/types/newsletter";
 import type { SchoolProfile } from "@/types/school";
-import { AssistantEmbedPanel } from "@/components/newsletter/AssistantEmbedPanel";
 import { DistributionPanel } from "@/components/newsletter/DistributionPanel";
 import { DistributionSelector } from "@/components/newsletter/DistributionSelector";
 import { MediaUploadPanel } from "@/components/newsletter/MediaUploadPanel";
 import { NewsletterPreview } from "@/components/newsletter/NewsletterPreview";
-import { SectionLibrary } from "@/components/newsletter/SectionLibrary";
 
 const channels: Channel[] = ["web", "email", "pdf", "html", "blog"];
 
-type BuildMode = "quick" | "custom";
-
-export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMode }) {
+export function IssueWizard() {
   const { session } = useAuthSession();
-  const isQuickMode = initialMode === "quick";
   const [activeStep, setActiveStep] = useState<string>(buildSteps[0].id);
   const [activeChannel, setActiveChannel] = useState<Channel>("web");
   const [document, setDocument] = useState(sampleNewsletter);
@@ -34,27 +29,9 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
   const [quickNotes, setQuickNotes] = useState("");
   const [uploadedAssets, setUploadedAssets] = useState<UploadedAsset[]>([]);
   const initialLoadComplete = useRef(false);
-  const stepList = isQuickMode
-    ? buildSteps.filter((step) => ["setup", "review", "distribution"].includes(step.id))
-    : buildSteps;
+  const stepList = buildSteps;
   const activeStepIndex = stepList.findIndex((step) => step.id === activeStep);
   const activeStepConfig = stepList[activeStepIndex] ?? stepList[0];
-
-  const updateField = (field: "title" | "intro" | "subjectLine" | "previewText", value: string) => {
-    setDocument((current) => ({
-      ...current,
-      [field]: value
-    }));
-  };
-
-  const toggleSection = (id: string) => {
-    setDocument((current) => ({
-      ...current,
-      sections: current.sections.map((section) =>
-        section.id === id ? { ...section, enabled: !section.enabled } : section
-      )
-    }));
-  };
 
   const toggleDistribution = (channel: Channel) => {
     setDocument((current) => ({
@@ -217,7 +194,7 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
   };
 
   const goToNextStep = async () => {
-    if (isQuickMode && activeStep === "setup") {
+    if (activeStep === "setup") {
       const generated = await generateInstantDraft();
 
       if (!generated) {
@@ -359,21 +336,20 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
 
   return (
     <div className="grid gap-8">
-      <section className={isQuickMode ? "grid gap-6" : "grid gap-6 xl:grid-cols-[0.9fr_1.1fr]"}>
+      <section className="grid gap-6">
         <div className="grid gap-6">
           <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">
-                  {isQuickMode ? "Instant newsletter" : "Advanced customization"}
+                  Newsletter workspace
                 </p>
                 <h1 className="mt-2 font-display text-4xl text-brand-navy">
                   {document.organization.name}
                 </h1>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-brand-muted">
-                  {isQuickMode
-                    ? "Use the simplest path possible: describe what the newsletter should be about, then review the finished issue."
-                    : "Use the guided workflow to shape the issue, review the structure, and control how it will be published."}
+                  Describe what the newsletter should be about, let the system write and design the first draft,
+                  then review it before you share it.
                 </p>
               </div>
               <a
@@ -384,7 +360,7 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
               </a>
             </div>
 
-                <div className="mt-6 flex flex-wrap gap-3">
+            <div className="mt-6 flex flex-wrap gap-3">
               {stepList.map((step, index) => {
                 const selected = activeStep === step.id;
 
@@ -409,30 +385,30 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
             </div>
           </section>
 
-          {!isQuickMode ? (
-            <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
-              <div className="flex flex-wrap items-end justify-between gap-4">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Current step</p>
-                  <h2 className="mt-2 font-display text-3xl text-brand-navy">{activeStepConfig.title}</h2>
-                </div>
-                <span
-                  className={`rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] ${
-                    saveState === "error"
-                      ? "bg-red-100 text-red-700"
-                      : saveState === "saved"
-                        ? "bg-emerald-100 text-emerald-700"
-                        : "bg-brand-background text-brand-primary"
-                  }`}
-                >
-                  {saveMessage}
-                </span>
+          <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Current step</p>
+                <h2 className="mt-2 font-display text-3xl text-brand-navy">{activeStepConfig.title}</h2>
               </div>
+              <span
+                className={`rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] ${
+                  saveState === "error"
+                    ? "bg-red-100 text-red-700"
+                    : saveState === "saved"
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-brand-background text-brand-primary"
+                }`}
+              >
+                {saveMessage}
+              </span>
+            </div>
 
-              <div className="mt-4 rounded-[24px] bg-[#EAF2FB] p-4 text-sm leading-6 text-brand-muted">
-                {getStepInstruction(activeStep)}
-              </div>
+            <div className="mt-4 rounded-[24px] bg-[#EAF2FB] p-4 text-sm leading-6 text-brand-muted">
+              {getStepInstruction(activeStep)}
+            </div>
 
+            {activeStep !== "setup" ? (
               <div className="mt-6 flex flex-wrap gap-3">
                 <button
                   className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text disabled:cursor-not-allowed disabled:opacity-40"
@@ -451,253 +427,115 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
                   Next step
                 </button>
               </div>
-            </section>
-          ) : null}
+            ) : null}
+          </section>
 
           {activeStep === "setup" ? (
-            <>
-              {isQuickMode ? (
-                <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
-                  <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">
-                    Simple form
-                  </p>
-                  <h2 className="mt-2 font-display text-3xl text-brand-navy">Create your newsletter</h2>
-                  <p className="mt-3 text-sm leading-6 text-brand-muted">
-                    Tell the system what you want the newsletter to be about and what it should say. The
-                    system should decide the right sections, write them, and build the newsletter.
-                  </p>
-                  <div className="mt-6 grid gap-4">
-                    <label className="grid gap-2">
-                      <span className="text-sm font-semibold text-brand-text">
-                        What would you like your newsletter to be about and say?
-                      </span>
-                      <textarea
-                        className="min-h-40 rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
-                        onChange={(event) => setQuickNotes(event.target.value)}
-                        placeholder="Example: Share our back-to-school updates, welcome families, mention key dates, highlight athletics, and remind everyone about open house."
-                        value={quickNotes}
-                      />
-                    </label>
+            <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
+              <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">
+                Simple form
+              </p>
+              <h2 className="mt-2 font-display text-3xl text-brand-navy">Create your newsletter</h2>
+              <p className="mt-3 text-sm leading-6 text-brand-muted">
+                Tell the system what this newsletter should be about. It will choose the sections, write the
+                draft, and build the design for you.
+              </p>
+              <div className="mt-6 grid gap-4">
+                <label className="grid gap-2">
+                  <span className="text-sm font-semibold text-brand-text">
+                    What would you like your newsletter to be about and say?
+                  </span>
+                  <textarea
+                    className="min-h-40 rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
+                    onChange={(event) => setQuickNotes(event.target.value)}
+                    placeholder="Example: Share our back-to-school updates, welcome families, mention key dates, highlight athletics, and remind everyone about open house."
+                    value={quickNotes}
+                  />
+                </label>
 
-                    <MediaUploadPanel document={document} onAssetsChange={setUploadedAssets} />
+                <MediaUploadPanel document={document} onAssetsChange={setUploadedAssets} />
 
-                    <div
-                      className={`rounded-[24px] p-4 text-sm leading-6 ${
-                        generationState === "error"
-                          ? "bg-red-50 text-red-700"
-                          : generationState === "ready"
-                            ? "bg-emerald-50 text-emerald-700"
-                            : "bg-[#EAF2FB] text-brand-muted"
-                      }`}
-                    >
-                      {generationMessage}
-                    </div>
+                <div
+                  className={`rounded-[24px] p-4 text-sm leading-6 ${
+                    generationState === "error"
+                      ? "bg-red-50 text-red-700"
+                      : generationState === "ready"
+                        ? "bg-emerald-50 text-emerald-700"
+                        : "bg-[#EAF2FB] text-brand-muted"
+                  }`}
+                >
+                  {generationMessage}
+                </div>
 
-                    <div className="flex flex-wrap gap-3">
-                      <button
-                        className="rounded-full bg-brand-primary px-6 py-4 text-sm font-semibold uppercase tracking-[0.12em] text-white disabled:cursor-not-allowed disabled:opacity-40"
-                        disabled={generationState === "generating"}
-                        onClick={() => void createInstantNewsletter()}
-                        type="button"
-                      >
-                        {generationState === "generating" ? "Creating newsletter..." : "Create newsletter"}
-                      </button>
-                    </div>
-                  </div>
-                </section>
-              ) : (
-                <>
-                  <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
-                    <div className="flex items-end justify-between gap-4">
-                      <div>
-                        <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">
-                          Step 1
-                        </p>
-                        <h2 className="mt-2 font-display text-3xl text-brand-navy">Issue setup</h2>
-                      </div>
-                    </div>
-
-                    <div className="mt-6 grid gap-4">
-                      <label className="grid gap-2">
-                        <span className="text-sm font-semibold text-brand-text">Intro paragraph</span>
-                        <textarea
-                          className="min-h-36 rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
-                          onChange={(event) => updateField("intro", event.target.value)}
-                          value={document.intro}
-                        />
-                      </label>
-
-                      <label className="grid gap-2">
-                        <span className="text-sm font-semibold text-brand-text">Newsletter title</span>
-                        <input
-                          className="rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
-                          onChange={(event) => updateField("title", event.target.value)}
-                          value={document.title}
-                        />
-                      </label>
-
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <label className="grid gap-2">
-                          <span className="text-sm font-semibold text-brand-text">Email subject line</span>
-                          <input
-                            className="rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
-                            onChange={(event) => updateField("subjectLine", event.target.value)}
-                            value={document.subjectLine}
-                          />
-                        </label>
-
-                        <label className="grid gap-2">
-                          <span className="text-sm font-semibold text-brand-text">Preview text</span>
-                          <input
-                            className="rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
-                            onChange={(event) => updateField("previewText", event.target.value)}
-                            value={document.previewText}
-                          />
-                        </label>
-                      </div>
-                    </div>
-                  </section>
-
-                <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
-                  <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">
-                    School settings
-                  </p>
-                  <h2 className="mt-2 font-display text-3xl text-brand-navy">Keep branding separate</h2>
-                  <p className="mt-3 text-sm leading-7 text-brand-muted">
-                    Logos, colors, assistant settings, and school-level defaults should be managed from the
-                    school dashboard so this workspace stays focused on the issue itself.
-                  </p>
-                  <a
-                    className="mt-5 inline-flex rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
-                    href="/admin/schools"
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    className="rounded-full bg-brand-primary px-6 py-4 text-sm font-semibold uppercase tracking-[0.12em] text-white disabled:cursor-not-allowed disabled:opacity-40"
+                    disabled={generationState === "generating"}
+                    onClick={() => void createInstantNewsletter()}
+                    type="button"
                   >
-                    Open school settings
-                  </a>
-                </section>
-                </>
-              )}
-            </>
-          ) : null}
-
-          {activeStep === "content" ? (
-            <>
-              <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
-                <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">
-                  Content handling
-                </p>
-                <h2 className="mt-2 font-display text-3xl text-brand-navy">Write rough, publish clean</h2>
-                <p className="mt-4 text-sm leading-7 text-brand-muted">
-                  {isQuickMode
-                    ? "This is your first draft. The system should already have taken your request and turned it into the issue below."
-                    : "This step is for rough notes, bullets, and links. The school-specific agent layer should work behind the scenes, so editors should not have to manage agent actions manually here."}
-                </p>
-              </section>
-              <AssistantEmbedPanel document={document} />
-              {!isQuickMode ? <SectionLibrary onToggle={toggleSection} sections={document.sections} /> : null}
-            </>
-          ) : null}
-
-          {activeStep === "events" ? (
-            <>
-              <SectionLibrary onToggle={toggleSection} sections={document.sections} />
-              {isQuickMode ? null : (
-              <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
-                <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">
-                  Step 3 guidance
-                </p>
-                <h2 className="mt-2 font-display text-3xl text-brand-navy">Focus on dates, links, and utility blocks</h2>
-                <p className="mt-4 text-sm leading-7 text-brand-muted">
-                  In this prototype, use the section library to turn on or off the calendar, clubs, events,
-                  quick links, and CTA modules. The final version should break those into direct fields.
-                </p>
-              </section>
-              )}
-            </>
-          ) : null}
-
-          {activeStep === "media" ? (
-            <>
-              <MediaUploadPanel document={document} />
-            </>
+                    {generationState === "generating" ? "Creating newsletter..." : "Create newsletter"}
+                  </button>
+                </div>
+              </div>
+            </section>
           ) : null}
 
           {activeStep === "review" ? (
             <>
-              {!isQuickMode ? <SectionLibrary onToggle={toggleSection} sections={document.sections} /> : null}
               <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
-                <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Step 5</p>
-                <h2 className="mt-2 font-display text-3xl text-brand-navy">
-                  {isQuickMode ? "Review your newsletter" : "Review the preview on the right"}
-                </h2>
+                <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Step 2</p>
+                <h2 className="mt-2 font-display text-3xl text-brand-navy">Review your newsletter</h2>
                 <p className="mt-4 text-sm leading-7 text-brand-muted">
-                  {isQuickMode
-                    ? "The first draft should now be on screen. Read through it, switch output formats if needed, and make sure it looks right before publishing."
-                    : "Use the channel buttons in the preview column to check web, email, PDF, HTML, and blog modes before you publish."}
+                  The first draft should now be on screen. Read through it, switch output formats if needed,
+                  and make sure it looks right before sharing.
                 </p>
-                {isQuickMode ? (
-                  <div className="mt-6 flex flex-wrap gap-3">
-                    <button
-                      className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
-                      onClick={() => setActiveStep("setup")}
-                      type="button"
-                    >
-                      Back to form
-                    </button>
-                    <button
-                      className="rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white"
-                      onClick={() => setActiveStep("distribution")}
-                      type="button"
-                    >
-                      Continue
-                    </button>
-                  </div>
-                ) : null}
+                <div className="mt-6 flex flex-wrap gap-3">
+                  <button
+                    className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
+                    onClick={() => setActiveStep("setup")}
+                    type="button"
+                  >
+                    Back to form
+                  </button>
+                  <button
+                    className="rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white"
+                    onClick={() => setActiveStep("distribution")}
+                    type="button"
+                  >
+                    Continue
+                  </button>
+                </div>
               </section>
-              {isQuickMode ? (
-                <NewsletterPreview
-                  channel={activeChannel}
-                  document={document}
-                  onChannelChange={setActiveChannel}
-                />
-              ) : null}
+              <NewsletterPreview
+                channel={activeChannel}
+                document={document}
+                onChannelChange={setActiveChannel}
+              />
             </>
           ) : null}
 
           {activeStep === "distribution" ? (
             <>
               <DistributionSelector onToggle={toggleDistribution} options={document.distributionOptions} />
-              {isQuickMode ? (
-                <NewsletterPreview
-                  channel={activeChannel}
-                  document={document}
-                  onChannelChange={setActiveChannel}
-                />
-              ) : null}
-              {isQuickMode ? (
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
-                    onClick={() => setActiveStep("review")}
-                    type="button"
-                  >
-                    Back to review
-                  </button>
-                </div>
-              ) : null}
+              <NewsletterPreview
+                channel={activeChannel}
+                document={document}
+                onChannelChange={setActiveChannel}
+              />
+              <div className="flex flex-wrap gap-3">
+                <button
+                  className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
+                  onClick={() => setActiveStep("review")}
+                  type="button"
+                >
+                  Back to review
+                </button>
+              </div>
               <DistributionPanel />
             </>
           ) : null}
         </div>
-
-        {!isQuickMode ? (
-          <div className="grid gap-6 xl:sticky xl:top-8 xl:self-start">
-            <NewsletterPreview
-              channel={activeChannel}
-              document={document}
-              onChannelChange={setActiveChannel}
-            />
-          </div>
-        ) : null}
       </section>
     </div>
   );
@@ -706,17 +544,11 @@ export function IssueWizard({ initialMode = "custom" }: { initialMode?: BuildMod
 function getStepInstruction(stepId: string) {
   switch (stepId) {
     case "setup":
-      return "Set the title, the core message, and any email text first. In the instant path, this is the main handoff to the school agent.";
-    case "content":
-      return "This is where the system should take the high-level notes, links, and chosen sections and turn them into the actual newsletter draft.";
-    case "events":
-      return "Review the calendar, clubs, quick links, and other event-driven modules. This is where the newsletter becomes useful for families.";
-    case "media":
-      return "Add the images or media that belong in this issue. Branding stays in school settings, but issue-specific media belongs here.";
+      return "Write the message in plain language and add photos if you want them included. This is the main handoff to the school agent.";
     case "review":
-      return "Check the rendered result before publishing. Use the preview column to switch channels and confirm the output looks right.";
+      return "Check the rendered result before sharing it. Use the channel buttons to confirm the newsletter still feels clear in each format.";
     case "distribution":
-      return "Choose exactly which outputs this issue needs. You do not have to generate every channel every time.";
+      return "Choose exactly where this issue should go. You do not have to send every format every time.";
     default:
       return "Complete this step, then move to the next one.";
   }

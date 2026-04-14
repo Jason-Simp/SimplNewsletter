@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { generateNewsletterWithElevenLabs } from "@/lib/elevenlabs-generate";
+import { validateGeneratedNewsletterPackage } from "@/lib/generated-newsletter-schema";
 import { generateContentWithProvider } from "@/lib/integration-client";
 import { buildNewsletterGenerationPrompt } from "@/lib/newsletter-generation-prompt";
 import { getSchoolById } from "@/lib/school-repository";
@@ -52,10 +53,11 @@ export async function POST(request: Request) {
             prompt: generationPrompt
           })
         : await generateContentWithProvider(generationRequest);
+    const validatedResult = validateGeneratedNewsletterPackage(result);
 
     return NextResponse.json({
       status: "ok",
-      data: result
+      data: validatedResult
     });
   } catch (error) {
     return NextResponse.json(
