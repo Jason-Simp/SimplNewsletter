@@ -1,4 +1,4 @@
-import type { Channel, DistributionOption, MediaConstraint, PublishMode } from "@/types/newsletter";
+import type { DistributionChannel, DistributionOption, MediaConstraint, PublishMode } from "@/types/newsletter";
 
 export const mediaConstraints: MediaConstraint[] = [
   {
@@ -60,6 +60,12 @@ export const defaultDistributionOptions: DistributionOption[] = [
     label: "Blog/CMS post",
     description: "Render an article-ready variant for website or CMS publishing.",
     selected: false
+  },
+  {
+    channel: "webhook",
+    label: "Webhook",
+    description: "Send the finished newsletter package to the school's connected webhook.",
+    selected: false
   }
 ];
 
@@ -76,10 +82,11 @@ export const publishModeOptions: { value: PublishMode; label: string; descriptio
   }
 ];
 
-export const distributionLabels: Record<Channel, string> = {
+export const distributionLabels: Record<DistributionChannel, string> = {
   web: "Hosted web page",
   email: "Email send",
   pdf: "PDF export",
   html: "HTML export",
-  blog: "Blog/CMS post"
+  blog: "Blog/CMS post",
+  webhook: "Webhook"
 };

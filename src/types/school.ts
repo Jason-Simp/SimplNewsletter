@@ -21,4 +21,6 @@ export type SchoolProfile = {
   assistantReference: string;
   integrationEndpoint: string;
   encryptedKnowledgeRef: string;
+  webhookUrl: string;
+  webhookSecret: string;
 };

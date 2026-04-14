@@ -3,7 +3,7 @@ import { decryptProjectCode, encryptProjectCode } from "@/lib/crypto";
 import { defaultDistributionOptions, mediaConstraints } from "@/lib/product-config";
 import { sampleNewsletter } from "@/lib/sample-data";
 import { getServiceSupabase } from "@/lib/supabase/server";
-import type { Channel, NewsletterDocument, NewsletterSection } from "@/types/newsletter";
+import type { DistributionChannel, NewsletterDocument, NewsletterSection } from "@/types/newsletter";
 
 function normalizeVectorProvider(value: NewsletterDocument["workspace"]["knowledgeProvider"]) {
   return value === "supabase" || value === "openai" ? value : "none";
@@ -56,7 +56,7 @@ type SectionRow = {
 };
 
 type DistributionRow = {
-  channel: Channel;
+  channel: DistributionChannel;
   selected: boolean;
   config: { label?: string; description?: string };
 };
@@ -277,7 +277,7 @@ export async function saveNewsletter(document: NewsletterDocument) {
       label: option.label,
       description: option.description
     }
-  }));
+  })).filter((option) => option.channel !== "webhook");
 
   const [{ error: sectionsError }, { error: distributionError }] = await Promise.all([
     supabase.from("newsletter_sections").insert(sectionsPayload),

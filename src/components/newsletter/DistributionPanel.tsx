@@ -23,6 +23,11 @@ const distributionChannels = [
     name: "HTML export",
     description: "Produce standalone HTML for websites, archives, or manual publishing.",
     status: "Renderer planned"
+  },
+  {
+    name: "Webhook delivery",
+    description: "Send the finished newsletter package to a school-specific webhook such as Monday.com, n8n, or Zapier.",
+    status: "Client assignment ready"
   }
 ];
 

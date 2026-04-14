@@ -6,14 +6,12 @@ import { useAuthSession } from "@/lib/auth-client";
 import { buildSteps, sampleNewsletter } from "@/lib/sample-data";
 import type { ContentGenerateResponse } from "@/types/integration";
 import type { UploadedAsset } from "@/types/media";
-import type { Channel } from "@/types/newsletter";
+import type { Channel, DistributionChannel } from "@/types/newsletter";
 import type { SchoolProfile } from "@/types/school";
 import { DistributionPanel } from "@/components/newsletter/DistributionPanel";
 import { DistributionSelector } from "@/components/newsletter/DistributionSelector";
 import { MediaUploadPanel } from "@/components/newsletter/MediaUploadPanel";
 import { NewsletterPreview } from "@/components/newsletter/NewsletterPreview";
-
-const channels: Channel[] = ["web", "email", "pdf", "html", "blog"];
 
 export function IssueWizard() {
   const { session } = useAuthSession();
@@ -33,7 +31,7 @@ export function IssueWizard() {
   const activeStepIndex = stepList.findIndex((step) => step.id === activeStep);
   const activeStepConfig = stepList[activeStepIndex] ?? stepList[0];
 
-  const toggleDistribution = (channel: Channel) => {
+  const toggleDistribution = (channel: DistributionChannel) => {
     setDocument((current) => ({
       ...current,
       distributionOptions: current.distributionOptions.map((option) =>

@@ -28,7 +28,9 @@ const emptySchool: SchoolProfile = {
   syncProvider: "none",
   assistantReference: "",
   integrationEndpoint: "",
-  encryptedKnowledgeRef: ""
+  encryptedKnowledgeRef: "",
+  webhookUrl: "",
+  webhookSecret: ""
 };
 
 export function SchoolManager() {
@@ -367,7 +369,7 @@ export function SchoolManager() {
             </div>
           </div>
 
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
           <Input
             help="Enter the school's assistant or agent ID."
             label="Agent ID"
@@ -392,6 +394,30 @@ export function SchoolManager() {
             <div className="rounded-full bg-brand-background px-4 py-2 text-sm text-brand-muted">
               {agentStatus}
             </div>
+          </div>
+        </div>
+
+        <div className="mt-6 rounded-[24px] border border-slate-200 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Webhook delivery</div>
+            <div className="rounded-full bg-brand-background px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-brand-primary">
+              Per school
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <Input
+              help="Paste the webhook URL for this school if newsletters should also be sent to Monday.com, n8n, Zapier, or another system."
+              label="Webhook URL"
+              value={form.webhookUrl}
+              onChange={(value) => updateField("webhookUrl", value)}
+            />
+            <Input
+              help="Optional secret or token to send with the webhook request for this school."
+              label="Webhook secret"
+              value={form.webhookSecret}
+              onChange={(value) => updateField("webhookSecret", value)}
+            />
           </div>
         </div>
 

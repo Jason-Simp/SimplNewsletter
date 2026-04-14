@@ -1,5 +1,7 @@
 export type Channel = "web" | "email" | "pdf" | "html" | "blog";
 
+export type DistributionChannel = Channel | "webhook";
+
 export type PublishMode = "instant" | "approval";
 
 export type UserRole = "school_admin" | "editor";
@@ -86,7 +88,7 @@ export type MediaConstraint = {
 };
 
 export type DistributionOption = {
-  channel: Channel;
+  channel: DistributionChannel;
   label: string;
   description: string;
   selected: boolean;

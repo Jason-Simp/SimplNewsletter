@@ -28,7 +28,9 @@ const fallbackSchools: SchoolProfile[] = [
     syncProvider: "elevenlabs",
     assistantReference: "",
     integrationEndpoint: "",
-    encryptedKnowledgeRef: "enc_proj_riverside_demo_001"
+    encryptedKnowledgeRef: "enc_proj_riverside_demo_001",
+    webhookUrl: "",
+    webhookSecret: ""
   }
 ];
 
@@ -70,7 +72,9 @@ export async function listSchools() {
     encryptedKnowledgeRef:
       school.encrypted_project_code && secret
         ? decryptProjectCode(school.encrypted_project_code, secret)
-        : school.encrypted_project_code ?? ""
+        : school.encrypted_project_code ?? "",
+    webhookUrl: school.webhook_url ?? "",
+    webhookSecret: school.webhook_secret ?? ""
   })) as SchoolProfile[];
 }
 
@@ -112,7 +116,9 @@ export async function getSchoolById(schoolId: string) {
     encryptedKnowledgeRef:
       data.encrypted_project_code && secret
         ? decryptProjectCode(data.encrypted_project_code, secret)
-        : data.encrypted_project_code ?? ""
+        : data.encrypted_project_code ?? "",
+    webhookUrl: data.webhook_url ?? "",
+    webhookSecret: data.webhook_secret ?? ""
   } satisfies SchoolProfile;
 }
 
@@ -143,6 +149,8 @@ export async function saveSchool(profile: SchoolProfile) {
       publish_mode: profile.publishMode,
       agent_id: profile.assistantReference,
       agent_api: profile.integrationEndpoint,
+      webhook_url: profile.webhookUrl,
+      webhook_secret: profile.webhookSecret,
       vector_provider: normalizeVectorProvider(profile.knowledgeProvider),
       encrypted_project_code:
         profile.encryptedKnowledgeRef && secret
@@ -176,6 +184,8 @@ export async function saveSchool(profile: SchoolProfile) {
     syncProvider: profile.syncProvider,
     assistantReference: data.agent_id ?? "",
     integrationEndpoint: data.agent_api ?? "",
-    encryptedKnowledgeRef: profile.encryptedKnowledgeRef
+    encryptedKnowledgeRef: profile.encryptedKnowledgeRef,
+    webhookUrl: data.webhook_url ?? "",
+    webhookSecret: data.webhook_secret ?? ""
   } satisfies SchoolProfile;
 }
