@@ -43,6 +43,12 @@ export function IssueWizard() {
   const stepList = buildSteps;
   const activeStepIndex = stepList.findIndex((step) => step.id === activeStep);
   const activeStepConfig = stepList[activeStepIndex] ?? stepList[0];
+  const hasSchoolWorkspace = Boolean(document.workspace.schoolId);
+  const hasWritingAgentConnection = Boolean(
+    document.workspace.assistantReference?.trim() && document.workspace.integrationEndpoint?.trim()
+  );
+  const photoUploads = uploadedAssets.filter((asset) => asset.type.startsWith("image/")).length;
+  const otherUploads = uploadedAssets.filter((asset) => !asset.type.startsWith("image/")).length;
   const starterPrompts = [
     {
       label: "Weekly school update",
@@ -205,6 +211,20 @@ export function IssueWizard() {
   };
 
   const generateInstantDraft = async () => {
+    if (!hasSchoolWorkspace) {
+      setGenerationState("error");
+      setGenerationMessage("Finish the school setup first so this newsletter knows which school workspace to use.");
+      showNotice("Open school settings and finish the school workspace first.", "error");
+      return false;
+    }
+
+    if (!hasWritingAgentConnection) {
+      setGenerationState("error");
+      setGenerationMessage("The school writing agent is not connected yet. Add the Agent ID and Agent API in the school profile, then come back here.");
+      showNotice("The school writing agent is not connected yet.", "error");
+      return false;
+    }
+
     if (!quickNotes.trim()) {
       setGenerationState("error");
       setGenerationMessage("Add the main message first so the system has something to build from.");
@@ -579,6 +599,13 @@ export function IssueWizard() {
                 draft, and build the design for you.
               </p>
               <div className="mt-6 grid gap-4">
+                <SetupReadinessPanel
+                  hasSchoolWorkspace={hasSchoolWorkspace}
+                  hasWritingAgentConnection={hasWritingAgentConnection}
+                  otherUploads={otherUploads}
+                  photoUploads={photoUploads}
+                />
+
                 <div className="rounded-[24px] bg-[#EAF2FB] p-4 text-sm leading-6 text-brand-muted">
                   Write this however you want. Plain sentences, rough notes, or bullet points are all fine.
                   The stronger the input, the better the first draft.
@@ -634,10 +661,35 @@ export function IssueWizard() {
                   {generationMessage}
                 </div>
 
+                {generationState === "error" ? (
+                  <div className="flex flex-wrap gap-3">
+                    {!hasWritingAgentConnection ? (
+                      <a
+                        className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
+                        href="/admin/schools"
+                      >
+                        Open school settings
+                      </a>
+                    ) : null}
+                    <button
+                      className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
+                      onClick={() => setGenerationState("idle")}
+                      type="button"
+                    >
+                      Clear message
+                    </button>
+                  </div>
+                ) : null}
+
                 <div className="flex flex-wrap gap-3">
                   <button
                     className="rounded-full bg-brand-primary px-6 py-4 text-sm font-semibold uppercase tracking-[0.12em] text-white disabled:cursor-not-allowed disabled:opacity-40"
-                    disabled={generationState === "generating" || !quickNotes.trim()}
+                    disabled={
+                      generationState === "generating" ||
+                      !quickNotes.trim() ||
+                      !hasSchoolWorkspace ||
+                      !hasWritingAgentConnection
+                    }
                     onClick={() => void createInstantNewsletter()}
                     type="button"
                   >
@@ -848,6 +900,94 @@ function getGeneratedIntro(generated: ContentGenerateResponse, quickNotes: strin
   }
 
   return quickNotes.trim();
+}
+
+function SetupReadinessPanel({
+  hasSchoolWorkspace,
+  hasWritingAgentConnection,
+  photoUploads,
+  otherUploads
+}: {
+  hasSchoolWorkspace: boolean;
+  hasWritingAgentConnection: boolean;
+  photoUploads: number;
+  otherUploads: number;
+}) {
+  const checks = [
+    {
+      label: "School workspace",
+      ready: hasSchoolWorkspace,
+      detail: hasSchoolWorkspace
+        ? "This newsletter is tied to the current school."
+        : "Finish school setup before writing."
+    },
+    {
+      label: "Writing agent",
+      ready: hasWritingAgentConnection,
+      detail: hasWritingAgentConnection
+        ? "Agent ID and Agent API are connected."
+        : "Add the school writing agent in school settings."
+    },
+    {
+      label: "Photos and files",
+      ready: photoUploads > 0 || otherUploads > 0,
+      detail:
+        photoUploads > 0 || otherUploads > 0
+          ? `${photoUploads} photo${photoUploads === 1 ? "" : "s"} and ${otherUploads} other file${otherUploads === 1 ? "" : "s"} added.`
+          : "Optional. Add photos if you want the newsletter to use them."
+    }
+  ];
+
+  return (
+    <section className="rounded-[24px] border border-slate-200 bg-white p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="text-sm font-semibold text-brand-text">Before the system writes</div>
+          <div className="mt-1 text-sm leading-6 text-brand-muted">
+            These are the only things that need to be in place before the draft can be created.
+          </div>
+        </div>
+        {hasSchoolWorkspace && hasWritingAgentConnection ? (
+          <div className="rounded-full bg-emerald-100 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">
+            Ready to write
+          </div>
+        ) : (
+          <div className="rounded-full bg-amber-100 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-amber-700">
+            Needs setup
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
+        {checks.map((check) => (
+          <div key={check.label} className="rounded-2xl border border-slate-200 px-4 py-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="font-semibold text-brand-text">{check.label}</div>
+              <div
+                className={`rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] ${
+                  check.ready ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                }`}
+              >
+                {check.ready ? "Ready" : "Needed"}
+              </div>
+            </div>
+            <div className="mt-2 text-sm leading-6 text-brand-muted">{check.detail}</div>
+          </div>
+        ))}
+      </div>
+
+      {!hasWritingAgentConnection ? (
+        <div className="mt-4 flex flex-wrap gap-3">
+          <a
+            className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
+            href="/admin/schools"
+          >
+            Open school settings
+          </a>
+        </div>
+      ) : null}
+    </section>
+  );
 }
 
 function ReviewEditorPanel({
