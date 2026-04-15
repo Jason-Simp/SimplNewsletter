@@ -43,6 +43,30 @@ export function IssueWizard() {
   const activeStepIndex = stepList.findIndex((step) => step.id === activeStep);
   const activeStepConfig = stepList[activeStepIndex] ?? stepList[0];
 
+  const updateDocumentField = (field: keyof Pick<NewsletterDocument, "title" | "intro" | "issueDate">, value: string) => {
+    setDocument((current) => ({
+      ...current,
+      [field]: value
+    }));
+  };
+
+  const updateSectionContent = (
+    sectionType: NewsletterDocument["sections"][number]["type"],
+    updater: (content: Record<string, unknown>) => Record<string, unknown>
+  ) => {
+    setDocument((current) => ({
+      ...current,
+      sections: current.sections.map((section) =>
+        section.type === sectionType
+          ? {
+              ...section,
+              content: updater(section.content as Record<string, unknown>)
+            }
+          : section
+      )
+    }));
+  };
+
   const toggleDistribution = (channel: DistributionChannel) => {
     setDocument((current) => ({
       ...current,
@@ -599,6 +623,42 @@ export function IssueWizard() {
                   </button>
                 </div>
               </section>
+              <ReviewEditorPanel
+                document={document}
+                onIssueDateChange={(value) => updateDocumentField("issueDate", value)}
+                onIntroChange={(value) => updateDocumentField("intro", value)}
+                onPrincipalQuoteChange={(value) =>
+                  updateSectionContent("principal_message", (content) => ({
+                    ...content,
+                    quote: value
+                  }))
+                }
+                onTitleChange={(value) => updateDocumentField("title", value)}
+                onTopStoryHeadlineChange={(value) =>
+                  updateSectionContent("top_story", (content) => ({
+                    ...content,
+                    headline: value
+                  }))
+                }
+                onTopStorySummaryChange={(value) =>
+                  updateSectionContent("top_story", (content) => ({
+                    ...content,
+                    summary: value
+                  }))
+                }
+                onHeroBodyChange={(value) =>
+                  updateSectionContent("hero", (content) => ({
+                    ...content,
+                    body: value
+                  }))
+                }
+                onHeroHeadlineChange={(value) =>
+                  updateSectionContent("hero", (content) => ({
+                    ...content,
+                    headline: value
+                  }))
+                }
+              />
               <NewsletterPreview
                 channel={activeChannel}
                 document={document}
@@ -737,4 +797,147 @@ function getGeneratedIntro(generated: ContentGenerateResponse, quickNotes: strin
   }
 
   return quickNotes.trim();
+}
+
+function ReviewEditorPanel({
+  document,
+  onIssueDateChange,
+  onIntroChange,
+  onPrincipalQuoteChange,
+  onTitleChange,
+  onTopStoryHeadlineChange,
+  onTopStorySummaryChange,
+  onHeroBodyChange,
+  onHeroHeadlineChange
+}: {
+  document: NewsletterDocument;
+  onIssueDateChange: (value: string) => void;
+  onIntroChange: (value: string) => void;
+  onPrincipalQuoteChange: (value: string) => void;
+  onTitleChange: (value: string) => void;
+  onTopStoryHeadlineChange: (value: string) => void;
+  onTopStorySummaryChange: (value: string) => void;
+  onHeroBodyChange: (value: string) => void;
+  onHeroHeadlineChange: (value: string) => void;
+}) {
+  const hero = getSectionContent(document, "hero");
+  const principal = getSectionContent(document, "principal_message");
+  const topStory = getSectionContent(document, "top_story");
+
+  return (
+    <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Light edits</p>
+          <h2 className="mt-2 font-display text-3xl text-brand-navy">Adjust the draft</h2>
+        </div>
+        <p className="max-w-xl text-sm leading-6 text-brand-muted">
+          Make the small changes you need here. This keeps the workflow simple without sending you back
+          into a complicated builder.
+        </p>
+      </div>
+
+      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+        <label className="grid gap-2">
+          <span className="text-sm font-semibold text-brand-text">Newsletter title</span>
+          <input
+            className="rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
+            onChange={(event) => onTitleChange(event.target.value)}
+            value={document.title}
+          />
+        </label>
+        <label className="grid gap-2">
+          <span className="text-sm font-semibold text-brand-text">Issue date</span>
+          <input
+            className="rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
+            onChange={(event) => onIssueDateChange(event.target.value)}
+            value={document.issueDate}
+          />
+        </label>
+      </div>
+
+      <label className="mt-4 grid gap-2">
+        <span className="text-sm font-semibold text-brand-text">Introduction</span>
+        <textarea
+          className="min-h-28 rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
+          onChange={(event) => onIntroChange(event.target.value)}
+          value={document.intro}
+        />
+      </label>
+
+      {hero ? (
+        <div className="mt-6 rounded-[24px] border border-slate-200 bg-brand-background p-5">
+          <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Hero</div>
+          <div className="mt-4 grid gap-4">
+            <label className="grid gap-2">
+              <span className="text-sm font-semibold text-brand-text">Hero headline</span>
+              <input
+                className="rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
+                onChange={(event) => onHeroHeadlineChange(event.target.value)}
+                value={readString(hero, "headline")}
+              />
+            </label>
+            <label className="grid gap-2">
+              <span className="text-sm font-semibold text-brand-text">Hero summary</span>
+              <textarea
+                className="min-h-28 rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
+                onChange={(event) => onHeroBodyChange(event.target.value)}
+                value={readString(hero, "body")}
+              />
+            </label>
+          </div>
+        </div>
+      ) : null}
+
+      {topStory ? (
+        <div className="mt-6 rounded-[24px] border border-slate-200 bg-brand-background p-5">
+          <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Top story</div>
+          <div className="mt-4 grid gap-4">
+            <label className="grid gap-2">
+              <span className="text-sm font-semibold text-brand-text">Top story headline</span>
+              <input
+                className="rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
+                onChange={(event) => onTopStoryHeadlineChange(event.target.value)}
+                value={readString(topStory, "headline")}
+              />
+            </label>
+            <label className="grid gap-2">
+              <span className="text-sm font-semibold text-brand-text">Top story summary</span>
+              <textarea
+                className="min-h-28 rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
+                onChange={(event) => onTopStorySummaryChange(event.target.value)}
+                value={readString(topStory, "summary")}
+              />
+            </label>
+          </div>
+        </div>
+      ) : null}
+
+      {principal ? (
+        <div className="mt-6 rounded-[24px] border border-slate-200 bg-brand-background p-5">
+          <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Leadership note</div>
+          <label className="mt-4 grid gap-2">
+            <span className="text-sm font-semibold text-brand-text">Principal or leadership message</span>
+            <textarea
+              className="min-h-28 rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
+              onChange={(event) => onPrincipalQuoteChange(event.target.value)}
+              value={readString(principal, "quote")}
+            />
+          </label>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function getSectionContent(
+  document: NewsletterDocument,
+  sectionType: NewsletterDocument["sections"][number]["type"]
+) {
+  return (document.sections.find((section) => section.type === sectionType && section.enabled)
+    ?.content ?? {}) as Record<string, unknown>;
+}
+
+function readString(content: Record<string, unknown>, key: string) {
+  return typeof content[key] === "string" ? (content[key] as string) : "";
 }
