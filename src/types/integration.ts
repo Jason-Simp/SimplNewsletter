@@ -15,6 +15,13 @@ export type ContentGenerateRequest = {
   prompt: string;
   links?: string[];
   imageHints?: string[];
+  uploadedAssets?: Array<{
+    id: string;
+    name: string;
+    type: string;
+    sizeMb: number;
+    url?: string;
+  }>;
   notes?: string;
   sectionTypes?: string[];
 };

@@ -13,6 +13,7 @@ import {
   getNewsletterAgentTriggerPrompt
 } from "@/lib/newsletter-generation-prompt";
 import { getSchoolById } from "@/lib/school-repository";
+import { postSchoolWebhook } from "@/lib/school-webhook";
 import { assertSchoolScope, requireBuilderAccess, requireSignedInMember } from "@/lib/server-auth";
 import type { ContentGenerateRequest } from "@/types/integration";
 
@@ -64,6 +65,37 @@ export async function POST(request: Request) {
         },
         { status: 400 }
       );
+    }
+
+    if (schoolProfile) {
+      await postSchoolWebhook({
+        school: schoolProfile,
+        required: true,
+        payload: {
+          event: "newsletter_input.submitted",
+          submittedAt: new Date().toISOString(),
+          school: {
+            id: schoolProfile.id,
+            name: schoolProfile.name,
+            websiteUrl: schoolProfile.websiteUrl,
+            contactEmail: schoolProfile.contactEmail
+          },
+          task: {
+            taskMode: triggerContext.taskMode,
+            taskVersion: triggerContext.taskVersion,
+            responseMode: triggerContext.responseMode,
+            deliveryTargets: [...triggerContext.deliveryTargets]
+          },
+          request: {
+            prompt: payload.prompt,
+            notes: payload.notes,
+            links: payload.links ?? [],
+            imageHints: payload.imageHints ?? [],
+            uploadedAssets: payload.uploadedAssets ?? [],
+            sectionTypes: payload.sectionTypes ?? []
+          }
+        }
+      });
     }
 
     let result;

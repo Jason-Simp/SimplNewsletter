@@ -389,6 +389,7 @@ export function IssueWizard() {
           integrationEndpoint: document.workspace.integrationEndpoint,
           encryptedKnowledgeRef: document.workspace.encryptedKnowledgeRef,
           imageHints: uploadedAssets.map((asset) => asset.name),
+          uploadedAssets,
           prompt: `Write a school newsletter from the provided request. Decide which newsletter sections are needed, write those sections, and return a clean finished draft in the school's tone.\n\nWhat the newsletter should be about:\n${quickNotes}`,
           notes: quickNotes
         })

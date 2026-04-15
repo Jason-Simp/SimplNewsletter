@@ -48,6 +48,7 @@ export function SchoolManager() {
   const [userRole, setUserRole] = useState<"school_admin" | "editor">("editor");
   const [logoStatus, setLogoStatus] = useState("Upload a logo to get started.");
   const [agentStatus, setAgentStatus] = useState("Not checked yet.");
+  const [webhookStatus, setWebhookStatus] = useState("Not checked yet.");
   const [notice, setNotice] = useState<{ message: string; tone: "success" | "error" | "info" } | null>(null);
 
   useEffect(() => {
@@ -122,6 +123,7 @@ export function SchoolManager() {
   const hasBasicSchoolInfo = Boolean(form.name.trim() && form.contactEmail.trim());
   const hasLogo = Boolean(form.logoUrl.trim());
   const hasAgent = Boolean(form.assistantReference.trim() && form.integrationEndpoint.trim());
+  const hasWebhook = Boolean(form.webhookUrl.trim());
   const hasWebsitePublishing = Boolean(activeSchoolId);
   const readyItems = [
     {
@@ -146,6 +148,13 @@ export function SchoolManager() {
         : "Add the Agent ID and Agent API so the system can write newsletters."
     },
     {
+      label: "Client intranet",
+      ready: hasWebhook,
+      detail: hasWebhook
+        ? "The client intranet webhook is saved for this school."
+        : "Add the intranet webhook so notes and uploaded media can be submitted there."
+    },
+    {
       label: "Website archive",
       ready: hasWebsitePublishing,
       detail: hasWebsitePublishing
@@ -162,7 +171,7 @@ export function SchoolManager() {
     }
   ];
   const readyCount = readyItems.filter((item) => item.ready).length;
-  const schoolReadyToWrite = hasBasicSchoolInfo && hasLogo && hasAgent;
+  const schoolReadyToWrite = hasBasicSchoolInfo && hasLogo && hasAgent && hasWebhook;
   const appOrigin = typeof window !== "undefined" ? window.location.origin : "";
   const feedUrl =
     activeSchoolId && appOrigin ? `${appOrigin}/schools/${activeSchoolId}/feed` : "";
@@ -376,6 +385,47 @@ export function SchoolManager() {
     showNotice(message, "success");
   };
 
+  const verifyWebhook = async () => {
+    if (!activeSchoolId) {
+      const message = "Save the school profile first.";
+      setWebhookStatus(message);
+      showNotice(message, "error");
+      return;
+    }
+
+    if (!form.webhookUrl.trim()) {
+      const message = "Add the client intranet webhook URL first.";
+      setWebhookStatus(message);
+      showNotice(message, "error");
+      return;
+    }
+
+    setWebhookStatus("Checking connection...");
+
+    const response = await authFetch(supabase, "/api/schools/webhook-test", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        schoolId: activeSchoolId
+      })
+    });
+
+    const payload = await response.json();
+
+    if (!response.ok) {
+      const message = payload?.message ?? "Webhook connection failed.";
+      setWebhookStatus(message);
+      showNotice(message, "error");
+      return;
+    }
+
+    const message = payload?.message ?? "Webhook connected.";
+    setWebhookStatus(message);
+    showNotice(message, "success");
+  };
+
   return (
     <>
       {notice ? <ActionNotice message={notice.message} onDismiss={() => setNotice(null)} tone={notice.tone} /> : null}
@@ -552,6 +602,62 @@ export function SchoolManager() {
             {hasAgent
               ? "The writing agent details are saved. Run the connection check if you want to confirm they still work."
               : "Once Agent ID and Agent API are filled in and saved, this school will be ready for the system to write newsletters."}
+          </div>
+        </div>
+
+        <div className="mt-6 rounded-[24px] border border-slate-200 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Client intranet webhook</div>
+              <div className="mt-2 text-sm leading-6 text-brand-muted">
+                This school-level webhook receives the notes, links, and uploaded media context when a newsletter request is submitted so your client intranet can track or process the job too.
+              </div>
+            </div>
+            <div className="rounded-full bg-brand-background px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-brand-primary">
+              Per-school connection
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <Input
+              help="Paste the webhook URL on the client's intranet that should receive newsletter request data."
+              label="Webhook URL"
+              value={form.webhookUrl}
+              onChange={(value) => updateField("webhookUrl", value)}
+            />
+            <Input
+              help="Optional secret or token for the client's intranet webhook."
+              label="Webhook secret"
+              value={form.webhookSecret}
+              onChange={(value) => updateField("webhookSecret", value)}
+            />
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <button
+              className="rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white"
+              onClick={() => void verifyWebhook()}
+              type="button"
+            >
+              Send test webhook
+            </button>
+            <div
+              className={`rounded-full px-4 py-2 text-sm ${
+                webhookStatus.toLowerCase().includes("successfully") || webhookStatus.toLowerCase().includes("connected")
+                  ? "bg-emerald-100 text-emerald-700"
+                  : webhookStatus.toLowerCase().includes("checking")
+                    ? "bg-amber-100 text-amber-700"
+                    : webhookStatus.toLowerCase().includes("not checked")
+                      ? "bg-brand-background text-brand-muted"
+                      : "bg-red-50 text-red-700"
+              }`}
+            >
+              {webhookStatus}
+            </div>
+          </div>
+          <div className="mt-4 rounded-2xl bg-brand-background px-4 py-3 text-sm text-brand-muted">
+            {hasWebhook
+              ? "When a user submits a newsletter request, The Wire will send the notes, links, and uploaded media context to this school's intranet webhook before the writing agent runs."
+              : "Save the webhook URL so this school's intranet can receive newsletter request data."}
           </div>
         </div>
 

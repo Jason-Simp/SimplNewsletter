@@ -14,6 +14,7 @@ export const serverConfig = {
   integrationMaxDurationMs: Number(
     process.env.INTEGRATION_MAX_DURATION_MS ?? process.env.ELEVENLABS_AGENT_MAX_DURATION_MS ?? 180000
   ),
+  schoolWebhookTimeoutMs: Number(process.env.SCHOOL_WEBHOOK_TIMEOUT_MS ?? 15000),
   hasSupabase:
     Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL) &&
     Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
