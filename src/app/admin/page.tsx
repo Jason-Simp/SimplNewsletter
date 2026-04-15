@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+import { ActionNotice } from "@/components/ui/ActionNotice";
 import { authFetch } from "@/lib/api-client";
 import { useAuthSession } from "@/lib/auth-client";
 import { isCompanyAdmin } from "@/lib/member-access";
@@ -17,6 +18,8 @@ export default function AdminPage() {
   const [schools, setSchools] = useState<SchoolProfile[]>([]);
   const [members, setMembers] = useState<MemberRecord[]>([]);
   const [newsletters, setNewsletters] = useState<NewsletterDocument[]>([]);
+  const [notice, setNotice] = useState<{ message: string; tone: "success" | "error" | "info" } | null>(null);
+  const [busyNewsletterId, setBusyNewsletterId] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadMember() {
@@ -124,8 +127,64 @@ export default function AdminPage() {
     }
   ];
 
+  const showNotice = (message: string, tone: "success" | "error" | "info") => {
+    setNotice({ message, tone });
+  };
+
+  const removeNewsletter = async (newsletter: NewsletterDocument) => {
+    const confirmed = window.confirm(
+      newsletter.status === "published"
+        ? "Delete this published issue? It will be removed from the school archive and website."
+        : "Delete this draft?"
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const schoolId = newsletter.workspace.schoolId;
+
+    if (!schoolId) {
+      showNotice("This newsletter is missing its school link and could not be deleted.", "error");
+      return;
+    }
+
+    setBusyNewsletterId(newsletter.id);
+
+    try {
+      const response = await authFetch(
+        supabase,
+        `/api/newsletters?newsletterId=${encodeURIComponent(newsletter.id)}&schoolId=${encodeURIComponent(schoolId)}`,
+        {
+          method: "DELETE"
+        }
+      );
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload?.message ?? "The newsletter could not be deleted.");
+      }
+
+      setNewsletters((current) => current.filter((item) => item.id !== newsletter.id));
+      showNotice(
+        newsletter.status === "published"
+          ? "Published issue removed from the archive."
+          : "Draft deleted.",
+        "success"
+      );
+    } catch (error) {
+      showNotice(
+        error instanceof Error ? error.message : "The newsletter could not be deleted.",
+        "error"
+      );
+    } finally {
+      setBusyNewsletterId(null);
+    }
+  };
+
   return (
     <section className="grid gap-6">
+      {notice ? <ActionNotice message={notice.message} onDismiss={() => setNotice(null)} tone={notice.tone} /> : null}
       <div>
         <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">
           {companyView ? "Company admin" : "School dashboard"}
@@ -338,6 +397,14 @@ export default function AdminPage() {
                       >
                         Copy as new draft
                       </Link>
+                      <button
+                        className="rounded-full border border-red-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-red-700"
+                        disabled={busyNewsletterId === newsletter.id}
+                        onClick={() => void removeNewsletter(newsletter)}
+                        type="button"
+                      >
+                        {busyNewsletterId === newsletter.id ? "Deleting..." : "Delete draft"}
+                      </button>
                     </div>
                   </article>
                 );
@@ -417,6 +484,14 @@ export default function AdminPage() {
                             PDF view
                           </Link>
                         ) : null}
+                        <button
+                          className="rounded-full border border-red-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-red-700"
+                          disabled={busyNewsletterId === newsletter.id}
+                          onClick={() => void removeNewsletter(newsletter)}
+                          type="button"
+                        >
+                          {busyNewsletterId === newsletter.id ? "Removing..." : "Delete issue"}
+                        </button>
                       </div>
                     ) : null}
                   </article>

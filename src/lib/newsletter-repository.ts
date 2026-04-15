@@ -321,6 +321,28 @@ export async function saveNewsletter(
   };
 }
 
+export async function deleteNewsletter(newsletterId: string, schoolId?: string) {
+  const supabase = getServiceSupabase();
+
+  if (!supabase) {
+    return { deleted: true };
+  }
+
+  let query = supabase.from("newsletters").delete().eq("id", newsletterId);
+
+  if (schoolId) {
+    query = query.eq("school_id", schoolId);
+  }
+
+  const { error } = await query;
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return { deleted: true };
+}
+
 function slugify(value: string) {
   return value
     .toLowerCase()
