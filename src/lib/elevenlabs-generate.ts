@@ -3,6 +3,16 @@ import { serverConfig } from "@/lib/server-config";
 
 const ELEVENLABS_API_BASE_URL = "https://api.elevenlabs.io";
 
+export class AgentResponseFormatError extends Error {
+  responsePreview: string;
+
+  constructor(message: string, responsePreview: string) {
+    super(message);
+    this.name = "AgentResponseFormatError";
+    this.responsePreview = responsePreview;
+  }
+}
+
 export async function generateNewsletterWithElevenLabs({
   agentId,
   apiKey,
@@ -198,10 +208,11 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
 
         finish(() =>
           reject(
-            new Error(
+            new AgentResponseFormatError(
               combinedResponse
                 ? "The school's writing agent replied, but it did not return the required newsletter package."
-                : "The school's writing agent closed the conversation too early."
+                : "The school's writing agent closed the conversation too early.",
+              buildResponsePreview(combinedResponse)
             )
           )
         );
@@ -335,8 +346,9 @@ function parseGeneratedNewsletter(rawResponse: string): ContentGenerateResponse 
   const extractedJson = extractJsonBlock(rawResponse);
 
   if (!extractedJson) {
-    throw new Error(
-      "The school's writing agent returned plain text instead of the required newsletter package."
+    throw new AgentResponseFormatError(
+      "The school's writing agent returned plain text instead of the required newsletter package.",
+      buildResponsePreview(rawResponse)
     );
   }
 
@@ -367,4 +379,8 @@ function extractJsonBlock(raw: string) {
   }
 
   return null;
+}
+
+function buildResponsePreview(raw: string) {
+  return raw.replace(/\s+/g, " ").trim().slice(0, 220);
 }

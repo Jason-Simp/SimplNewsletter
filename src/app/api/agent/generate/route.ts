@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { ApiRouteError, jsonApiError } from "@/lib/api-route";
-import { generateNewsletterWithElevenLabs } from "@/lib/elevenlabs-generate";
+import {
+  AgentResponseFormatError,
+  generateNewsletterWithElevenLabs
+} from "@/lib/elevenlabs-generate";
 import { validateGeneratedNewsletterPackage } from "@/lib/generated-newsletter-schema";
 import { generateContentWithProvider } from "@/lib/integration-client";
 import {
@@ -133,15 +136,29 @@ function normalizeGenerationErrorMessage(error: unknown) {
   }
 
   if (normalized.includes("returned plain text instead of the required newsletter package")) {
-    return "The school's writing agent replied, but it did not return the required newsletter package. Update the agent so it returns the expected JSON only.";
+    return withAgentPreview(
+      "The school's writing agent replied, but it did not return the required newsletter package. Update the agent so it returns the expected JSON only.",
+      error
+    );
   }
 
   if (normalized.includes("returned a newsletter package that could not be read")) {
-    return "The school's writing agent returned a newsletter package that could not be read. Check that it is returning valid JSON only.";
+    return withAgentPreview(
+      "The school's writing agent returned a newsletter package that could not be read. Check that it is returning valid JSON only.",
+      error
+    );
   }
 
   if (normalized.includes("integration call failed")) {
     return "The newsletter writing connection did not complete successfully. Please try again.";
+  }
+
+  return message;
+}
+
+function withAgentPreview(message: string, error: unknown) {
+  if (error instanceof AgentResponseFormatError && error.responsePreview) {
+    return `${message} Agent reply preview: "${error.responsePreview}"`;
   }
 
   return message;
