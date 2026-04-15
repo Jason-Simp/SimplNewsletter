@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 
 import { ActionNotice } from "@/components/ui/ActionNotice";
 import { extractPaletteFromImage } from "@/lib/color-extraction";
@@ -39,13 +40,13 @@ export function SchoolManager() {
   const [members, setMembers] = useState<MemberRecord[]>([]);
   const [activeSchoolId, setActiveSchoolId] = useState("");
   const [form, setForm] = useState<SchoolProfile>(emptySchool);
-  const [status, setStatus] = useState("Loading schools...");
+  const [status, setStatus] = useState("Loading...");
   const [member, setMember] = useState<MemberRecord | null>(null);
   const [userEmail, setUserEmail] = useState("");
   const [userName, setUserName] = useState("");
   const [userRole, setUserRole] = useState<"school_admin" | "editor">("editor");
-  const [logoStatus, setLogoStatus] = useState("No logo uploaded.");
-  const [agentStatus, setAgentStatus] = useState("Not verified yet.");
+  const [logoStatus, setLogoStatus] = useState("Upload a logo to get started.");
+  const [agentStatus, setAgentStatus] = useState("Not checked yet.");
   const [notice, setNotice] = useState<{ message: string; tone: "success" | "error" | "info" } | null>(null);
 
   useEffect(() => {
@@ -87,7 +88,7 @@ export function SchoolManager() {
         setActiveSchoolId(nextSchools[0].id);
         setForm(nextSchools[0]);
       }
-      setStatus("Schools loaded.");
+      setStatus("Ready.");
     }
 
     if (member || !session?.user?.email) {
@@ -137,8 +138,22 @@ export function SchoolManager() {
     }
   };
 
+  const copyArchiveUrl = async () => {
+    if (!archiveUrl) {
+      showNotice("Save the school profile first so the archive link exists.", "error");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(archiveUrl);
+      showNotice("Archive URL copied.", "success");
+    } catch {
+      showNotice("Could not copy the archive URL. You can still copy it manually.", "info");
+    }
+  };
+
   const saveSchool = async () => {
-    setStatus("Saving school profile...");
+    setStatus("Saving...");
     const response = await fetch("/api/schools", {
       method: "POST",
       headers: {
@@ -154,7 +169,7 @@ export function SchoolManager() {
     const payload = await response.json();
 
     if (!response.ok) {
-      const message = payload?.message ?? "Unable to save school.";
+      const message = payload?.message ?? "We could not save this school yet.";
       setStatus(message);
       showNotice(message, "error");
       return;
@@ -171,7 +186,7 @@ export function SchoolManager() {
     });
     setActiveSchoolId(saved.id);
     setForm(saved);
-    setStatus("School profile saved.");
+    setStatus("Saved.");
     showNotice("School profile saved.", "success");
   };
 
@@ -181,7 +196,7 @@ export function SchoolManager() {
     }
 
     if (!activeSchoolId) {
-      setLogoStatus("Save the school once before uploading a logo.");
+      setLogoStatus("Save the school first, then upload the logo.");
       showNotice("Save the school profile first, then upload the logo.", "error");
       return;
     }
@@ -210,7 +225,7 @@ export function SchoolManager() {
         ...current,
         logoUrl: nextLogoUrl
       }));
-      setLogoStatus("Logo uploaded.");
+      setLogoStatus("Logo uploaded. Colors updated automatically.");
 
       try {
         const localPreviewUrl = URL.createObjectURL(file);
@@ -242,7 +257,7 @@ export function SchoolManager() {
       return;
     }
 
-    setStatus("Sending school invite...");
+    setStatus("Sending invite...");
 
     const response = await fetch("/api/members", {
       method: "POST",
@@ -262,7 +277,7 @@ export function SchoolManager() {
     const payload = await response.json();
 
     if (!response.ok) {
-      const message = payload?.message ?? "Unable to save school user.";
+      const message = payload?.message ?? "We could not send that invite yet.";
       setStatus(message);
       showNotice(message, "error");
       return;
@@ -274,7 +289,7 @@ export function SchoolManager() {
     setUserEmail("");
     setUserName("");
     setUserRole("editor");
-    const message = payload?.data?.inviteSent ? "Invite email sent." : "School user saved.";
+    const message = payload?.data?.inviteSent ? "Invite email sent." : "User added.";
     setStatus(message);
     showNotice(message, "success");
   };
@@ -287,7 +302,7 @@ export function SchoolManager() {
       return;
     }
 
-    setAgentStatus("Checking agent connection...");
+    setAgentStatus("Checking connection...");
 
     const response = await fetch("/api/agent/verify", {
       method: "POST",
@@ -360,7 +375,7 @@ export function SchoolManager() {
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">School setup</div>
-            <h2 className="mt-2 font-display text-3xl text-brand-navy">Profile and assistant connection</h2>
+            <h2 className="mt-2 font-display text-3xl text-brand-navy">School profile</h2>
           </div>
           <div className="rounded-full bg-brand-background px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-brand-primary">
             {status}
@@ -376,13 +391,12 @@ export function SchoolManager() {
           <Input label="Contact email" value={form.contactEmail} onChange={(value) => updateField("contactEmail", value)} />
           <Input label="Phone" value={form.phone} onChange={(value) => updateField("phone", value)} />
           <Input label="Address" value={form.address} onChange={(value) => updateField("address", value)} />
-          <Input label="Logo URL" value={form.logoUrl} onChange={(value) => updateField("logoUrl", value)} />
           </div>
         </div>
 
         <div className="mt-6 rounded-[24px] border border-slate-200 p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Assistant setup</div>
+          <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">School writing agent</div>
             <div className="rounded-full bg-brand-background px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-brand-primary">
               ElevenLabs MVP
             </div>
@@ -390,13 +404,13 @@ export function SchoolManager() {
 
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <Input
-            help="Enter the school's assistant or agent ID."
+            help="Paste the Agent ID for this school's writing agent."
             label="Agent ID"
             value={form.assistantReference}
             onChange={(value) => updateField("assistantReference", value)}
           />
           <Input
-            help="Enter the API or connection value for this school's ElevenLabs agent."
+            help="Paste the Agent API for this school's writing agent."
             label="Agent API"
             value={form.integrationEndpoint}
             onChange={(value) => updateField("integrationEndpoint", value)}
@@ -408,7 +422,7 @@ export function SchoolManager() {
               onClick={() => void verifyAgent()}
               type="button"
             >
-              Verify agent connection
+              Check agent connection
             </button>
             <div className="rounded-full bg-brand-background px-4 py-2 text-sm text-brand-muted">
               {agentStatus}
@@ -442,6 +456,20 @@ export function SchoolManager() {
               />
             </label>
           </div>
+          <div className="mt-4 flex flex-wrap items-center gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-4">
+            <div className="h-16 w-32 overflow-hidden rounded-xl border border-slate-200 bg-white">
+              <Image
+                alt={`${form.name || "School"} logo`}
+                className="h-full w-full object-contain"
+                height={64}
+                src={form.logoUrl}
+                width={128}
+              />
+            </div>
+            <div className="text-sm text-brand-muted">
+              This logo will be used in the hosted newsletter, archive, and PDF view.
+            </div>
+          </div>
           <div className="mt-4 rounded-2xl bg-brand-background px-4 py-3 text-sm text-brand-muted">
             {logoStatus}
           </div>
@@ -466,11 +494,11 @@ export function SchoolManager() {
 
         {activeSchoolId ? (
           <div className="mt-6 rounded-[24px] border border-slate-200 bg-[#F7F9FC] p-5">
-            <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Website feed</div>
+            <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Website publishing</div>
             <h3 className="mt-2 text-xl font-semibold text-brand-text">School website archive and feed</h3>
             <p className="mt-2 text-sm leading-6 text-brand-muted">
-              This is the easiest website option. Every newsletter that is marked for the school website
-              will live in the hosted archive and appear in this feed for the web team to pull.
+              This is the easiest website option. Published newsletters will appear on the hosted school
+              archive and in the feed your web team can pull from.
             </p>
             <div className="mt-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-brand-text">
               {feedUrl || "Save the school profile to generate the feed URL."}
@@ -485,6 +513,13 @@ export function SchoolManager() {
                 type="button"
               >
                 Copy feed URL
+              </button>
+              <button
+                className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
+                onClick={() => void copyArchiveUrl()}
+                type="button"
+              >
+                Copy archive URL
               </button>
               {archiveUrl ? (
                 <a
