@@ -578,7 +578,7 @@ export function IssueWizard() {
           ? selectedDraft
           : selectedSource
             ? createDraftFromExistingNewsletter(selectedSource)
-            : loadedDocuments[0];
+            : createFreshDraft(nextSchool);
 
         if (!cancelled && nextDocument) {
           const mergedDocument = nextSchool
@@ -1681,6 +1681,89 @@ function createDraftFromExistingNewsletter(document: NewsletterDocument): Newsle
       ...section,
       content: { ...section.content }
     }))
+  };
+}
+
+function createFreshDraft(school: SchoolProfile | null): NewsletterDocument {
+  const base = structuredClone(sampleNewsletter) as NewsletterDocument;
+  const schoolName = school?.name?.trim() || "School newsletter";
+  const issueDate = new Date().toISOString().slice(0, 10);
+
+  return {
+    ...base,
+    id: `draft-${Date.now()}`,
+    status: "draft",
+    title: school ? `${school.name} newsletter` : "",
+    issueDate,
+    audience: school?.name ? `${school.name} families and staff` : "",
+    intro: "",
+    subjectLine: "",
+    previewText: "",
+    publishedAt: null,
+    organization: school
+      ? {
+          ...base.organization,
+          name: school.name,
+          tagline: school.tagline,
+          websiteUrl: school.websiteUrl,
+          contactEmail: school.contactEmail,
+          phone: school.phone,
+          address: school.address,
+          logoUrl: school.logoUrl,
+          colors: {
+            ...base.organization.colors,
+            primary: school.primaryColor,
+            secondary: school.secondaryColor,
+            accent: school.accentColor,
+            background: school.backgroundColor,
+            text: school.textColor
+          }
+        }
+      : base.organization,
+    workspace: school
+      ? {
+          ...base.workspace,
+          schoolId: school.id,
+          publishMode: school.publishMode,
+          generationProvider: school.generationProvider,
+          knowledgeProvider: school.knowledgeProvider,
+          syncProvider: school.syncProvider,
+          assistantReference: school.assistantReference,
+          integrationEndpoint: school.integrationEndpoint,
+          encryptedKnowledgeRef: school.encryptedKnowledgeRef
+        }
+      : base.workspace,
+    distributionOptions: base.distributionOptions.map((option) => ({
+      ...option,
+      selected: option.channel === "web"
+    })),
+    sections: base.sections.map((section) => {
+      if (section.type === "hero") {
+        return {
+          ...section,
+          title: "Lead story",
+          enabled: true,
+          content: {
+            ...section.content,
+            eyebrow: schoolName,
+            headline: "",
+            body: "",
+            stats: [],
+            heroImage: "",
+            galleryImages: []
+          }
+        };
+      }
+
+      if (section.type === "footer") {
+        return section;
+      }
+
+      return {
+        ...section,
+        enabled: false
+      };
+    })
   };
 }
 

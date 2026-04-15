@@ -139,7 +139,7 @@ export async function listNewsletters(schoolId?: string) {
   const supabase = getServiceSupabase();
 
   if (!supabase) {
-    return [sampleNewsletter];
+    return [];
   }
 
   let query = supabase
@@ -155,7 +155,7 @@ export async function listNewsletters(schoolId?: string) {
   const { data: newsletterRows, error } = await query;
 
   if (error || !newsletterRows?.length) {
-    return [sampleNewsletter];
+    return [];
   }
 
   const documents = await Promise.all(
@@ -173,7 +173,7 @@ export async function listNewsletters(schoolId?: string) {
       ]);
 
       if (!school) {
-        return sampleNewsletter;
+        return null;
       }
 
       return toDocument(
@@ -185,7 +185,7 @@ export async function listNewsletters(schoolId?: string) {
     })
   );
 
-  return documents;
+  return documents.filter(Boolean) as NewsletterDocument[];
 }
 
 export async function getNewsletterById(newsletterId: string, schoolId?: string) {
@@ -246,7 +246,14 @@ export async function saveNewsletter(
     throw new Error(schoolError?.message ?? "Failed to save school settings.");
   }
 
+  const hasPersistedNewsletterId =
+    Boolean(document.id?.trim()) &&
+    !document.id.startsWith("draft-") &&
+    !document.id.startsWith("demo-") &&
+    document.id !== sampleNewsletter.id;
+
   const newsletterPayload = {
+    ...(hasPersistedNewsletterId ? { id: document.id } : {}),
     school_id: school.id,
     status: options?.publish ? "published" : document.status ?? "draft",
     title: document.title,
@@ -259,9 +266,11 @@ export async function saveNewsletter(
     published_at: options?.publish ? new Date().toISOString() : document.publishedAt ?? null
   };
 
-  const { data: newsletter, error: newsletterError } = await supabase
-    .from("newsletters")
-    .upsert(newsletterPayload, { onConflict: "school_id,slug" })
+  const newsletterMutation = hasPersistedNewsletterId
+    ? supabase.from("newsletters").upsert(newsletterPayload, { onConflict: "id" })
+    : supabase.from("newsletters").upsert(newsletterPayload, { onConflict: "school_id,slug" });
+
+  const { data: newsletter, error: newsletterError } = await newsletterMutation
     .select("id")
     .single();
 
