@@ -180,6 +180,12 @@ export function IssueWizard() {
                 typeof nextSection?.content?.heroImage === "string"
                   ? nextSection.content.heroImage
                   : imageAssignments.heroImage || (section.content as { heroImage?: string }).heroImage,
+              galleryImages:
+                imageAssignments.galleryImages.length > 0
+                  ? imageAssignments.galleryImages
+                  : Array.isArray((section.content as { galleryImages?: string[] }).galleryImages)
+                    ? (section.content as { galleryImages: string[] }).galleryImages
+                    : [],
               stats: Array.isArray(nextSection?.content?.stats) ? nextSection.content.stats : []
             }
           };
@@ -325,7 +331,15 @@ export function IssueWizard() {
               ...section.content,
               ...rewrittenSection.content,
               ...(sectionType === "hero" && imageAssignments.heroImage
-                ? { heroImage: imageAssignments.heroImage }
+                ? {
+                    heroImage: imageAssignments.heroImage,
+                    galleryImages:
+                      imageAssignments.galleryImages.length > 0
+                        ? imageAssignments.galleryImages
+                        : Array.isArray((section.content as { galleryImages?: string[] }).galleryImages)
+                          ? (section.content as { galleryImages: string[] }).galleryImages
+                          : []
+                  }
                 : {}),
               ...(sectionType === "top_story" && imageAssignments.topStoryImage
                 ? { image: imageAssignments.topStoryImage }
@@ -1770,12 +1784,17 @@ function selectImageAssignments(generated: ContentGenerateResponse, assets: Uplo
       )
     : [];
 
+  const galleryImages = imageAssets
+    .filter((asset) => !usedNames.has(asset.name) && asset.url)
+    .map((asset) => asset.url as string);
+
   return {
     heroImage,
     topStoryImage,
     spotlightImage,
     newsItemImages,
-    eventItemImages
+    eventItemImages,
+    galleryImages
   };
 }
 

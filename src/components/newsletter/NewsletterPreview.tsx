@@ -29,6 +29,7 @@ export function NewsletterPreview({
     body: string;
     stats: { label: string; value: string }[];
     heroImage: string;
+    galleryImages?: string[];
   }>(document.sections, "hero");
   const principal = getSection<{ quote: string; author: string }>(document.sections, "principal_message");
   const topStory = getSection<{ headline: string; summary: string; url: string; image: string }>(
@@ -150,33 +151,56 @@ export function NewsletterPreview({
         </header>
 
         {hero ? (
-          <section
-            className="grid gap-8 px-6 py-8 lg:grid-cols-[1.1fr_0.9fr] lg:px-8"
-            style={{
-              background:
-                `linear-gradient(135deg, ${organization.colors.primary}F0, ${organization.colors.secondary}D0), url(${hero.content.heroImage}) center/cover`
-            }}
-          >
-            <div className="rounded-[26px] bg-black/20 p-6 text-white backdrop-blur">
-              <div className="text-xs font-bold uppercase tracking-[0.3em] text-white/80">
-                {hero.content.eyebrow}
-              </div>
-              <h1 className="mt-4 font-display text-4xl leading-none lg:text-6xl">
-                {hero.content.headline}
-              </h1>
-              <p className="mt-5 max-w-2xl text-base leading-7 text-white/90">{hero.content.body}</p>
-            </div>
-            <div className="grid gap-3 self-end">
-              {hero.content.stats.map((stat) => (
-                <div key={stat.label} className="rounded-[24px] bg-white/90 p-5 text-brand-text">
-                  <div className="text-3xl font-bold" style={{ color: organization.colors.primary }}>
-                    {stat.value}
-                  </div>
-                  <div className="mt-1 text-sm text-brand-muted">{stat.label}</div>
+          <>
+            <section
+              className="grid gap-8 px-6 py-8 lg:grid-cols-[1.1fr_0.9fr] lg:px-8"
+              style={{
+                background:
+                  `linear-gradient(135deg, ${organization.colors.primary}F0, ${organization.colors.secondary}D0), url(${hero.content.heroImage}) center/cover`
+              }}
+            >
+              <div className="rounded-[26px] bg-black/20 p-6 text-white backdrop-blur">
+                <div className="text-xs font-bold uppercase tracking-[0.3em] text-white/80">
+                  {hero.content.eyebrow}
                 </div>
-              ))}
-            </div>
-          </section>
+                <h1 className="mt-4 font-display text-4xl leading-none lg:text-6xl">
+                  {hero.content.headline}
+                </h1>
+                <p className="mt-5 max-w-2xl text-base leading-7 text-white/90">{hero.content.body}</p>
+              </div>
+              <div className="grid gap-3 self-end">
+                {hero.content.stats.map((stat) => (
+                  <div key={stat.label} className="rounded-[24px] bg-white/90 p-5 text-brand-text">
+                    <div className="text-3xl font-bold" style={{ color: organization.colors.primary }}>
+                      {stat.value}
+                    </div>
+                    <div className="mt-1 text-sm text-brand-muted">{stat.label}</div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {Array.isArray(hero.content.galleryImages) && hero.content.galleryImages.length > 0 ? (
+              <section className="border-b border-black/5 bg-white px-6 py-5 lg:px-8">
+                <div className="text-xs font-bold uppercase tracking-[0.3em]" style={{ color: organization.colors.secondary }}>
+                  Photo highlights
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  {hero.content.galleryImages.map((imageUrl, index) => (
+                    <div key={`${imageUrl}-${index}`} className="overflow-hidden rounded-[24px] border border-slate-200 bg-[#F7F9FC]">
+                      <Image
+                        alt={`${organization.name} newsletter photo ${index + 1}`}
+                        className="h-48 w-full object-cover"
+                        height={480}
+                        src={imageUrl}
+                        width={720}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+          </>
         ) : null}
 
         <div className={`grid gap-6 px-6 py-8 lg:px-8 ${channel === "email" ? "" : "xl:grid-cols-[1.2fr_0.8fr]"}`}>
