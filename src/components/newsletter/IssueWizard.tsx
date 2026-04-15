@@ -40,6 +40,7 @@ export function IssueWizard() {
   const [quickNotes, setQuickNotes] = useState("");
   const [uploadedAssets, setUploadedAssets] = useState<UploadedAsset[]>([]);
   const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
+  const [rewritingSection, setRewritingSection] = useState<string | null>(null);
   const initialLoadComplete = useRef(false);
   const stepList = buildSteps;
   const activeStepIndex = stepList.findIndex((step) => step.id === activeStep);
@@ -141,9 +142,7 @@ export function IssueWizard() {
     const generatedSectionTypes = new Set(generated.sections?.map((item) => item.sectionType) ?? []);
     const fallbackTitle = getGeneratedTitle(generated, quickNotes);
     const fallbackIntro = getGeneratedIntro(generated, quickNotes);
-    const firstUploadedImage = uploadedAssets.find(
-      (asset) => asset.type.startsWith("image/") && asset.url
-    )?.url;
+    const imageAssignments = selectImageAssignments(generated, uploadedAssets);
 
     setDocument((current) => ({
       ...current,
@@ -167,7 +166,7 @@ export function IssueWizard() {
               heroImage:
                 typeof nextSection?.content?.heroImage === "string"
                   ? nextSection.content.heroImage
-                  : firstUploadedImage || (section.content as { heroImage?: string }).heroImage,
+                  : imageAssignments.heroImage || (section.content as { heroImage?: string }).heroImage,
               stats: Array.isArray(nextSection?.content?.stats) ? nextSection.content.stats : []
             }
           };
@@ -185,7 +184,7 @@ export function IssueWizard() {
                   ? generated.raw.trim()
                   : fallbackIntro,
               url: "#",
-              image: firstUploadedImage || (section.content as { image?: string }).image
+              image: imageAssignments.topStoryImage || (section.content as { image?: string }).image
             }
           };
         }
@@ -201,8 +200,11 @@ export function IssueWizard() {
           content: {
             ...section.content,
             ...nextSection.content,
-            ...(section.type === "top_story" && firstUploadedImage
-              ? { image: firstUploadedImage }
+            ...(section.type === "top_story" && imageAssignments.topStoryImage
+              ? { image: imageAssignments.topStoryImage }
+              : {}),
+            ...(section.type === "student_spotlight" && imageAssignments.spotlightImage
+              ? { image: imageAssignments.spotlightImage }
               : {})
           }
         };
@@ -217,6 +219,96 @@ export function IssueWizard() {
         };
       })
     }));
+  };
+
+  const rewriteSection = async (sectionType: "hero" | "top_story" | "principal_message") => {
+    if (!hasSchoolWorkspace || !hasWritingAgentConnection || !quickNotes.trim()) {
+      return;
+    }
+
+    setRewritingSection(sectionType);
+    setGenerationState("generating");
+    setGenerationMessage(`Rewriting the ${getSectionLabel(sectionType).toLowerCase()}...`);
+
+    try {
+      const response = await authFetch(supabase, "/api/agent/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          schoolId: document.workspace.schoolId,
+          schoolName: document.organization.name,
+          generationProvider: document.workspace.generationProvider,
+          knowledgeProvider: document.workspace.knowledgeProvider,
+          assistantReference: document.workspace.assistantReference,
+          integrationEndpoint: document.workspace.integrationEndpoint,
+          encryptedKnowledgeRef: document.workspace.encryptedKnowledgeRef,
+          imageHints: uploadedAssets.map((asset) => asset.name),
+          sectionTypes: [sectionType],
+          prompt: `Rewrite only the ${getSectionLabel(sectionType)} for this school newsletter. Keep the rest of the issue intact.`,
+          notes: buildSectionRewriteNotes({
+            sectionType,
+            quickNotes,
+            document
+          })
+        })
+      });
+
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload?.message ?? "The section could not be rewritten.");
+      }
+
+      const rewrittenSection = payload?.data?.sections?.find(
+        (section: { sectionType?: string }) => section.sectionType === sectionType
+      );
+
+      if (!rewrittenSection) {
+        throw new Error("The writing agent did not return the updated section.");
+      }
+
+      const imageAssignments = selectImageAssignments(payload.data, uploadedAssets);
+
+      setDocument((current) => ({
+        ...current,
+        sections: current.sections.map((section) => {
+          if (section.type !== sectionType) {
+            return section;
+          }
+
+          return {
+            ...section,
+            title: rewrittenSection.title || section.title,
+            enabled: true,
+            content: {
+              ...section.content,
+              ...rewrittenSection.content,
+              ...(sectionType === "hero" && imageAssignments.heroImage
+                ? { heroImage: imageAssignments.heroImage }
+                : {}),
+              ...(sectionType === "top_story" && imageAssignments.topStoryImage
+                ? { image: imageAssignments.topStoryImage }
+                : {})
+            }
+          };
+        })
+      }));
+
+      setGenerationState("ready");
+      setGenerationMessage(`${getSectionLabel(sectionType)} updated. Review it and keep going.`);
+      setLastGeneratedAt(new Date().toISOString());
+      showNotice(`${getSectionLabel(sectionType)} rewritten.`, "success");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "The section could not be rewritten right now.";
+      setGenerationState("error");
+      setGenerationMessage(message);
+      showNotice(message, "error");
+    } finally {
+      setRewritingSection(null);
+    }
   };
 
   const generateInstantDraft = async () => {
@@ -819,6 +911,10 @@ export function IssueWizard() {
               </section>
               <ReviewEditorPanel
                 document={document}
+                onRewritePrincipal={() => void rewriteSection("principal_message")}
+                onRewriteTopStory={() => void rewriteSection("top_story")}
+                onRewriteHero={() => void rewriteSection("hero")}
+                rewritingSection={rewritingSection}
                 onIssueDateChange={(value) => updateDocumentField("issueDate", value)}
                 onIntroChange={(value) => updateDocumentField("intro", value)}
                 onPrincipalQuoteChange={(value) =>
@@ -1202,6 +1298,10 @@ function PublishSummaryPanel({
 
 function ReviewEditorPanel({
   document,
+  onRewritePrincipal,
+  onRewriteTopStory,
+  onRewriteHero,
+  rewritingSection,
   onIssueDateChange,
   onIntroChange,
   onPrincipalQuoteChange,
@@ -1212,6 +1312,10 @@ function ReviewEditorPanel({
   onHeroHeadlineChange
 }: {
   document: NewsletterDocument;
+  onRewritePrincipal: () => void;
+  onRewriteTopStory: () => void;
+  onRewriteHero: () => void;
+  rewritingSection: string | null;
   onIssueDateChange: (value: string) => void;
   onIntroChange: (value: string) => void;
   onPrincipalQuoteChange: (value: string) => void;
@@ -1268,7 +1372,17 @@ function ReviewEditorPanel({
 
       {hero ? (
         <div className="mt-6 rounded-[24px] border border-slate-200 bg-brand-background p-5">
-          <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Hero</div>
+        <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Hero</div>
+          <div className="mt-4">
+            <button
+              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-brand-text disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={rewritingSection !== null}
+              onClick={onRewriteHero}
+              type="button"
+            >
+              {rewritingSection === "hero" ? "Rewriting hero..." : "Rewrite hero"}
+            </button>
+          </div>
           <div className="mt-4 grid gap-4">
             <label className="grid gap-2">
               <span className="text-sm font-semibold text-brand-text">Hero headline</span>
@@ -1292,7 +1406,17 @@ function ReviewEditorPanel({
 
       {topStory ? (
         <div className="mt-6 rounded-[24px] border border-slate-200 bg-brand-background p-5">
-          <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Top story</div>
+        <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Top story</div>
+          <div className="mt-4">
+            <button
+              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-brand-text disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={rewritingSection !== null}
+              onClick={onRewriteTopStory}
+              type="button"
+            >
+              {rewritingSection === "top_story" ? "Rewriting top story..." : "Rewrite top story"}
+            </button>
+          </div>
           <div className="mt-4 grid gap-4">
             <label className="grid gap-2">
               <span className="text-sm font-semibold text-brand-text">Top story headline</span>
@@ -1316,7 +1440,19 @@ function ReviewEditorPanel({
 
       {principal ? (
         <div className="mt-6 rounded-[24px] border border-slate-200 bg-brand-background p-5">
-          <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Leadership note</div>
+        <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Leadership note</div>
+          <div className="mt-4">
+            <button
+              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-brand-text disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={rewritingSection !== null}
+              onClick={onRewritePrincipal}
+              type="button"
+            >
+              {rewritingSection === "principal_message"
+                ? "Rewriting leadership note..."
+                : "Rewrite leadership note"}
+            </button>
+          </div>
           <label className="mt-4 grid gap-2">
             <span className="text-sm font-semibold text-brand-text">Principal or leadership message</span>
             <textarea
@@ -1342,3 +1478,154 @@ function getSectionContent(
 function readString(content: Record<string, unknown>, key: string) {
   return typeof content[key] === "string" ? (content[key] as string) : "";
 }
+
+function getSectionLabel(sectionType: "hero" | "top_story" | "principal_message") {
+  switch (sectionType) {
+    case "hero":
+      return "Hero";
+    case "top_story":
+      return "Top story";
+    case "principal_message":
+      return "Leadership note";
+  }
+}
+
+function buildSectionRewriteNotes({
+  sectionType,
+  quickNotes,
+  document
+}: {
+  sectionType: "hero" | "top_story" | "principal_message";
+  quickNotes: string;
+  document: NewsletterDocument;
+}) {
+  const currentSection = getSectionContent(document, sectionType);
+
+  return [
+    `Original newsletter request: ${quickNotes}`,
+    `Rewrite only this section: ${getSectionLabel(sectionType)}`,
+    `Current section content: ${JSON.stringify(currentSection)}`,
+    "Keep the tone clear, credible, and useful. Improve specificity and readability without inventing facts."
+  ].join("\n\n");
+}
+
+function selectImageAssignments(generated: ContentGenerateResponse, assets: UploadedAsset[]) {
+  const imageAssets = assets.filter((asset) => asset.type.startsWith("image/") && asset.url);
+  const usedNames = new Set<string>();
+
+  const hero = generated.sections?.find((section) => section.sectionType === "hero");
+  const topStory = generated.sections?.find((section) => section.sectionType === "top_story");
+  const spotlight = generated.sections?.find((section) => section.sectionType === "student_spotlight");
+
+  const heroImage = chooseImageForText(
+    [
+      generated.title,
+      hero?.title,
+      typeof hero?.content?.headline === "string" ? hero.content.headline : "",
+      typeof hero?.content?.body === "string" ? hero.content.body : ""
+    ],
+    imageAssets,
+    usedNames
+  );
+
+  const topStoryImage = chooseImageForText(
+    [
+      topStory?.title,
+      typeof topStory?.content?.headline === "string" ? topStory.content.headline : "",
+      typeof topStory?.content?.summary === "string" ? topStory.content.summary : ""
+    ],
+    imageAssets,
+    usedNames
+  );
+
+  const spotlightImage = chooseImageForText(
+    [
+      spotlight?.title,
+      typeof spotlight?.content?.name === "string" ? spotlight.content.name : "",
+      typeof spotlight?.content?.summary === "string" ? spotlight.content.summary : ""
+    ],
+    imageAssets,
+    usedNames
+  );
+
+  return {
+    heroImage,
+    topStoryImage,
+    spotlightImage
+  };
+}
+
+function chooseImageForText(
+  textParts: Array<string | undefined>,
+  assets: UploadedAsset[],
+  usedNames: Set<string>
+) {
+  const availableAssets = assets.filter((asset) => !usedNames.has(asset.name) && asset.url);
+
+  if (!availableAssets.length) {
+    return "";
+  }
+
+  const tokens = tokenizeForMatching(textParts.join(" "));
+  const scoredAssets = availableAssets
+    .map((asset) => ({
+      asset,
+      score: scoreAssetAgainstTokens(asset, tokens)
+    }))
+    .sort((left, right) => right.score - left.score);
+
+  const bestMatch = scoredAssets[0]?.asset ?? availableAssets[0];
+  usedNames.add(bestMatch.name);
+  return bestMatch.url ?? "";
+}
+
+function scoreAssetAgainstTokens(asset: UploadedAsset, tokens: string[]) {
+  if (!tokens.length) {
+    return 0;
+  }
+
+  const normalizedName = asset.name.toLowerCase();
+  return tokens.reduce((score, token) => {
+    if (!token) {
+      return score;
+    }
+
+    if (normalizedName.includes(token)) {
+      return score + 3;
+    }
+
+    const tokenPieces = token.split("-").filter(Boolean);
+    if (tokenPieces.some((piece) => normalizedName.includes(piece))) {
+      return score + 1;
+    }
+
+    return score;
+  }, 0);
+}
+
+function tokenizeForMatching(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, " ")
+    .split(/\s+/)
+    .filter((token) => token.length > 3)
+    .filter((token) => !COMMON_MATCH_WORDS.has(token));
+}
+
+const COMMON_MATCH_WORDS = new Set([
+  "school",
+  "newsletter",
+  "about",
+  "with",
+  "from",
+  "that",
+  "this",
+  "have",
+  "will",
+  "your",
+  "their",
+  "they",
+  "into",
+  "next",
+  "week"
+]);

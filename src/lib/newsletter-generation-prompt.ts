@@ -231,6 +231,11 @@ quick_links:
 
 export function buildNewsletterGenerationPrompt(request: ContentGenerateRequest) {
   const userRequest = request.notes?.trim() || request.prompt.trim();
+  const requestedSectionTypes = request.sectionTypes?.filter(Boolean) ?? [];
+  const sectionMode =
+    requestedSectionTypes.length > 0
+      ? `Only rewrite these section types:\n${requestedSectionTypes.map((sectionType) => `- ${sectionType}`).join("\n")}`
+      : "Choose the sections that are genuinely needed for this issue.";
   const linksBlock =
     request.links && request.links.length > 0
       ? `\nSource links to consider:\n${request.links.map((link) => `- ${link}`).join("\n")}`
@@ -252,7 +257,8 @@ Your job is to:
 Allowed section types:
 ${AVAILABLE_SECTION_TYPES.map((sectionType) => `- ${sectionType}`).join("\n")}
 
-Use only the sections that are helpful for this issue. Do not force every section into the result.
+${sectionMode}
+Do not force every section into the result.
 When in doubt, choose fewer, clearer sections.
 
 ${DESIGN_AGENT_BRIEF}
@@ -268,7 +274,8 @@ Additional rules:
 - If the request includes operational or policy items, keep them direct and grounded.
 - Use the school's tone, but prioritize clarity over flourish.
 - Return a finished draft, not an outline.
-- Always include a hero section and at least one additional section.
+- If you are writing the full newsletter package, always include a hero section and at least one additional section.
+- If you are rewriting only specific sections, return only those requested sections and keep the content focused on them.
 - Return only the section types that are genuinely needed for this issue.
 - Do not invent image descriptions. If you refer to uploaded images, use the uploaded file names only as hints.
 - Do not use placeholder or chatbot phrases such as "Generated draft", "Generated newsletter draft", "Hello, I'm...", or "How can I help today?"

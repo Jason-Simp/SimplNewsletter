@@ -1,5 +1,4 @@
 import type { ContentGenerateResponse } from "@/types/integration";
-import { validateGeneratedNewsletterPackage } from "@/lib/generated-newsletter-schema";
 
 const ELEVENLABS_API_BASE_URL = "https://api.elevenlabs.io";
 
@@ -213,8 +212,7 @@ function parseGeneratedNewsletter(rawResponse: string): ContentGenerateResponse 
   }
 
   try {
-    const parsed = JSON.parse(extractedJson) as unknown;
-    return validateGeneratedNewsletterPackage(parsed);
+    return JSON.parse(extractedJson) as ContentGenerateResponse;
   } catch (error) {
     if (error instanceof Error) {
       throw error;

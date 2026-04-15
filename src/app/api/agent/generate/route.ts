@@ -39,6 +39,7 @@ export async function POST(request: Request) {
       schoolName: payload.schoolName || schoolProfile?.name || "the school",
       prompt: generationPrompt
     };
+    const sectionRewrite = (payload.sectionTypes?.filter(Boolean) ?? []).length > 0;
     const hasElevenLabsConnection = Boolean(
       resolvedAssistantReference.trim() && resolvedIntegrationEndpoint.trim()
     );
@@ -65,7 +66,11 @@ export async function POST(request: Request) {
     let validatedResult: ReturnType<typeof validateGeneratedNewsletterPackage>;
 
     try {
-      validatedResult = validateGeneratedNewsletterPackage(result);
+      validatedResult = validateGeneratedNewsletterPackage(result, {
+        requireHero: !sectionRewrite,
+        minimumSections: sectionRewrite ? 1 : 2,
+        allowedSectionTypes: payload.sectionTypes
+      });
     } catch (error) {
       throw new ApiRouteError(
         422,

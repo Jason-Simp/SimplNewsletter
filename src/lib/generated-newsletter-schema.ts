@@ -383,7 +383,16 @@ function normalizeSectionContent(
   }
 }
 
-export function validateGeneratedNewsletterPackage(value: unknown): ContentGenerateResponse {
+type ValidationOptions = {
+  requireHero?: boolean;
+  minimumSections?: number;
+  allowedSectionTypes?: string[];
+};
+
+export function validateGeneratedNewsletterPackage(
+  value: unknown,
+  options?: ValidationOptions
+): ContentGenerateResponse {
   if (!isRecord(value)) {
     throw new Error("The school's writing agent did not return a valid newsletter package.");
   }
@@ -407,8 +416,16 @@ export function validateGeneratedNewsletterPackage(value: unknown): ContentGener
     throw new Error("The school's writing agent did not return any newsletter sections.");
   }
 
-  if (sections.length < 2) {
-    throw new Error("The school's writing agent needs to return a fuller newsletter package with at least two sections.");
+  const minimumSections = options?.minimumSections ?? 2;
+  const allowedSectionTypes = options?.allowedSectionTypes?.filter(Boolean) ?? [];
+  const requireHero = options?.requireHero ?? true;
+
+  if (sections.length < minimumSections) {
+    throw new Error(
+      minimumSections === 1
+        ? "The school's writing agent did not return the requested section rewrite."
+        : "The school's writing agent needs to return a fuller newsletter package with at least two sections."
+    );
   }
 
   const normalizedSections = sections.map((section, index) => {
@@ -423,6 +440,12 @@ export function validateGeneratedNewsletterPackage(value: unknown): ContentGener
     if (!RENDERABLE_SECTION_TYPES.has(sectionType)) {
       throw new Error(
         `Section ${index + 1} used an unsupported section type: ${sectionType || "unknown"}.`
+      );
+    }
+
+    if (allowedSectionTypes.length > 0 && !allowedSectionTypes.includes(sectionType)) {
+      throw new Error(
+        `Section ${index + 1} returned ${sectionType}, but only ${allowedSectionTypes.join(", ")} should have been returned.`
       );
     }
 
@@ -441,7 +464,7 @@ export function validateGeneratedNewsletterPackage(value: unknown): ContentGener
     };
   });
 
-  if (!normalizedSections.some((section) => section.sectionType === "hero")) {
+  if (requireHero && !normalizedSections.some((section) => section.sectionType === "hero")) {
     throw new Error("The school's writing agent must return a hero section for the newsletter.");
   }
 
