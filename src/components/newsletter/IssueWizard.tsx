@@ -617,7 +617,7 @@ export function IssueWizard() {
                 ? buildQuickNotesFromDocument(selectedDraft)
                 : selectedSource
                   ? buildQuickNotesFromDocument(selectedSource)
-                  : buildQuickNotesFromDocument(mergedDocument))
+                  : "")
           );
           setUploadedAssets(restoredState?.uploadedAssets ?? []);
           setActiveStep(restoredState?.activeStep ?? "setup");
