@@ -153,10 +153,9 @@ export function NewsletterPreview({
         {hero ? (
           <>
             <section
-              className="grid gap-8 px-6 py-8 lg:grid-cols-[1.1fr_0.9fr] lg:px-8"
+              className="grid gap-6 px-6 py-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch lg:px-8"
               style={{
-                background:
-                  `linear-gradient(135deg, ${organization.colors.primary}F0, ${organization.colors.secondary}D0), url(${hero.content.heroImage}) center/cover`
+                background: `linear-gradient(135deg, ${organization.colors.primary}F0, ${organization.colors.secondary}D0)`
               }}
             >
               <div className="rounded-[26px] bg-black/20 p-6 text-white backdrop-blur">
@@ -178,24 +177,30 @@ export function NewsletterPreview({
                   </div>
                 ))}
               </div>
+              {hero.content.heroImage ? (
+                <div className="rounded-[26px] border border-white/25 bg-white/10 p-4">
+                  <ImageFrame
+                    alt={hero.content.headline}
+                    className="h-full min-h-[280px] rounded-[20px] border border-white/20 bg-white/90"
+                    src={hero.content.heroImage}
+                  />
+                </div>
+              ) : null}
             </section>
 
             {Array.isArray(hero.content.galleryImages) && hero.content.galleryImages.length > 0 ? (
               <section className="border-b border-black/5 bg-white px-6 py-5 lg:px-8">
                 <div className="text-xs font-bold uppercase tracking-[0.3em]" style={{ color: organization.colors.secondary }}>
-                  Photo highlights
+                  More from around campus
                 </div>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   {hero.content.galleryImages.map((imageUrl, index) => (
-                    <div key={`${imageUrl}-${index}`} className="overflow-hidden rounded-[24px] border border-slate-200 bg-[#F7F9FC]">
-                      <Image
-                        alt={`${organization.name} newsletter photo ${index + 1}`}
-                        className="h-48 w-full object-cover"
-                        height={480}
-                        src={imageUrl}
-                        width={720}
-                      />
-                    </div>
+                    <ImageFrame
+                      key={`${imageUrl}-${index}`}
+                      alt={`${organization.name} newsletter photo ${index + 1}`}
+                      className="h-48 rounded-[24px] border border-slate-200 bg-[#F7F9FC]"
+                      src={imageUrl}
+                    />
                   ))}
                 </div>
               </section>
@@ -219,12 +224,10 @@ export function NewsletterPreview({
 
             {topStory ? (
               <section className="overflow-hidden rounded-[28px] bg-white shadow-sm lg:grid lg:grid-cols-[0.95fr_1.05fr]">
-                <Image
+                <ImageFrame
                   alt={topStory.content.headline}
-                  className="h-full min-h-[260px] w-full object-cover"
-                  height={800}
+                  className="h-full min-h-[260px] rounded-none bg-[#F7F9FC]"
                   src={topStory.content.image}
-                  width={1000}
                 />
                 <div className="p-6">
                   <div className="text-xs font-bold uppercase tracking-[0.3em]" style={{ color: organization.colors.primary }}>
@@ -257,12 +260,10 @@ export function NewsletterPreview({
                   {news.content.items.map((item) => (
                     <article key={item.id} className="overflow-hidden rounded-[24px] border border-slate-200 bg-[#F7F9FC]">
                       {item.image ? (
-                        <Image
+                        <ImageFrame
                           alt={item.headline}
-                          className="h-44 w-full object-cover"
-                          height={480}
+                          className="h-44 rounded-none bg-white"
                           src={item.image}
-                          width={720}
                         />
                       ) : null}
                       <div className="p-5">
@@ -309,12 +310,10 @@ export function NewsletterPreview({
                   {events.content.items.map((item) => (
                     <article key={item.id} className="overflow-hidden rounded-[24px] border border-slate-200 bg-white">
                       {item.image ? (
-                        <Image
+                        <ImageFrame
                           alt={item.title}
-                          className="h-40 w-full object-cover"
-                          height={420}
+                          className="h-40 rounded-none bg-[#F7F9FC]"
                           src={item.image}
-                          width={720}
                         />
                       ) : null}
                       <div className="p-5">
@@ -378,12 +377,10 @@ export function NewsletterPreview({
                   <div className="text-xs font-bold uppercase tracking-[0.3em]" style={{ color: organization.colors.secondary }}>
                     Student spotlight
                   </div>
-                  <Image
+                  <ImageFrame
                     alt={spotlight.content.name}
-                    className="mt-4 h-52 w-full rounded-[24px] object-cover"
-                    height={640}
+                    className="mt-4 h-52 rounded-[24px] bg-[#F7F9FC]"
                     src={spotlight.content.image}
-                    width={960}
                   />
                   <h3 className="mt-4 text-2xl font-semibold">{spotlight.content.name}</h3>
                   <div className="mt-1 text-sm font-semibold text-brand-muted">{spotlight.content.role}</div>
@@ -448,5 +445,31 @@ export function NewsletterPreview({
         </footer>
       </div>
     </section>
+  );
+}
+
+function ImageFrame({
+  src,
+  alt,
+  className
+}: {
+  src?: string;
+  alt: string;
+  className?: string;
+}) {
+  if (!src) {
+    return null;
+  }
+
+  return (
+    <div className={`relative w-full overflow-hidden ${className ?? ""}`}>
+      <Image
+        alt={alt}
+        className="h-full w-full object-contain"
+        fill
+        sizes="(min-width: 1280px) 40vw, (min-width: 768px) 50vw, 100vw"
+        src={src}
+      />
+    </div>
   );
 }

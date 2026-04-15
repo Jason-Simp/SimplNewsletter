@@ -165,20 +165,34 @@ export function IssueWizard() {
         const nextSection = generated.sections?.find((item) => item.sectionType === section.type);
 
         if (section.type === "hero") {
+          const heroContent = (nextSection?.content ?? {}) as Record<string, unknown>;
+          const nextHeroHeadline =
+            typeof heroContent.headline === "string" && heroContent.headline.trim()
+              ? heroContent.headline.trim()
+              : nextSection?.title && nextSection.title.trim().toLowerCase() !== "hero"
+                ? nextSection.title.trim()
+                : fallbackTitle;
+          const nextHeroBody =
+            typeof heroContent.body === "string" && heroContent.body.trim()
+              ? heroContent.body
+              : typeof heroContent.summary === "string" && heroContent.summary.trim()
+                ? heroContent.summary
+                : fallbackIntro;
+
           return {
             ...section,
             enabled: true,
             content: {
               ...section.content,
-              eyebrow: current.organization.name,
-              headline: nextSection?.title || fallbackTitle,
-              body:
-                typeof nextSection?.content?.body === "string"
-                  ? nextSection.content.body
-                  : fallbackIntro,
+              eyebrow:
+                typeof heroContent.eyebrow === "string" && heroContent.eyebrow.trim()
+                  ? heroContent.eyebrow
+                  : current.organization.name,
+              headline: nextHeroHeadline,
+              body: nextHeroBody,
               heroImage:
-                typeof nextSection?.content?.heroImage === "string"
-                  ? nextSection.content.heroImage
+                typeof heroContent.heroImage === "string"
+                  ? heroContent.heroImage
                   : imageAssignments.heroImage || (section.content as { heroImage?: string }).heroImage,
               galleryImages:
                 imageAssignments.galleryImages.length > 0
@@ -186,7 +200,7 @@ export function IssueWizard() {
                   : Array.isArray((section.content as { galleryImages?: string[] }).galleryImages)
                     ? (section.content as { galleryImages: string[] }).galleryImages
                     : [],
-              stats: Array.isArray(nextSection?.content?.stats) ? nextSection.content.stats : []
+              stats: Array.isArray(heroContent.stats) ? heroContent.stats : []
             }
           };
         }
@@ -1540,7 +1554,7 @@ function ReviewEditorPanel({
 
       {hero ? (
         <div className="mt-6 rounded-[24px] border border-slate-200 bg-brand-background p-5">
-        <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Hero</div>
+        <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Lead story</div>
           <div className="mt-4">
             <button
               className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-brand-text disabled:cursor-not-allowed disabled:opacity-40"
@@ -1688,7 +1702,7 @@ function buildQuickNotesFromDocument(document: NewsletterDocument) {
 function getSectionLabel(sectionType: "hero" | "top_story" | "principal_message") {
   switch (sectionType) {
     case "hero":
-      return "Hero";
+      return "Lead story";
     case "top_story":
       return "Top story";
     case "principal_message":
@@ -1809,11 +1823,12 @@ function chooseImageForText(
     return "";
   }
 
-  const tokens = tokenizeForMatching(textParts.join(" "));
+  const combinedText = textParts.filter(Boolean).join(" ");
+  const tokens = tokenizeForMatching(combinedText);
   const scoredAssets = availableAssets
     .map((asset) => ({
       asset,
-      score: scoreAssetAgainstTokens(asset, tokens)
+      score: scoreAssetAgainstTokens(asset, tokens, combinedText)
     }))
     .sort((left, right) => right.score - left.score);
 
@@ -1822,37 +1837,100 @@ function chooseImageForText(
   return bestMatch.url ?? "";
 }
 
-function scoreAssetAgainstTokens(asset: UploadedAsset, tokens: string[]) {
+function scoreAssetAgainstTokens(asset: UploadedAsset, tokens: string[], sourceText: string) {
+  const normalizedName = normalizeForMatching(asset.name);
+  const assetTokens = tokenizeForMatching(asset.name);
+  let score = 0;
+
   if (!tokens.length) {
-    return 0;
+    return assetTokens.length ? 0.5 : 0;
   }
 
-  const normalizedName = asset.name.toLowerCase();
-  return tokens.reduce((score, token) => {
+  for (const token of tokens) {
     if (!token) {
-      return score;
+      continue;
     }
 
     if (normalizedName.includes(token)) {
-      return score + 3;
+      score += 4;
+      continue;
     }
 
-    const tokenPieces = token.split("-").filter(Boolean);
-    if (tokenPieces.some((piece) => normalizedName.includes(piece))) {
-      return score + 1;
+    if (assetTokens.some((assetToken) => assetToken.startsWith(token) || token.startsWith(assetToken))) {
+      score += 2;
+      continue;
     }
 
-    return score;
-  }, 0);
+    if (findTokenVariant(token, assetTokens)) {
+      score += 1.5;
+    }
+  }
+
+  if (assetTokens.length) {
+    const combinedAssetPhrase = assetTokens.join(" ");
+    const normalizedSource = normalizeForMatching(sourceText);
+    if (normalizedSource.includes(combinedAssetPhrase)) {
+      score += 6;
+    }
+  }
+
+  if (/\b(photo|image|picture)\b/.test(normalizeForMatching(sourceText))) {
+    score += 0.5;
+  }
+
+  return score;
 }
 
 function tokenizeForMatching(value: string) {
-  return value
-    .toLowerCase()
+  return normalizeForMatching(value)
     .replace(/[^a-z0-9\s-]/g, " ")
     .split(/\s+/)
-    .filter((token) => token.length > 3)
+    .map((token) => simplifyToken(token))
+    .filter((token) => token.length > 2)
     .filter((token) => !COMMON_MATCH_WORDS.has(token));
+}
+
+function normalizeForMatching(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[_–—]+/g, "-")
+    .replace(/\.(png|jpe?g|gif|webp|svg)$/g, "");
+}
+
+function simplifyToken(token: string) {
+  if (token.endsWith("ies") && token.length > 4) {
+    return `${token.slice(0, -3)}y`;
+  }
+
+  if (token.endsWith("es") && token.length > 4) {
+    return token.slice(0, -2);
+  }
+
+  if (token.endsWith("s") && token.length > 3) {
+    return token.slice(0, -1);
+  }
+
+  return token;
+}
+
+function findTokenVariant(token: string, assetTokens: string[]) {
+  const variants = new Set([
+    token,
+    simplifyToken(token),
+    token.replace(/-/g, ""),
+    token.replace(/fruit/g, "cafeteria"),
+    token.replace(/cafeteria/g, "fruit"),
+    token.replace(/lunch/g, "cafeteria"),
+    token.replace(/food/g, "fruit")
+  ]);
+
+  return assetTokens.some((assetToken) =>
+    [...variants].some(
+      (variant) =>
+        variant &&
+        (assetToken.includes(variant) || variant.includes(assetToken))
+    )
+  );
 }
 
 const COMMON_MATCH_WORDS = new Set([
