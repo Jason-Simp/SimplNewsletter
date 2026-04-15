@@ -1,4 +1,5 @@
 import type { ContentGenerateResponse } from "@/types/integration";
+import { serverConfig } from "@/lib/server-config";
 
 const ELEVENLABS_API_BASE_URL = "https://api.elevenlabs.io";
 
@@ -62,19 +63,34 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
     let promptSent = false;
     let jsonReminderSent = false;
     const collectedResponses: string[] = [];
+    const timeoutMs = Math.max(serverConfig.integrationTimeoutMs, 90000);
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
-    const timeoutId = setTimeout(() => {
-      if (!resolved) {
-        resolved = true;
-        socket.close();
-        reject(new Error("The assistant took too long to respond. Please try again in a moment."));
+    const startTimeout = () => {
+      timeoutId = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          socket.close();
+          reject(new Error("The assistant took too long to respond. Please try again in a moment."));
+        }
+      }, timeoutMs);
+    };
+
+    const resetTimeout = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
       }
-    }, 20000);
+      startTimeout();
+    };
+
+    startTimeout();
 
     const finish = (callback: () => void) => {
       if (!resolved) {
         resolved = true;
-        clearTimeout(timeoutId);
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
         callback();
       }
     };
@@ -97,6 +113,7 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
         };
 
         if (message.type === "ping" && message.ping_event?.event_id) {
+          resetTimeout();
           socket.send(
             JSON.stringify({
               type: "pong",
@@ -107,6 +124,7 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
         }
 
         if (message.type === "conversation_initiation_metadata" && !promptSent) {
+          resetTimeout();
           promptSent = true;
           socket.send(
             JSON.stringify({
@@ -118,6 +136,7 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
         }
 
         if (message.type === "agent_response" && message.agent_response_event?.agent_response) {
+          resetTimeout();
           const responseText = message.agent_response_event.agent_response;
           collectedResponses.push(responseText);
           const combinedResponse = collectedResponses.join("\n\n");

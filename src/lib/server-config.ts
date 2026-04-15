@@ -9,7 +9,7 @@ export const serverConfig = {
     process.env.ELEVENLABS_AGENT_API_KEY ??
     "",
   integrationTimeoutMs: Number(
-    process.env.INTEGRATION_TIMEOUT_MS ?? process.env.ELEVENLABS_AGENT_TIMEOUT_MS ?? 30000
+    process.env.INTEGRATION_TIMEOUT_MS ?? process.env.ELEVENLABS_AGENT_TIMEOUT_MS ?? 90000
   ),
   hasSupabase:
     Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL) &&
