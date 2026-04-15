@@ -1,4 +1,3 @@
-import { schoolAmplifiedBrand } from "@/lib/brand";
 import Image from "next/image";
 
 import type { Channel, NewsletterDocument, NewsletterSection } from "@/types/newsletter";
@@ -36,7 +35,7 @@ export function NewsletterPreview({
     document.sections,
     "top_story"
   );
-  const news = getSection<{ items: { id: string; headline: string; summary: string; tag?: string }[] }>(
+  const news = getSection<{ items: { id: string; headline: string; summary: string; tag?: string; image?: string }[] }>(
     document.sections,
     "news_grid"
   );
@@ -48,7 +47,7 @@ export function NewsletterPreview({
     document.sections,
     "student_spotlight"
   );
-  const events = getSection<{ items: { id: string; date: string; title: string; summary: string }[] }>(
+  const events = getSection<{ items: { id: string; date: string; title: string; summary: string; image?: string }[] }>(
     document.sections,
     "arts_events"
   );
@@ -107,21 +106,47 @@ export function NewsletterPreview({
           color: organization.colors.text
         }}
       >
-        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-black/5 bg-white/80 px-6 py-5 backdrop-blur">
-          <div className="flex items-center gap-4">
-            <Image
-              alt={`${schoolAmplifiedBrand.name} logo`}
-              className="h-10 w-auto"
-              height={40}
-              src={organization.logoUrl}
-              width={213}
-            />
-            <div>
-              <div className="font-semibold">{organization.name}</div>
-              <div className="text-sm text-brand-muted">{organization.tagline}</div>
+        <header className="border-b border-black/5 bg-white px-6 py-5 lg:px-8">
+          <div className="flex flex-wrap items-start justify-between gap-5">
+            <div className="flex items-center gap-4">
+              <div className="flex min-h-[72px] min-w-[112px] items-center justify-center overflow-hidden rounded-[22px] border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                <Image
+                  alt={`${organization.name} logo`}
+                  className="h-12 w-auto object-contain"
+                  height={48}
+                  src={organization.logoUrl}
+                  width={180}
+                />
+              </div>
+              <div>
+                <div
+                  className="text-[11px] font-bold uppercase tracking-[0.28em]"
+                  style={{ color: organization.colors.secondary }}
+                >
+                  School newsletter
+                </div>
+                <div className="mt-2 font-display text-3xl leading-none text-brand-navy">{organization.name}</div>
+                <div className="mt-2 text-sm text-brand-muted">{organization.tagline}</div>
+              </div>
+            </div>
+            <div className="grid gap-2 rounded-[22px] border border-slate-200 bg-[#F7F9FC] px-4 py-3 text-right">
+              <div className="text-[11px] font-bold uppercase tracking-[0.24em] text-brand-secondary">
+                Issue date
+              </div>
+              <div className="text-sm font-semibold text-brand-text">{document.issueDate}</div>
             </div>
           </div>
-          <div className="text-sm text-brand-muted">{document.issueDate}</div>
+          <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4 text-xs font-semibold uppercase tracking-[0.18em] text-brand-muted">
+            <span>{organization.contactEmail}</span>
+            <span className="text-slate-300">•</span>
+            <span>{organization.phone}</span>
+            {organization.websiteUrl ? (
+              <>
+                <span className="text-slate-300">•</span>
+                <span>{organization.websiteUrl}</span>
+              </>
+            ) : null}
+          </div>
         </header>
 
         {hero ? (
@@ -206,12 +231,23 @@ export function NewsletterPreview({
                 </div>
                 <div className="mt-5 grid gap-4 md:grid-cols-2">
                   {news.content.items.map((item) => (
-                    <article key={item.id} className="rounded-[24px] border border-slate-200 bg-[#F7F9FC] p-5">
-                      <div className="text-xs font-bold uppercase tracking-[0.25em]" style={{ color: organization.colors.secondary }}>
-                        {item.tag ?? "News"}
+                    <article key={item.id} className="overflow-hidden rounded-[24px] border border-slate-200 bg-[#F7F9FC]">
+                      {item.image ? (
+                        <Image
+                          alt={item.headline}
+                          className="h-44 w-full object-cover"
+                          height={480}
+                          src={item.image}
+                          width={720}
+                        />
+                      ) : null}
+                      <div className="p-5">
+                        <div className="text-xs font-bold uppercase tracking-[0.25em]" style={{ color: organization.colors.secondary }}>
+                          {item.tag ?? "News"}
+                        </div>
+                        <h3 className="mt-3 text-xl font-semibold text-brand-text">{item.headline}</h3>
+                        <p className="mt-3 text-sm leading-6 text-brand-muted">{item.summary}</p>
                       </div>
-                      <h3 className="mt-3 text-xl font-semibold text-brand-text">{item.headline}</h3>
-                      <p className="mt-3 text-sm leading-6 text-brand-muted">{item.summary}</p>
                     </article>
                   ))}
                 </div>
@@ -247,12 +283,23 @@ export function NewsletterPreview({
                 <h2 className="mt-2 font-display text-3xl">What happens next</h2>
                 <div className="mt-5 grid gap-4 md:grid-cols-2">
                   {events.content.items.map((item) => (
-                    <article key={item.id} className="rounded-[24px] border border-slate-200 p-5">
-                      <div className="text-xs font-bold uppercase tracking-[0.25em]" style={{ color: organization.colors.primary }}>
-                        {item.date}
+                    <article key={item.id} className="overflow-hidden rounded-[24px] border border-slate-200 bg-white">
+                      {item.image ? (
+                        <Image
+                          alt={item.title}
+                          className="h-40 w-full object-cover"
+                          height={420}
+                          src={item.image}
+                          width={720}
+                        />
+                      ) : null}
+                      <div className="p-5">
+                        <div className="text-xs font-bold uppercase tracking-[0.25em]" style={{ color: organization.colors.primary }}>
+                          {item.date}
+                        </div>
+                        <h3 className="mt-3 text-xl font-semibold">{item.title}</h3>
+                        <p className="mt-3 text-sm leading-6 text-brand-muted">{item.summary}</p>
                       </div>
-                      <h3 className="mt-3 text-xl font-semibold">{item.title}</h3>
-                      <p className="mt-3 text-sm leading-6 text-brand-muted">{item.summary}</p>
                     </article>
                   ))}
                 </div>

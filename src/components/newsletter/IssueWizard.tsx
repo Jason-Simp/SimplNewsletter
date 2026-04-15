@@ -216,6 +216,32 @@ export function IssueWizard() {
             ...(section.type === "top_story" && imageAssignments.topStoryImage
               ? { image: imageAssignments.topStoryImage }
               : {}),
+            ...(section.type === "news_grid" && Array.isArray((nextSection.content as { items?: Array<Record<string, unknown>> }).items)
+              ? {
+                  items: ((nextSection.content as { items?: Array<Record<string, unknown>> }).items ?? []).map(
+                    (item, index) => ({
+                      ...item,
+                      image:
+                        typeof item.image === "string" && item.image
+                          ? item.image
+                          : imageAssignments.newsItemImages[index] || ""
+                    })
+                  )
+                }
+              : {}),
+            ...(section.type === "arts_events" && Array.isArray((nextSection.content as { items?: Array<Record<string, unknown>> }).items)
+              ? {
+                  items: ((nextSection.content as { items?: Array<Record<string, unknown>> }).items ?? []).map(
+                    (item, index) => ({
+                      ...item,
+                      image:
+                        typeof item.image === "string" && item.image
+                          ? item.image
+                          : imageAssignments.eventItemImages[index] || ""
+                    })
+                  )
+                }
+              : {}),
             ...(section.type === "student_spotlight" && imageAssignments.spotlightImage
               ? { image: imageAssignments.spotlightImage }
               : {})
@@ -1680,7 +1706,9 @@ function selectImageAssignments(generated: ContentGenerateResponse, assets: Uplo
 
   const hero = generated.sections?.find((section) => section.sectionType === "hero");
   const topStory = generated.sections?.find((section) => section.sectionType === "top_story");
+  const newsGrid = generated.sections?.find((section) => section.sectionType === "news_grid");
   const spotlight = generated.sections?.find((section) => section.sectionType === "student_spotlight");
+  const events = generated.sections?.find((section) => section.sectionType === "arts_events");
 
   const heroImage = chooseImageForText(
     [
@@ -1713,10 +1741,40 @@ function selectImageAssignments(generated: ContentGenerateResponse, assets: Uplo
     usedNames
   );
 
+  const newsItemImages = Array.isArray(newsGrid?.content?.items)
+    ? newsGrid.content.items.map((item) =>
+        chooseImageForText(
+          [
+            typeof item?.headline === "string" ? item.headline : "",
+            typeof item?.summary === "string" ? item.summary : "",
+            typeof item?.tag === "string" ? item.tag : ""
+          ],
+          imageAssets,
+          usedNames
+        )
+      )
+    : [];
+
+  const eventItemImages = Array.isArray(events?.content?.items)
+    ? events.content.items.map((item) =>
+        chooseImageForText(
+          [
+            typeof item?.title === "string" ? item.title : "",
+            typeof item?.summary === "string" ? item.summary : "",
+            typeof item?.date === "string" ? item.date : ""
+          ],
+          imageAssets,
+          usedNames
+        )
+      )
+    : [];
+
   return {
     heroImage,
     topStoryImage,
-    spotlightImage
+    spotlightImage,
+    newsItemImages,
+    eventItemImages
   };
 }
 
