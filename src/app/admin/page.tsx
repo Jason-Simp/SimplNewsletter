@@ -304,6 +304,12 @@ export default function AdminPage() {
                         >
                           Open issue
                         </Link>
+                        <Link
+                          className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-brand-text"
+                          href={`/builder?from=${newsletter.id}`}
+                        >
+                          Reuse issue
+                        </Link>
                         {pdfSelected ? (
                           <Link
                             className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-brand-text"

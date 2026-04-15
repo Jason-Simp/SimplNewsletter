@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import { authFetch } from "@/lib/api-client";
 import { useAuthSession } from "@/lib/auth-client";
@@ -18,6 +19,7 @@ import { NewsletterPreview } from "@/components/newsletter/NewsletterPreview";
 
 export function IssueWizard() {
   const { session, supabase } = useAuthSession();
+  const searchParams = useSearchParams();
   const [activeStep, setActiveStep] = useState<string>(buildSteps[0].id);
   const [activeChannel, setActiveChannel] = useState<Channel>("web");
   const [document, setDocument] = useState(sampleNewsletter);
@@ -41,6 +43,7 @@ export function IssueWizard() {
   const [uploadedAssets, setUploadedAssets] = useState<UploadedAsset[]>([]);
   const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
   const [rewritingSection, setRewritingSection] = useState<string | null>(null);
+  const [sourceIssueLabel, setSourceIssueLabel] = useState<string | null>(null);
   const initialLoadComplete = useRef(false);
   const stepList = buildSteps;
   const activeStepIndex = stepList.findIndex((step) => step.id === activeStep);
@@ -68,6 +71,7 @@ export function IssueWizard() {
         "Write a clear school newsletter focused on reminders and operational updates. Include schedule changes, deadlines, upcoming dates, action items for families, and any important campus notices."
     }
   ];
+  const cloneFromId = searchParams.get("from");
 
   const updateDocumentField = (field: keyof Pick<NewsletterDocument, "title" | "intro" | "issueDate">, value: string) => {
     setDocument((current) => ({
@@ -497,7 +501,14 @@ export function IssueWizard() {
         const query = nextMember?.schoolId ? `?schoolId=${encodeURIComponent(nextMember.schoolId)}` : "";
         const response = await authFetch(supabase, `/api/newsletters${query}`);
         const payload = await response.json();
-        const nextDocument = payload?.data?.[0];
+        const loadedDocuments = (payload?.data ?? []) as NewsletterDocument[];
+        const selectedSource =
+          cloneFromId?.trim()
+            ? loadedDocuments.find((newsletter) => newsletter.id === cloneFromId.trim()) ?? null
+            : null;
+        const nextDocument = selectedSource
+          ? createDraftFromExistingNewsletter(selectedSource)
+          : loadedDocuments[0];
 
         if (!cancelled && nextDocument) {
           const mergedDocument = nextSchool
@@ -536,6 +547,14 @@ export function IssueWizard() {
             : nextDocument;
 
           setDocument(mergedDocument);
+          setSourceIssueLabel(selectedSource ? selectedSource.title : null);
+          if (selectedSource) {
+            setQuickNotes(buildQuickNotesFromDocument(selectedSource));
+            setGenerationState("idle");
+            setGenerationMessage(
+              "This draft started from a previous issue. Keep what works, update the message, and rewrite when you're ready."
+            );
+          }
           setSaveMessage("Draft loaded.");
         }
       } catch {
@@ -552,7 +571,7 @@ export function IssueWizard() {
     return () => {
       cancelled = true;
     };
-  }, [session?.user?.email, supabase]);
+  }, [cloneFromId, session?.user?.email, supabase]);
 
   useEffect(() => {
     if (!initialLoadComplete.current) {
@@ -684,6 +703,12 @@ export function IssueWizard() {
                 );
               })}
             </div>
+            {sourceIssueLabel ? (
+              <div className="mt-5 rounded-[24px] bg-[#EAF2FB] p-4 text-sm leading-6 text-brand-muted">
+                This draft started from a previous issue: <span className="font-semibold text-brand-text">{sourceIssueLabel}</span>.
+                Reuse what still fits, then refresh the copy for this new issue.
+              </div>
+            ) : null}
           </section>
 
           <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
@@ -1477,6 +1502,44 @@ function getSectionContent(
 
 function readString(content: Record<string, unknown>, key: string) {
   return typeof content[key] === "string" ? (content[key] as string) : "";
+}
+
+function createDraftFromExistingNewsletter(document: NewsletterDocument): NewsletterDocument {
+  const nextTitle = document.title.toLowerCase().includes("copy")
+    ? document.title
+    : `${document.title} copy`;
+
+  return {
+    ...document,
+    id: `draft-${Date.now()}`,
+    status: "draft",
+    title: nextTitle,
+    publishedAt: null,
+    issueDate: new Date().toISOString().slice(0, 10),
+    distributionOptions: document.distributionOptions.map((option) => ({
+      ...option,
+      selected: option.channel === "web"
+    })),
+    sections: document.sections.map((section) => ({
+      ...section,
+      content: { ...section.content }
+    }))
+  };
+}
+
+function buildQuickNotesFromDocument(document: NewsletterDocument) {
+  const enabledSections = document.sections
+    .filter((section) => section.enabled && !["hero", "footer"].includes(section.type))
+    .map((section) => section.title)
+    .slice(0, 4);
+
+  const details = [
+    `Update this school newsletter for ${document.organization.name}.`,
+    document.intro ? `Main focus: ${document.intro}` : "",
+    enabledSections.length ? `Reuse and refresh these sections if they still fit: ${enabledSections.join(", ")}.` : ""
+  ].filter(Boolean);
+
+  return details.join(" ");
 }
 
 function getSectionLabel(sectionType: "hero" | "top_story" | "principal_message") {
