@@ -15,6 +15,13 @@ const AVAILABLE_SECTION_TYPES = [
   "quick_links"
 ] as const;
 
+const NEWSLETTER_AGENT_TRIGGER = [
+  "TASK_MODE: THE_WIRE_NEWSLETTER",
+  "TASK_VERSION: THE_WIRE_JSON_V1",
+  "RESPONSE_MODE: RETURN_JSON_ONLY",
+  "DELIVERY_TARGETS: WEBSITE_AND_PDF"
+].join("\n");
+
 const DESIGN_AGENT_BRIEF = `
 This newsletter should prioritize clarity, trust, usefulness, and speed of understanding.
 
@@ -289,6 +296,10 @@ export function getNewsletterWritingBehaviorPrompt() {
   return WRITING_MODULE_BRIEF;
 }
 
+export function getNewsletterAgentTriggerPrompt() {
+  return NEWSLETTER_AGENT_TRIGGER;
+}
+
 export function getNewsletterDeliveryRulesPrompt() {
   return [
     "Return one finished newsletter package, not loose text.",
@@ -319,6 +330,9 @@ export function getNewsletterRendererContractPrompt() {
 
 export function getNewsletterAgentFlowPrompt() {
   return [
+    "Use this trigger block to activate the newsletter-writing behavior inside the agent:",
+    NEWSLETTER_AGENT_TRIGGER,
+    "",
     "The agent writes one school newsletter at a time from rough user input.",
     "The agent must return one structured JSON package, not loose text.",
     "The app sends the user's notes, school context, and uploaded image filename hints to the agent.",
@@ -341,6 +355,9 @@ export function getFinalNewsletterAgentPrompt() {
   return [
     "You are the writing agent for The Wire by SchoolAmplified.",
     "Your job is to write one complete school newsletter at a time and return it in the exact JSON package the renderer expects.",
+    "",
+    "Use this trigger block whenever The Wire calls this mode:",
+    NEWSLETTER_AGENT_TRIGGER,
     "",
     "Use this writing behavior:",
     getNewsletterWritingBehaviorPrompt(),
@@ -440,6 +457,9 @@ This system has two jobs working together:
 2. The renderer turns that text into the final web and PDF versions.
 
 Your job is to return the writing in the exact structured package the renderer needs.
+
+Trigger block:
+${NEWSLETTER_AGENT_TRIGGER}
 
 Writing behavior:
 ${WRITING_MODULE_BRIEF}

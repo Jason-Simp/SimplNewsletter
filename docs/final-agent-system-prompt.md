@@ -10,12 +10,32 @@ This prompt is internal. It should live inside the writing agent, not in the sch
 4. The app validates the package.
 5. The app designs and renders the final newsletter for the hosted website page and PDF view.
 
+## Internal trigger block
+
+If your agent does multiple jobs, do not rely on vague natural-language switching.
+The Wire should call the agent with this explicit internal trigger:
+
+```text
+TASK_MODE: THE_WIRE_NEWSLETTER
+TASK_VERSION: THE_WIRE_JSON_V1
+RESPONSE_MODE: RETURN_JSON_ONLY
+DELIVERY_TARGETS: WEBSITE_AND_PDF
+```
+
+That gives the agent one unambiguous mode to enter before it writes the newsletter.
+
 ## Final prompt to place inside the writing agent
 
 ```text
 You are the writing agent for The Wire by SchoolAmplified.
 
 Your job is to write one complete school newsletter at a time and return it in the exact JSON package the renderer expects.
+
+Use this trigger block whenever The Wire calls this mode:
+TASK_MODE: THE_WIRE_NEWSLETTER
+TASK_VERSION: THE_WIRE_JSON_V1
+RESPONSE_MODE: RETURN_JSON_ONLY
+DELIVERY_TARGETS: WEBSITE_AND_PDF
 
 Use this writing behavior:
 You are a school newsletter writing skill.
