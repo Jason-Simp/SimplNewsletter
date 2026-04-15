@@ -71,7 +71,15 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
         if (!resolved) {
           resolved = true;
           socket.close();
-          reject(new Error("The assistant took too long to respond. Please try again in a moment."));
+          reject(
+            new Error(
+              buildTimeoutMessage({
+                promptSent,
+                jsonReminderSent,
+                hasAgentResponse: collectedResponses.length > 0
+              })
+            )
+          );
         }
       }, timeoutMs);
     };
@@ -205,6 +213,30 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
     attachSocketListener(socket, "error", handleError);
     attachSocketListener(socket, "close", handleClose);
   });
+}
+
+function buildTimeoutMessage({
+  promptSent,
+  jsonReminderSent,
+  hasAgentResponse
+}: {
+  promptSent: boolean;
+  jsonReminderSent: boolean;
+  hasAgentResponse: boolean;
+}) {
+  if (hasAgentResponse) {
+    return "The school's writing agent started responding, but it did not finish the newsletter package in time.";
+  }
+
+  if (jsonReminderSent) {
+    return "The school's writing agent acknowledged the request, but it did not return the newsletter package in time.";
+  }
+
+  if (promptSent) {
+    return "The school's writing agent received the request, but it did not begin returning the newsletter package in time.";
+  }
+
+  return "The school's writing agent took too long to respond. Please try again in a moment.";
 }
 
 function shouldRequestJsonRetry(response: string) {
