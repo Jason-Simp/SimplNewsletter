@@ -1,4 +1,5 @@
 import type { ContentGenerateRequest } from "@/types/integration";
+
 const AVAILABLE_SECTION_TYPES = [
   "hero",
   "principal_message",
@@ -274,13 +275,52 @@ quick_links:
 }
 `.trim();
 
+function buildAllowedSectionTypesBlock() {
+  return AVAILABLE_SECTION_TYPES.map((sectionType) => `- ${sectionType}`).join("\n");
+}
+
+function buildSectionSelectionBlock(requestedSectionTypes: string[]) {
+  return requestedSectionTypes.length > 0
+    ? `Only rewrite these section types:\n${requestedSectionTypes.map((sectionType) => `- ${sectionType}`).join("\n")}`
+    : "Choose the sections that are genuinely needed for this issue.";
+}
+
+export function getNewsletterWritingBehaviorPrompt() {
+  return WRITING_MODULE_BRIEF;
+}
+
+export function getNewsletterDeliveryRulesPrompt() {
+  return [
+    "Return one finished newsletter package, not loose text.",
+    "Keep the structure easy for the renderer to map into the final newsletter.",
+    "Use only the allowed section types and content shapes below.",
+    "Put the most important information early.",
+    "Prefer fewer, stronger sections over many weak ones.",
+    "Write in plain language.",
+    "Keep the intro useful and concise.",
+    "Highlight dates, deadlines, and next steps inside the relevant sections.",
+    "If the request includes celebrations, keep them warm but not promotional.",
+    "If the request includes operational or policy items, keep them direct and grounded.",
+    "Use the school's tone, but prioritize clarity over flourish.",
+    "Return a finished draft, not an outline.",
+    "If you are writing the full newsletter package, always include a hero section and at least one additional section.",
+    "If you are rewriting only specific sections, return only those requested sections and keep the content focused on them.",
+    "Return only the section types that are genuinely needed for this issue.",
+    "Do not invent image descriptions. If you refer to uploaded images, use the uploaded file names only as hints.",
+    "Do not use placeholder or chatbot phrases such as \"Generated draft\", \"Generated newsletter draft\", \"Hello, I'm...\", or \"How can I help today?\"",
+    "Do not leave section headlines generic. Headlines should reflect the actual topic of this issue.",
+    "Do not return markdown, commentary, or explanatory text outside the JSON object."
+  ].join("\n- ").replace(/^/, "- ");
+}
+
+export function getNewsletterRendererContractPrompt() {
+  return SECTION_SHAPES;
+}
+
 export function buildNewsletterGenerationPrompt(request: ContentGenerateRequest) {
   const userRequest = request.notes?.trim() || request.prompt.trim();
   const requestedSectionTypes = request.sectionTypes?.filter(Boolean) ?? [];
-  const sectionMode =
-    requestedSectionTypes.length > 0
-      ? `Only rewrite these section types:\n${requestedSectionTypes.map((sectionType) => `- ${sectionType}`).join("\n")}`
-      : "Choose the sections that are genuinely needed for this issue.";
+  const sectionMode = buildSectionSelectionBlock(requestedSectionTypes);
   const linksBlock =
     request.links && request.links.length > 0
       ? `\nSource links to consider:\n${request.links.map((link) => `- ${link}`).join("\n")}`
@@ -303,40 +343,21 @@ Writing behavior:
 ${WRITING_MODULE_BRIEF}
 
 Allowed section types:
-${AVAILABLE_SECTION_TYPES.map((sectionType) => `- ${sectionType}`).join("\n")}
+${buildAllowedSectionTypesBlock()}
 
 ${sectionMode}
 Do not force every section into the result.
 When in doubt, choose fewer, clearer sections.
 
+Design and delivery rules:
 ${DESIGN_AGENT_BRIEF}
 
 User request:
 ${userRequest}${linksBlock}${imageHintsBlock}
 
 Delivery contract:
-- Return one finished newsletter package, not loose text.
-- Keep the structure easy for the renderer to map into the final newsletter.
-- Use only the allowed section types and content shapes below.
-- Put the most important information early.
-- Prefer fewer, stronger sections over many weak ones.
+${getNewsletterDeliveryRulesPrompt()}
 
-Additional rules:
-- Write in plain language.
-- Keep the intro useful and concise.
-- Highlight dates, deadlines, and next steps inside the relevant sections.
-- If the request includes celebrations, keep them warm but not promotional.
-- If the request includes operational or policy items, keep them direct and grounded.
-- Use the school's tone, but prioritize clarity over flourish.
-- Return a finished draft, not an outline.
-- If you are writing the full newsletter package, always include a hero section and at least one additional section.
-- If you are rewriting only specific sections, return only those requested sections and keep the content focused on them.
-- Return only the section types that are genuinely needed for this issue.
-- Do not invent image descriptions. If you refer to uploaded images, use the uploaded file names only as hints.
-- Do not use placeholder or chatbot phrases such as "Generated draft", "Generated newsletter draft", "Hello, I'm...", or "How can I help today?"
-- Do not leave section headlines generic. Headlines should reflect the actual topic of this issue.
-- Do not return markdown, commentary, or explanatory text outside the JSON object.
-
-${SECTION_SHAPES}
+${getNewsletterRendererContractPrompt()}
 `.trim();
 }
