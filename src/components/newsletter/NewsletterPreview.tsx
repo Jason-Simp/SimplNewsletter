@@ -7,6 +7,7 @@ type Props = {
   document: NewsletterDocument;
   channel: Channel;
   onChannelChange: (channel: Channel) => void;
+  chrome?: "editor" | "public";
 };
 
 const channels: Channel[] = ["web", "email", "pdf", "html", "blog"];
@@ -15,8 +16,14 @@ function getSection<T>(sections: NewsletterSection[], type: NewsletterSection["t
   return sections.find((section) => section.type === type && section.enabled) as NewsletterSection<T> | undefined;
 }
 
-export function NewsletterPreview({ document, channel, onChannelChange }: Props) {
+export function NewsletterPreview({
+  document,
+  channel,
+  onChannelChange,
+  chrome = "editor"
+}: Props) {
   const { organization } = document;
+  const showEditorChrome = chrome === "editor";
   const hero = getSection<{
     eyebrow: string;
     headline: string;
@@ -62,32 +69,34 @@ export function NewsletterPreview({ document, channel, onChannelChange }: Props)
 
   return (
     <section className="rounded-editorial border border-slate-200 bg-white p-4 shadow-editorial lg:p-6">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-5">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Preview</p>
-          <h2 className="font-display text-3xl text-brand-navy">{channel.toUpperCase()} preview</h2>
-          <p className="mt-2 max-w-xl text-sm leading-6 text-brand-muted">
-            This is the live output for the selected channel. Switch formats here to see how the same
-            newsletter will render before you publish or export it.
-          </p>
+      {showEditorChrome ? (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-5">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Preview</p>
+            <h2 className="font-display text-3xl text-brand-navy">{channel.toUpperCase()} preview</h2>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-brand-muted">
+              This is the live output for the selected channel. Switch formats here to see how the same
+              newsletter will render before you publish or export it.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {channels.map((nextChannel) => (
+              <button
+                key={nextChannel}
+                className={`rounded-full px-4 py-2 text-sm font-semibold uppercase tracking-[0.12em] ${
+                  channel === nextChannel
+                    ? "bg-brand-primary text-white"
+                    : "bg-slate-100 text-slate-700"
+                }`}
+                onClick={() => onChannelChange(nextChannel)}
+                type="button"
+              >
+                {nextChannel}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {channels.map((nextChannel) => (
-            <button
-              key={nextChannel}
-              className={`rounded-full px-4 py-2 text-sm font-semibold uppercase tracking-[0.12em] ${
-                channel === nextChannel
-                  ? "bg-brand-primary text-white"
-                  : "bg-slate-100 text-slate-700"
-              }`}
-              onClick={() => onChannelChange(nextChannel)}
-              type="button"
-            >
-              {nextChannel}
-            </button>
-          ))}
-        </div>
-      </div>
+      ) : null}
 
       <div
         className={`overflow-hidden rounded-[30px] border border-slate-200 ${

@@ -184,6 +184,11 @@ export async function listNewsletters(schoolId?: string) {
   return documents;
 }
 
+export async function getNewsletterById(newsletterId: string, schoolId?: string) {
+  const newsletters = await listNewsletters(schoolId);
+  return newsletters.find((newsletter) => newsletter.id === newsletterId) ?? null;
+}
+
 export async function saveNewsletter(document: NewsletterDocument) {
   const supabase = getServiceSupabase();
 

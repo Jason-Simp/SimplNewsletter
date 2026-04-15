@@ -117,6 +117,9 @@ export function SchoolManager() {
     () => members.filter((item) => item.schoolId === activeSchoolId),
     [activeSchoolId, members]
   );
+  const appOrigin = typeof window !== "undefined" ? window.location.origin : "";
+  const feedUrl =
+    activeSchoolId && appOrigin ? `${appOrigin}/schools/${activeSchoolId}/feed` : "";
 
   const saveSchool = async () => {
     setStatus("Saving school profile...");
@@ -468,6 +471,20 @@ export function SchoolManager() {
             Save school profile
           </button>
         </div>
+
+        {activeSchoolId ? (
+          <div className="mt-6 rounded-[24px] border border-slate-200 bg-[#F7F9FC] p-5">
+            <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Website feed</div>
+            <h3 className="mt-2 text-xl font-semibold text-brand-text">Use this to publish on school websites</h3>
+            <p className="mt-2 text-sm leading-6 text-brand-muted">
+              This feed is the lowest-friction website option. A web team can plug it into an RSS block,
+              receiver, or automation and new newsletters will flow from there.
+            </p>
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-brand-text">
+              {feedUrl || "Save the school profile to generate the feed URL."}
+            </div>
+          </div>
+        ) : null}
 
         <div className="mt-8 rounded-[24px] border border-slate-200 p-5">
           <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">School users</div>
