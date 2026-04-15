@@ -24,6 +24,8 @@ export async function generateNewsletterWithElevenLabs({
 
 function buildTriggeredConversationMessage(trigger: string, prompt: string) {
   return [
+    "Hello. Please switch into the requested newsletter mode and complete the task below.",
+    "",
     "[THE_WIRE_AGENT_CALL]",
     trigger,
     "[/THE_WIRE_AGENT_CALL]",
@@ -58,6 +60,8 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
     const socket = new WebSocketImpl(signedUrl);
     let resolved = false;
     let promptSent = false;
+    let jsonReminderSent = false;
+    const collectedResponses: string[] = [];
 
     const timeoutId = setTimeout(() => {
       if (!resolved) {
@@ -115,10 +119,26 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
 
         if (message.type === "agent_response" && message.agent_response_event?.agent_response) {
           const responseText = message.agent_response_event.agent_response;
-          finish(() => {
-            socket.close();
-            resolve(responseText);
-          });
+          collectedResponses.push(responseText);
+          const combinedResponse = collectedResponses.join("\n\n");
+
+          if (extractJsonBlock(combinedResponse)) {
+            finish(() => {
+              socket.close();
+              resolve(combinedResponse);
+            });
+            return;
+          }
+
+          if (!jsonReminderSent && shouldRequestJsonRetry(combinedResponse)) {
+            jsonReminderSent = true;
+            socket.send(
+              JSON.stringify({
+                type: "user_message",
+                text: buildJsonRetryMessage(prompt)
+              })
+            );
+          }
         }
       } catch (error) {
         finish(() => {
@@ -141,8 +161,22 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
 
     const handleClose = () => {
       if (!resolved) {
+        const combinedResponse = collectedResponses.join("\n\n");
+        const extractedJson = extractJsonBlock(combinedResponse);
+
+        if (extractedJson) {
+          finish(() => resolve(combinedResponse));
+          return;
+        }
+
         finish(() =>
-          reject(new Error("The school's writing agent closed the conversation too early."))
+          reject(
+            new Error(
+              combinedResponse
+                ? "The school's writing agent replied, but it did not return the required newsletter package."
+                : "The school's writing agent closed the conversation too early."
+            )
+          )
         );
       }
     };
@@ -152,6 +186,35 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
     attachSocketListener(socket, "error", handleError);
     attachSocketListener(socket, "close", handleClose);
   });
+}
+
+function shouldRequestJsonRetry(response: string) {
+  const normalized = response.trim().toLowerCase();
+
+  if (!normalized) {
+    return false;
+  }
+
+  return (
+    normalized.includes("how can i help") ||
+    normalized.includes("hello") ||
+    normalized.includes("hi ") ||
+    normalized.includes("sure,") ||
+    normalized.includes("i can help") ||
+    !extractJsonBlock(response)
+  );
+}
+
+function buildJsonRetryMessage(prompt: string) {
+  return [
+    "Thank you. Do not greet or explain.",
+    "Return only the final newsletter JSON package for this exact request.",
+    "Do not include any prose before or after the JSON.",
+    'Use this exact top-level shape: {"title":"string","intro":"string","sections":[{"sectionType":"string","title":"string","content":{}}]}',
+    "The response will be rejected if it is not valid JSON in the required newsletter package format.",
+    "",
+    prompt
+  ].join("\n");
 }
 
 async function getWebSocketImplementation() {
