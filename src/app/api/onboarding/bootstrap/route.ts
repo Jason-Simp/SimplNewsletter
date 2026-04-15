@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
 
+import { jsonApiError } from "@/lib/api-route";
 import { bootstrapSchoolAdmin } from "@/lib/member-repository";
+import { requireSignedInUser } from "@/lib/server-auth";
+
+export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
+    const user = await requireSignedInUser(request);
     const payload = (await request.json()) as {
       authUserId?: string;
       email?: string;
@@ -26,6 +31,16 @@ export async function POST(request: Request) {
       );
     }
 
+    if (user.id !== authUserId || user.email?.toLowerCase() !== email) {
+      return NextResponse.json(
+        {
+          status: "error",
+          message: "Setup must match the signed-in account."
+        },
+        { status: 403 }
+      );
+    }
+
     const data = await bootstrapSchoolAdmin({
       authUserId,
       email,
@@ -38,12 +53,6 @@ export async function POST(request: Request) {
       data
     });
   } catch (error) {
-    return NextResponse.json(
-      {
-        status: "error",
-        message: error instanceof Error ? error.message : "Unable to finish setup."
-      },
-      { status: 500 }
-    );
+    return jsonApiError("api.onboarding.bootstrap.post", error, "Unable to finish setup.");
   }
 }

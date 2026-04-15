@@ -2,30 +2,102 @@ import { randomUUID } from "crypto";
 
 import { NextResponse } from "next/server";
 
+import { jsonApiError } from "@/lib/api-route";
 import { mediaConstraints } from "@/lib/product-config";
+import { assertSchoolScope, requireBuilderAccess, requireSignedInMember } from "@/lib/server-auth";
 import { serverConfig } from "@/lib/server-config";
 import { getServiceSupabase } from "@/lib/supabase/server";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(request: Request) {
-  const formData = await request.formData();
-  const file = formData.get("file");
-  const newsletterId = String(formData.get("newsletterId") ?? "");
-  const schoolId = String(formData.get("schoolId") ?? "");
-  const organizationName = String(formData.get("organizationName") ?? "school");
+  try {
+    const { member } = await requireSignedInMember(request);
+    requireBuilderAccess(member);
 
-  if (!(file instanceof File)) {
-    return NextResponse.json({ message: "Missing file." }, { status: 400 });
-  }
+    const formData = await request.formData();
+    const file = formData.get("file");
+    const newsletterId = String(formData.get("newsletterId") ?? "");
+    const schoolId = String(formData.get("schoolId") ?? "");
+    const organizationName = String(formData.get("organizationName") ?? "school");
 
-  const validationError = validateFile(file);
-  if (validationError) {
-    return NextResponse.json({ message: validationError }, { status: 400 });
-  }
+    if (!(file instanceof File)) {
+      return NextResponse.json({ message: "Missing file." }, { status: 400 });
+    }
 
-  const sizeMb = file.size / (1024 * 1024);
-  const supabase = getServiceSupabase();
+    const validationError = validateFile(file);
+    if (validationError) {
+      return NextResponse.json({ message: validationError }, { status: 400 });
+    }
 
-  if (!supabase) {
+    assertSchoolScope(member, schoolId);
+
+    const sizeMb = file.size / (1024 * 1024);
+    const supabase = getServiceSupabase();
+
+    if (!supabase) {
+      return NextResponse.json({
+        status: "ok",
+        data: {
+          id: randomUUID(),
+          name: file.name,
+          type: file.type,
+          sizeMb,
+          status: "local"
+        }
+      });
+    }
+
+    if (!isUuid(schoolId)) {
+      return NextResponse.json(
+        { message: "Upload is missing a valid school workspace." },
+        { status: 400 }
+      );
+    }
+
+    const objectPath = buildStoragePath(organizationName, newsletterId, file.name);
+    const arrayBuffer = await file.arrayBuffer();
+
+    const { error: uploadError } = await supabase.storage
+      .from(serverConfig.storageBucket)
+      .upload(objectPath, Buffer.from(arrayBuffer), {
+        contentType: file.type,
+        upsert: true
+      });
+
+    if (uploadError) {
+      const message =
+        uploadError.message.toLowerCase().includes("bucket")
+          ? `Upload bucket not found. Create a Supabase storage bucket named "${serverConfig.storageBucket}" or update SUPABASE_STORAGE_BUCKET.`
+          : uploadError.message;
+
+      return NextResponse.json({ message }, { status: 500 });
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from(serverConfig.storageBucket)
+      .getPublicUrl(objectPath);
+
+    const { error: assetError } = await supabase.from("assets").insert({
+      school_id: schoolId,
+      newsletter_id: isUuid(newsletterId) ? newsletterId : null,
+      kind: resolveAssetKind(file.type),
+      original_filename: file.name,
+      mime_type: file.type,
+      storage_path: objectPath,
+      public_url: publicUrlData.publicUrl,
+      original_size_bytes: file.size,
+      processed_size_bytes: file.size,
+      metadata: {
+        uploaded_from: "builder-ui"
+      },
+      expires_at: new Date(Date.now() + serverConfig.assetRetentionDays * 24 * 60 * 60 * 1000).toISOString()
+    });
+
+    if (assetError) {
+      throw assetError;
+    }
+
     return NextResponse.json({
       status: "ok",
       data: {
@@ -33,72 +105,13 @@ export async function POST(request: Request) {
         name: file.name,
         type: file.type,
         sizeMb,
-        status: "local"
+        status: "uploaded",
+        url: publicUrlData.publicUrl
       }
     });
+  } catch (error) {
+    return jsonApiError("api.media.upload.post", error, "The file could not be uploaded.");
   }
-
-  if (!isUuid(schoolId)) {
-    return NextResponse.json(
-      { message: "Upload is missing a valid school workspace." },
-      { status: 400 }
-    );
-  }
-
-  const objectPath = buildStoragePath(organizationName, newsletterId, file.name);
-  const arrayBuffer = await file.arrayBuffer();
-
-  const { error: uploadError } = await supabase.storage
-    .from(serverConfig.storageBucket)
-    .upload(objectPath, Buffer.from(arrayBuffer), {
-      contentType: file.type,
-      upsert: true
-    });
-
-  if (uploadError) {
-    const message =
-      uploadError.message.toLowerCase().includes("bucket")
-        ? `Upload bucket not found. Create a Supabase storage bucket named "${serverConfig.storageBucket}" or update SUPABASE_STORAGE_BUCKET.`
-        : uploadError.message;
-
-    return NextResponse.json({ message }, { status: 500 });
-  }
-
-  const { data: publicUrlData } = supabase.storage
-    .from(serverConfig.storageBucket)
-    .getPublicUrl(objectPath);
-
-  const { error: assetError } = await supabase.from("assets").insert({
-    school_id: schoolId,
-    newsletter_id: isUuid(newsletterId) ? newsletterId : null,
-    kind: resolveAssetKind(file.type),
-    original_filename: file.name,
-    mime_type: file.type,
-    storage_path: objectPath,
-    public_url: publicUrlData.publicUrl,
-    original_size_bytes: file.size,
-    processed_size_bytes: file.size,
-    metadata: {
-      uploaded_from: "builder-ui"
-    },
-    expires_at: new Date(Date.now() + serverConfig.assetRetentionDays * 24 * 60 * 60 * 1000).toISOString()
-  });
-
-  if (assetError) {
-    return NextResponse.json({ message: assetError.message }, { status: 500 });
-  }
-
-  return NextResponse.json({
-    status: "ok",
-    data: {
-      id: randomUUID(),
-      name: file.name,
-      type: file.type,
-      sizeMb,
-      status: "uploaded",
-      url: publicUrlData.publicUrl
-    }
-  });
 }
 
 function validateFile(file: File) {

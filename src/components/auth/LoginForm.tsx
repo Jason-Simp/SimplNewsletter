@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { authFetch } from "@/lib/api-client";
 import { schoolAmplifiedBrand } from "@/lib/brand";
 import { useAuthSession } from "@/lib/auth-client";
 
@@ -48,7 +49,7 @@ export function LoginForm({
     }
 
     try {
-      const response = await fetch(`/api/members/me?email=${encodeURIComponent(email.trim().toLowerCase())}`);
+      const response = await authFetch(supabase, "/api/members/me");
       const payload = response.ok ? await response.json() : null;
       const hasMember = Boolean(payload?.data);
 

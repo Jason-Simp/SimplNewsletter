@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 
 import { ActionNotice } from "@/components/ui/ActionNotice";
+import { authFetch } from "@/lib/api-client";
 import { extractPaletteFromImage } from "@/lib/color-extraction";
 import { useAuthSession } from "@/lib/auth-client";
 import type { SchoolProfile } from "@/types/school";
@@ -35,7 +36,7 @@ const emptySchool: SchoolProfile = {
 };
 
 export function SchoolManager() {
-  const { session } = useAuthSession();
+  const { session, supabase } = useAuthSession();
   const [schools, setSchools] = useState<SchoolProfile[]>([]);
   const [members, setMembers] = useState<MemberRecord[]>([]);
   const [activeSchoolId, setActiveSchoolId] = useState("");
@@ -55,19 +56,19 @@ export function SchoolManager() {
         return;
       }
 
-      const response = await fetch(`/api/members/me?email=${encodeURIComponent(session.user.email)}`);
+      const response = await authFetch(supabase, "/api/members/me");
       const payload = response.ok ? await response.json() : null;
       setMember(payload?.data ?? null);
     }
 
     void loadMember();
-  }, [session?.user?.email]);
+  }, [session?.user?.email, supabase]);
 
   useEffect(() => {
     async function loadSchools() {
       const [schoolsResponse, membersResponse] = await Promise.all([
-        fetch("/api/schools"),
-        fetch("/api/members")
+        authFetch(supabase, "/api/schools"),
+        authFetch(supabase, "/api/members")
       ]);
       const schoolsPayload = await schoolsResponse.json();
       const membersPayload = await membersResponse.json();
@@ -94,7 +95,7 @@ export function SchoolManager() {
     if (member || !session?.user?.email) {
       void loadSchools();
     }
-  }, [member, session?.user?.email]);
+  }, [member, session?.user?.email, supabase]);
 
   useEffect(() => {
     const nextSchool = schools.find((school) => school.id === activeSchoolId);
@@ -154,7 +155,7 @@ export function SchoolManager() {
 
   const saveSchool = async () => {
     setStatus("Saving...");
-    const response = await fetch("/api/schools", {
+    const response = await authFetch(supabase, "/api/schools", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -210,7 +211,7 @@ export function SchoolManager() {
       formData.append("schoolId", activeSchoolId);
       formData.append("organizationName", form.name || "school");
 
-      const response = await fetch("/api/media/upload", {
+      const response = await authFetch(supabase, "/api/media/upload", {
         method: "POST",
         body: formData
       });
@@ -259,7 +260,7 @@ export function SchoolManager() {
 
     setStatus("Sending invite...");
 
-    const response = await fetch("/api/members", {
+    const response = await authFetch(supabase, "/api/members", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -304,7 +305,7 @@ export function SchoolManager() {
 
     setAgentStatus("Checking connection...");
 
-    const response = await fetch("/api/agent/verify", {
+    const response = await authFetch(supabase, "/api/agent/verify", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"

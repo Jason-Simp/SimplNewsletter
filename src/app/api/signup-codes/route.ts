@@ -1,18 +1,30 @@
 import { NextResponse } from "next/server";
 
+import { jsonApiError } from "@/lib/api-route";
+import { requireCodeManagement, requireSignedInMember } from "@/lib/server-auth";
 import { listSignupCodes, saveSignupCode } from "@/lib/signup-code-repository";
 
-export async function GET() {
-  const data = await listSignupCodes();
+export const dynamic = "force-dynamic";
 
-  return NextResponse.json({
-    status: "ok",
-    data
-  });
+export async function GET(request: Request) {
+  try {
+    const { member } = await requireSignedInMember(request);
+    requireCodeManagement(member);
+    const data = await listSignupCodes();
+
+    return NextResponse.json({
+      status: "ok",
+      data
+    });
+  } catch (error) {
+    return jsonApiError("api.signup-codes.get", error, "Unable to load signup codes.");
+  }
 }
 
 export async function POST(request: Request) {
   try {
+    const { member } = await requireSignedInMember(request);
+    requireCodeManagement(member);
     const payload = await request.json();
     const data = await saveSignupCode(payload);
 
@@ -21,12 +33,6 @@ export async function POST(request: Request) {
       data
     });
   } catch (error) {
-    return NextResponse.json(
-      {
-        status: "error",
-        message: error instanceof Error ? error.message : "Unable to save signup code."
-      },
-      { status: 500 }
-    );
+    return jsonApiError("api.signup-codes.post", error, "Unable to save signup code.");
   }
 }

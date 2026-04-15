@@ -1,14 +1,21 @@
 import { NextResponse } from "next/server";
 
+import { jsonApiError } from "@/lib/api-route";
 import { syncContentToProvider } from "@/lib/integration-client";
 import { saveNewsletter } from "@/lib/newsletter-repository";
 import { renderNewsletterHtml } from "@/lib/render-html";
+import { assertSchoolScope, requireBuilderAccess, requireSignedInMember } from "@/lib/server-auth";
 import type { NewsletterDocument } from "@/types/newsletter";
+
+export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
+    const { member } = await requireSignedInMember(request);
+    requireBuilderAccess(member);
     const payload = (await request.json()) as { document: NewsletterDocument };
     const document = payload.document;
+    assertSchoolScope(member, String(document?.workspace?.schoolId ?? ""));
 
     await saveNewsletter(document);
 
@@ -35,12 +42,6 @@ export async function POST(request: Request) {
       data: result
     });
   } catch (error) {
-    return NextResponse.json(
-      {
-        status: "error",
-        message: error instanceof Error ? error.message : "Vector sync failed."
-      },
-      { status: 500 }
-    );
+    return jsonApiError("api.agent.vector-sync.post", error, "The newsletter archive sync could not finish.");
   }
 }

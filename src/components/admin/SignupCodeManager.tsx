@@ -2,9 +2,12 @@
 
 import { useEffect, useState } from "react";
 
+import { authFetch } from "@/lib/api-client";
+import { useAuthSession } from "@/lib/auth-client";
 import type { SignupCodeRecord } from "@/types/signup-code";
 
 export function SignupCodeManager() {
+  const { supabase } = useAuthSession();
   const [codes, setCodes] = useState<SignupCodeRecord[]>([]);
   const [status, setStatus] = useState("Loading codes...");
   const [code, setCode] = useState("");
@@ -13,19 +16,19 @@ export function SignupCodeManager() {
 
   useEffect(() => {
     async function loadCodes() {
-      const response = await fetch("/api/signup-codes");
+      const response = await authFetch(supabase, "/api/signup-codes");
       const payload = await response.json();
       setCodes(payload.data ?? []);
       setStatus("Codes loaded.");
     }
 
     void loadCodes();
-  }, []);
+  }, [supabase]);
 
   const saveCode = async () => {
     setStatus("Saving code...");
 
-    const response = await fetch("/api/signup-codes", {
+    const response = await authFetch(supabase, "/api/signup-codes", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"

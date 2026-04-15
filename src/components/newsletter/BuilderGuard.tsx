@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { authFetch } from "@/lib/api-client";
 import { useAuthSession } from "@/lib/auth-client";
 import { schoolAmplifiedBrand } from "@/lib/brand";
 import { canAccessBuilder } from "@/lib/member-access";
@@ -41,7 +42,7 @@ export function BuilderGuard({ children }: { children: React.ReactNode }) {
     async function loadMember() {
       setMemberLoading(true);
 
-      await fetch("/api/members/link-session", {
+      await authFetch(supabase, "/api/members/link-session", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -52,7 +53,7 @@ export function BuilderGuard({ children }: { children: React.ReactNode }) {
         })
       });
 
-      const response = await fetch(`/api/members/me?email=${encodeURIComponent(memberEmail)}`);
+      const response = await authFetch(supabase, "/api/members/me");
 
       if (!response.ok) {
         if (!cancelled) {

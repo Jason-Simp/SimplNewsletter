@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+import { authFetch } from "@/lib/api-client";
 import { useAuthSession } from "@/lib/auth-client";
 import { isCompanyAdmin } from "@/lib/member-access";
 import type { MemberRecord } from "@/types/member";
 import type { SchoolProfile } from "@/types/school";
 
 export default function AdminPage() {
-  const { session } = useAuthSession();
+  const { session, supabase } = useAuthSession();
   const [member, setMember] = useState<MemberRecord | null>(null);
   const [schools, setSchools] = useState<SchoolProfile[]>([]);
   const [members, setMembers] = useState<MemberRecord[]>([]);
@@ -20,19 +21,19 @@ export default function AdminPage() {
         return;
       }
 
-      const response = await fetch(`/api/members/me?email=${encodeURIComponent(session.user.email)}`);
+      const response = await authFetch(supabase, "/api/members/me");
       const payload = response.ok ? await response.json() : null;
       setMember(payload?.data ?? null);
     }
 
     void loadMember();
-  }, [session?.user?.email]);
+  }, [session?.user?.email, supabase]);
 
   useEffect(() => {
     async function loadDashboardData() {
       const [schoolsResponse, membersResponse] = await Promise.all([
-        fetch("/api/schools"),
-        fetch("/api/members")
+        authFetch(supabase, "/api/schools"),
+        authFetch(supabase, "/api/members")
       ]);
 
       const schoolsPayload = schoolsResponse.ok ? await schoolsResponse.json() : { data: [] };
@@ -43,7 +44,7 @@ export default function AdminPage() {
     }
 
     void loadDashboardData();
-  }, []);
+  }, [supabase]);
 
   const companyView = isCompanyAdmin(member);
   const currentSchool =

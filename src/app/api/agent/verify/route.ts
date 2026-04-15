@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
 
+import { jsonApiError } from "@/lib/api-route";
 import { verifyElevenLabsAgent } from "@/lib/elevenlabs";
+import { requireSchoolManagement, requireSignedInMember } from "@/lib/server-auth";
+
+export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
+    const { member } = await requireSignedInMember(request);
+    requireSchoolManagement(member);
     const payload = (await request.json()) as {
       schoolName?: string;
       assistantReference?: string;
@@ -31,12 +37,6 @@ export async function POST(request: Request) {
       message: "Agent connected."
     });
   } catch (error) {
-    return NextResponse.json(
-      {
-        status: "error",
-        message: error instanceof Error ? error.message : "Unable to verify agent connection."
-      },
-      { status: 500 }
-    );
+    return jsonApiError("api.agent.verify.post", error, "Unable to verify the school writing agent.");
   }
 }

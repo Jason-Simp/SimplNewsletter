@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { jsonApiError } from "@/lib/api-route";
 import { saveNewsletter } from "@/lib/newsletter-repository";
 import {
   getNewsletterPdfPath,
@@ -7,10 +8,15 @@ import {
   getSchoolArchivePath,
   toAbsoluteUrl
 } from "@/lib/public-links";
+import { assertSchoolScope, requireBuilderAccess, requireSignedInMember } from "@/lib/server-auth";
 import { serverConfig } from "@/lib/server-config";
+
+export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
+    const { member } = await requireSignedInMember(request);
+    requireBuilderAccess(member);
     const payload = await request.json();
     const document = payload?.document;
     const selectedChannels = Array.isArray(payload?.distributionOptions)
@@ -23,6 +29,8 @@ export async function POST(request: Request) {
     if (!document) {
       throw new Error("Newsletter document is missing.");
     }
+
+    assertSchoolScope(member, String(document?.workspace?.schoolId ?? ""));
 
     const saveResult = await saveNewsletter(
       {
@@ -61,12 +69,6 @@ export async function POST(request: Request) {
       { status: 200 }
     );
   } catch (error) {
-    return NextResponse.json(
-      {
-        status: "error",
-        message: error instanceof Error ? error.message : "Webhook delivery failed."
-      },
-      { status: 500 }
-    );
+    return jsonApiError("api.distribution.post", error, "The newsletter could not be published.");
   }
 }

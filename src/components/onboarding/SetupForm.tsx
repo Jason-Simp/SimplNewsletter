@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { authFetch } from "@/lib/api-client";
 import { useAuthSession } from "@/lib/auth-client";
 
 export function SetupForm() {
@@ -33,7 +34,7 @@ export function SetupForm() {
     const memberEmail = email;
 
     async function loadMember() {
-      const response = await fetch(`/api/members/me?email=${encodeURIComponent(memberEmail)}`);
+      const response = await authFetch(supabase, "/api/members/me");
       const payload = response.ok ? await response.json() : null;
 
       if (!cancelled) {
@@ -69,10 +70,10 @@ export function SetupForm() {
     setSubmitting(true);
     setStatus("Creating your school workspace...");
 
-    const response = await fetch("/api/onboarding/bootstrap", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
+      const response = await authFetch(supabase, "/api/onboarding/bootstrap", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
       },
       body: JSON.stringify({
         authUserId,
@@ -80,7 +81,7 @@ export function SetupForm() {
         fullName,
         schoolName
       })
-    });
+      });
 
     const payload = await response.json();
 

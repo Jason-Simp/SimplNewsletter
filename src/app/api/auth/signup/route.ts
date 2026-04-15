@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { ApiRouteError, jsonApiError } from "@/lib/api-route";
 import { incrementSignupCodeUse, validateSignupCode } from "@/lib/signup-code-repository";
 import { getServiceSupabase } from "@/lib/supabase/server";
 
@@ -7,12 +8,10 @@ export async function POST(request: Request) {
   const supabase = getServiceSupabase();
 
   if (!supabase) {
-    return NextResponse.json(
-      {
-        status: "error",
-        message: "Supabase service role is not configured."
-      },
-      { status: 500 }
+    return jsonApiError(
+      "api.auth.signup.post",
+      new ApiRouteError(500, "Account creation is not configured right now."),
+      "Account creation is not configured right now."
     );
   }
 

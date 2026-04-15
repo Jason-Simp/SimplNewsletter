@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { authFetch } from "@/lib/api-client";
 import { useAuthSession } from "@/lib/auth-client";
 import { buildSteps, sampleNewsletter } from "@/lib/sample-data";
 import { getNewsletterPdfPath, getNewsletterWebPath, getSchoolArchivePath } from "@/lib/public-links";
@@ -16,7 +17,7 @@ import { MediaUploadPanel } from "@/components/newsletter/MediaUploadPanel";
 import { NewsletterPreview } from "@/components/newsletter/NewsletterPreview";
 
 export function IssueWizard() {
-  const { session } = useAuthSession();
+  const { session, supabase } = useAuthSession();
   const [activeStep, setActiveStep] = useState<string>(buildSteps[0].id);
   const [activeChannel, setActiveChannel] = useState<Channel>("web");
   const [document, setDocument] = useState(sampleNewsletter);
@@ -214,7 +215,7 @@ export function IssueWizard() {
     setGenerationMessage("Writing your first draft...");
 
     try {
-      const response = await fetch("/api/agent/generate", {
+      const response = await authFetch(supabase, "/api/agent/generate", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -274,7 +275,7 @@ export function IssueWizard() {
     setDistributionMessage("Publishing your newsletter...");
 
     try {
-      const response = await fetch("/api/distribution", {
+      const response = await authFetch(supabase, "/api/distribution", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -345,9 +346,7 @@ export function IssueWizard() {
         let nextSchool: SchoolProfile | null = null;
 
         if (session?.user?.email) {
-          const memberResponse = await fetch(
-            `/api/members/me?email=${encodeURIComponent(session.user.email)}`
-          );
+          const memberResponse = await authFetch(supabase, "/api/members/me");
 
           if (memberResponse.ok) {
             const memberPayload = await memberResponse.json();
@@ -356,7 +355,7 @@ export function IssueWizard() {
         }
 
         if (nextMember?.schoolId) {
-          const schoolsResponse = await fetch("/api/schools");
+          const schoolsResponse = await authFetch(supabase, "/api/schools");
           const schoolsPayload = await schoolsResponse.json();
           nextSchool =
             ((schoolsPayload?.data ?? []) as SchoolProfile[]).find(
@@ -365,7 +364,7 @@ export function IssueWizard() {
         }
 
         const query = nextMember?.schoolId ? `?schoolId=${encodeURIComponent(nextMember.schoolId)}` : "";
-        const response = await fetch(`/api/newsletters${query}`);
+        const response = await authFetch(supabase, `/api/newsletters${query}`);
         const payload = await response.json();
         const nextDocument = payload?.data?.[0];
 
@@ -422,7 +421,7 @@ export function IssueWizard() {
     return () => {
       cancelled = true;
     };
-  }, [session?.user?.email]);
+  }, [session?.user?.email, supabase]);
 
   useEffect(() => {
     if (!initialLoadComplete.current) {
@@ -434,7 +433,7 @@ export function IssueWizard() {
       setSaveMessage("Saving draft...");
 
       try {
-        const response = await fetch("/api/newsletters", {
+        const response = await authFetch(supabase, "/api/newsletters", {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
@@ -469,7 +468,7 @@ export function IssueWizard() {
     }, 900);
 
     return () => window.clearTimeout(timeoutId);
-  }, [document]);
+  }, [document, supabase]);
 
   return (
     <>

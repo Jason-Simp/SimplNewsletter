@@ -3,6 +3,8 @@
 import imageCompression from "browser-image-compression";
 import { useMemo, useState } from "react";
 
+import { authFetch } from "@/lib/api-client";
+import { useAuthSession } from "@/lib/auth-client";
 import type { NewsletterDocument } from "@/types/newsletter";
 import type { UploadedAsset } from "@/types/media";
 
@@ -48,6 +50,7 @@ function getAcceptedExtensions(document: NewsletterDocument) {
 }
 
 export function MediaUploadPanel({ document, onAssetsChange }: Props) {
+  const { supabase } = useAuthSession();
   const [assets, setAssets] = useState<UploadedAsset[]>([]);
   const [message, setMessage] = useState("No uploads yet.");
   const [uploading, setUploading] = useState(false);
@@ -89,7 +92,7 @@ export function MediaUploadPanel({ document, onAssetsChange }: Props) {
         formData.append("schoolId", document.workspace.schoolId ?? "");
         formData.append("organizationName", document.organization.name);
 
-        const response = await fetch("/api/media/upload", {
+        const response = await authFetch(supabase, "/api/media/upload", {
           method: "POST",
           body: formData
         });

@@ -4,6 +4,8 @@ import imageCompression from "browser-image-compression";
 import Image from "next/image";
 import { useState } from "react";
 
+import { authFetch } from "@/lib/api-client";
+import { useAuthSession } from "@/lib/auth-client";
 import { extractPaletteFromImage } from "@/lib/color-extraction";
 import type { NewsletterDocument } from "@/types/newsletter";
 
@@ -24,6 +26,7 @@ export function OrganizationBrandingPanel({
   onOrganizationFieldChange,
   onOrganizationColorChange
 }: Props) {
+  const { supabase } = useAuthSession();
   const [status, setStatus] = useState("School branding ready.");
 
   const handleLogoUpload = async (fileList: FileList | null) => {
@@ -45,7 +48,7 @@ export function OrganizationBrandingPanel({
       formData.append("newsletterId", document.id);
       formData.append("organizationName", document.organization.name);
 
-      const response = await fetch("/api/media/upload", {
+      const response = await authFetch(supabase, "/api/media/upload", {
         method: "POST",
         body: formData
       });

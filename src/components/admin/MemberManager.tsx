@@ -3,12 +3,13 @@
 import { useEffect, useState } from "react";
 
 import { ActionNotice } from "@/components/ui/ActionNotice";
+import { authFetch } from "@/lib/api-client";
 import { useAuthSession } from "@/lib/auth-client";
 import type { MemberRecord } from "@/types/member";
 import type { SchoolProfile } from "@/types/school";
 
 export function MemberManager() {
-  const { session } = useAuthSession();
+  const { session, supabase } = useAuthSession();
   const [members, setMembers] = useState<MemberRecord[]>([]);
   const [schools, setSchools] = useState<SchoolProfile[]>([]);
   const [status, setStatus] = useState("Loading members...");
@@ -29,19 +30,19 @@ export function MemberManager() {
         return;
       }
 
-      const response = await fetch(`/api/members/me?email=${encodeURIComponent(session.user.email)}`);
+      const response = await authFetch(supabase, "/api/members/me");
       const payload = response.ok ? await response.json() : null;
       setMember(payload?.data ?? null);
     }
 
     void loadMember();
-  }, [session?.user?.email]);
+  }, [session?.user?.email, supabase]);
 
   useEffect(() => {
     async function loadData() {
       const [membersResponse, schoolsResponse] = await Promise.all([
-        fetch("/api/members"),
-        fetch("/api/schools")
+        authFetch(supabase, "/api/members"),
+        authFetch(supabase, "/api/schools")
       ]);
 
       const membersPayload = await membersResponse.json();
@@ -67,7 +68,7 @@ export function MemberManager() {
     if (member || !session?.user?.email) {
       void loadData();
     }
-  }, [member, session?.user?.email]);
+  }, [member, session?.user?.email, supabase]);
 
   const resetForm = () => {
     setEditingMemberId(null);
@@ -102,7 +103,7 @@ export function MemberManager() {
   const saveOrUpdateMember = async () => {
     setStatus(editingMemberId ? "Updating member..." : "Saving member...");
 
-    const response = await fetch("/api/members", {
+    const response = await authFetch(supabase, "/api/members", {
       method: editingMemberId ? "PUT" : "POST",
       headers: {
         "Content-Type": "application/json"
@@ -159,7 +160,7 @@ export function MemberManager() {
 
     setStatus("Removing member...");
 
-    const response = await fetch("/api/members", {
+    const response = await authFetch(supabase, "/api/members", {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json"
@@ -196,7 +197,7 @@ export function MemberManager() {
 
     setStatus(action === "password_reset" ? "Sending password reset..." : "Resending invite...");
 
-    const response = await fetch("/api/members/actions", {
+    const response = await authFetch(supabase, "/api/members/actions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"

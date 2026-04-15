@@ -1,9 +1,16 @@
 import { NextResponse } from "next/server";
 
+import { ApiRouteError, jsonApiError } from "@/lib/api-route";
+import { getMemberByEmail } from "@/lib/member-repository";
+import { requireMemberManagement, requireSignedInMember } from "@/lib/server-auth";
 import { resendMemberInvite, sendMemberPasswordReset } from "@/lib/member-repository";
+
+export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
+    const { member } = await requireSignedInMember(request);
+    requireMemberManagement(member);
     const payload = await request.json();
     const action = String(payload?.action ?? "");
     const email = String(payload?.email ?? "").trim();
@@ -16,6 +23,16 @@ export async function POST(request: Request) {
         },
         { status: 400 }
       );
+    }
+
+    const targetMember = await getMemberByEmail(email);
+
+    if (!targetMember) {
+      throw new ApiRouteError(404, "Member not found.");
+    }
+
+    if (member.role !== "company_admin" && targetMember.schoolId !== member.schoolId) {
+      throw new ApiRouteError(403, "You can only manage members in your own school.");
     }
 
     if (action === "password_reset") {
@@ -46,12 +63,6 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   } catch (error) {
-    return NextResponse.json(
-      {
-        status: "error",
-        message: error instanceof Error ? error.message : "Unable to complete member action."
-      },
-      { status: 500 }
-    );
+    return jsonApiError("api.members.actions.post", error, "Unable to complete that member action.");
   }
 }
