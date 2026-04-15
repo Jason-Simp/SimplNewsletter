@@ -78,7 +78,9 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
     let packageCorrectionSent = false;
     const collectedResponses: string[] = [];
     const timeoutMs = Math.max(serverConfig.integrationTimeoutMs, 90000);
+    const maxDurationMs = Math.max(serverConfig.integrationMaxDurationMs, timeoutMs, 180000);
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let hardStopId: ReturnType<typeof setTimeout> | null = null;
 
     const startTimeout = () => {
       timeoutId = setTimeout(() => {
@@ -106,12 +108,33 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
     };
 
     startTimeout();
+    hardStopId = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+        socket.close();
+        reject(
+          new Error(
+            buildHardStopMessage({
+              promptSent,
+              packageCorrectionSent,
+              hasAgentResponse: collectedResponses.length > 0
+            })
+          )
+        );
+      }
+    }, maxDurationMs);
 
     const finish = (callback: () => void) => {
       if (!resolved) {
         resolved = true;
         if (timeoutId) {
           clearTimeout(timeoutId);
+        }
+        if (hardStopId) {
+          clearTimeout(hardStopId);
         }
         callback();
       }
@@ -229,6 +252,30 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
     attachSocketListener(socket, "error", handleError);
     attachSocketListener(socket, "close", handleClose);
   });
+}
+
+function buildHardStopMessage({
+  promptSent,
+  packageCorrectionSent,
+  hasAgentResponse
+}: {
+  promptSent: boolean;
+  packageCorrectionSent: boolean;
+  hasAgentResponse: boolean;
+}) {
+  if (hasAgentResponse) {
+    return "The school's writing agent stayed active, but it still did not finish the newsletter package in the allowed time.";
+  }
+
+  if (packageCorrectionSent) {
+    return "The school's writing agent acknowledged the correction request, but it still did not return the newsletter package in the allowed time.";
+  }
+
+  if (promptSent) {
+    return "The school's writing agent received the request, but it did not begin returning the newsletter package in the allowed time.";
+  }
+
+  return "The school's writing agent did not start responding in the allowed time.";
 }
 
 function buildTimeoutMessage({
