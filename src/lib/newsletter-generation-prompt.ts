@@ -1,23 +1,18 @@
 import type { ContentGenerateRequest } from "@/types/integration";
-import type { SectionType } from "@/types/newsletter";
-
-const AVAILABLE_SECTION_TYPES: SectionType[] = [
+const AVAILABLE_SECTION_TYPES = [
   "hero",
-  "stats_band",
   "principal_message",
   "top_story",
   "news_grid",
   "academics",
-  "athletics",
   "student_spotlight",
   "arts_events",
   "clubs_and_organizations",
   "calendar_snapshot",
   "cta_band",
   "quote_or_mission",
-  "quick_links",
-  "footer"
-];
+  "quick_links"
+] as const;
 
 const DESIGN_AGENT_BRIEF = `
 This newsletter should prioritize clarity, trust, usefulness, and speed of understanding.
@@ -56,18 +51,181 @@ Optimize for:
 - tone alignment
 `.trim();
 
-const JSON_RESPONSE_SHAPE = `
-Return only valid JSON with this exact top-level shape:
+const SECTION_SHAPES = `
+Return only valid JSON.
+
+Use this exact top-level shape:
 {
   "title": "string",
   "intro": "string",
   "sections": [
     {
-      "sectionType": "one of the allowed section types",
+      "sectionType": "one of the allowed section types below",
       "title": "string",
       "content": {}
     }
   ]
+}
+
+Use only these render-ready section types and content shapes:
+
+hero:
+{
+  "sectionType": "hero",
+  "title": "Hero",
+  "content": {
+    "eyebrow": "short label",
+    "headline": "main headline",
+    "body": "2-4 sentence summary",
+    "stats": [
+      { "label": "optional", "value": "optional" }
+    ]
+  }
+}
+
+principal_message:
+{
+  "sectionType": "principal_message",
+  "title": "Principal message",
+  "content": {
+    "quote": "message text",
+    "author": "principal or leader name"
+  }
+}
+
+top_story:
+{
+  "sectionType": "top_story",
+  "title": "Top story",
+  "content": {
+    "headline": "headline",
+    "summary": "summary paragraph",
+    "url": "#"
+  }
+}
+
+news_grid:
+{
+  "sectionType": "news_grid",
+  "title": "Campus news",
+  "content": {
+    "items": [
+      {
+        "headline": "headline",
+        "summary": "summary",
+        "tag": "optional short label"
+      }
+    ]
+  }
+}
+
+academics:
+{
+  "sectionType": "academics",
+  "title": "Academics and athletics",
+  "content": {
+    "academics": {
+      "headline": "headline",
+      "summary": "summary",
+      "meta": "optional short note"
+    },
+    "athletics": {
+      "headline": "headline",
+      "summary": "summary",
+      "meta": "optional short note"
+    }
+  }
+}
+
+student_spotlight:
+{
+  "sectionType": "student_spotlight",
+  "title": "Student spotlight",
+  "content": {
+    "name": "student or group name",
+    "role": "optional subtitle",
+    "summary": "summary"
+  }
+}
+
+arts_events:
+{
+  "sectionType": "arts_events",
+  "title": "Arts and events",
+  "content": {
+    "items": [
+      {
+        "date": "date",
+        "title": "title",
+        "summary": "summary"
+      }
+    ]
+  }
+}
+
+clubs_and_organizations:
+{
+  "sectionType": "clubs_and_organizations",
+  "title": "Clubs and organizations",
+  "content": {
+    "items": ["short item", "short item"]
+  }
+}
+
+calendar_snapshot:
+{
+  "sectionType": "calendar_snapshot",
+  "title": "Calendar snapshot",
+  "content": {
+    "items": [
+      {
+        "date": "date",
+        "detail": "detail"
+      }
+    ]
+  }
+}
+
+cta_band:
+{
+  "sectionType": "cta_band",
+  "title": "Calls to action",
+  "content": {
+    "volunteer": {
+      "headline": "headline",
+      "summary": "summary",
+      "url": "#"
+    },
+    "support": {
+      "headline": "headline",
+      "summary": "summary",
+      "url": "#"
+    }
+  }
+}
+
+quote_or_mission:
+{
+  "sectionType": "quote_or_mission",
+  "title": "Quote or mission",
+  "content": {
+    "quote": "quote text",
+    "attribution": "optional attribution"
+  }
+}
+
+quick_links:
+{
+  "sectionType": "quick_links",
+  "title": "Quick links",
+  "content": {
+    "items": [
+      {
+        "label": "link label",
+        "url": "https://example.com"
+      }
+    ]
+  }
 }
 `.trim();
 
@@ -76,6 +234,10 @@ export function buildNewsletterGenerationPrompt(request: ContentGenerateRequest)
   const linksBlock =
     request.links && request.links.length > 0
       ? `\nSource links to consider:\n${request.links.map((link) => `- ${link}`).join("\n")}`
+      : "";
+  const imageHintsBlock =
+    request.imageHints && request.imageHints.length > 0
+      ? `\nUploaded image hints:\n${request.imageHints.map((item) => `- ${item}`).join("\n")}`
       : "";
 
   return `
@@ -96,7 +258,7 @@ When in doubt, choose fewer, clearer sections.
 ${DESIGN_AGENT_BRIEF}
 
 User request:
-${userRequest}${linksBlock}
+${userRequest}${linksBlock}${imageHintsBlock}
 
 Additional rules:
 - Write in plain language.
@@ -106,7 +268,10 @@ Additional rules:
 - If the request includes operational or policy items, keep them direct and grounded.
 - Use the school's tone, but prioritize clarity over flourish.
 - Return a finished draft, not an outline.
+- Return only the section types that are genuinely needed for this issue.
+- Do not invent image descriptions. If you refer to uploaded images, use the uploaded file names only as hints.
+- Do not return markdown, commentary, or explanatory text outside the JSON object.
 
-${JSON_RESPONSE_SHAPE}
+${SECTION_SHAPES}
 `.trim();
 }

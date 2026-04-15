@@ -10,6 +10,7 @@ export type ContentGenerateRequest = {
   encryptedKnowledgeRef: string;
   prompt: string;
   links?: string[];
+  imageHints?: string[];
   notes?: string;
   sectionTypes?: string[];
 };
