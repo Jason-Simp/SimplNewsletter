@@ -25,6 +25,36 @@ export default async function SchoolArchivePage({
   return (
     <main className="min-h-screen bg-[linear-gradient(180deg,#F7F9FC_0%,#EAF2FB_100%)] px-4 py-8 lg:px-8">
       <div className="mx-auto max-w-5xl">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[24px] border border-slate-200 bg-white px-5 py-4 shadow-editorial">
+          <div className="text-xs font-bold uppercase tracking-[0.24em] text-brand-secondary">
+            Public school archive
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Link
+              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-brand-text"
+              href="/"
+            >
+              Home
+            </Link>
+            <Link
+              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-brand-text"
+              href="/login"
+            >
+              Member login
+            </Link>
+            {school?.websiteUrl ? (
+              <a
+                className="rounded-full bg-brand-primary px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white"
+                href={school.websiteUrl}
+                rel="noreferrer"
+                target="_blank"
+              >
+                School website
+              </a>
+            ) : null}
+          </div>
+        </div>
+
         <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-editorial">
           <div className="flex flex-wrap items-center justify-between gap-6 border-b border-slate-200 px-6 py-6 lg:px-8">
             <div className="flex items-center gap-4">
