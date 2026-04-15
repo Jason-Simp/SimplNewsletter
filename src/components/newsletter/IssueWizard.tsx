@@ -8,6 +8,7 @@ import type { ContentGenerateResponse } from "@/types/integration";
 import type { UploadedAsset } from "@/types/media";
 import type { Channel, DistributionChannel } from "@/types/newsletter";
 import type { SchoolProfile } from "@/types/school";
+import { ActionNotice } from "@/components/ui/ActionNotice";
 import { DistributionPanel } from "@/components/newsletter/DistributionPanel";
 import { DistributionSelector } from "@/components/newsletter/DistributionSelector";
 import { MediaUploadPanel } from "@/components/newsletter/MediaUploadPanel";
@@ -24,6 +25,11 @@ export function IssueWizard() {
   const [generationMessage, setGenerationMessage] = useState(
     "Fill in the form, then continue and the system will write the first draft for you."
   );
+  const [distributionState, setDistributionState] = useState<"idle" | "publishing" | "published" | "error">("idle");
+  const [distributionMessage, setDistributionMessage] = useState(
+    "Choose whether this newsletter should go to the school website feed, PDF export, or both."
+  );
+  const [notice, setNotice] = useState<{ message: string; tone: "success" | "error" | "info" } | null>(null);
   const [quickNotes, setQuickNotes] = useState("");
   const [uploadedAssets, setUploadedAssets] = useState<UploadedAsset[]>([]);
   const initialLoadComplete = useRef(false);
@@ -42,6 +48,10 @@ export function IssueWizard() {
 
   const goToStep = (stepId: string) => {
     setActiveStep(stepId);
+  };
+
+  const showNotice = (message: string, tone: "success" | "error" | "info") => {
+    setNotice({ message, tone });
   };
 
   const goToPreviousStep = () => {
@@ -205,6 +215,56 @@ export function IssueWizard() {
     }
   };
 
+  const publishDistribution = async () => {
+    setDistributionState("publishing");
+    setDistributionMessage("Publishing your newsletter...");
+
+    try {
+      const response = await fetch("/api/distribution", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          schoolId: document.workspace.schoolId,
+          document,
+          distributionOptions: document.distributionOptions
+        })
+      });
+
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload?.message ?? "The newsletter could not be published.");
+      }
+
+      const selectedWebsite = document.distributionOptions.some(
+        (option) => option.channel === "web" && option.selected
+      );
+      const selectedPdf = document.distributionOptions.some(
+        (option) => option.channel === "pdf" && option.selected
+      );
+
+      setDistributionState("published");
+      setDistributionMessage(
+        selectedWebsite && selectedPdf
+          ? "Published to the school website and marked for PDF export."
+          : selectedWebsite
+            ? "Published to the school website feed and archive."
+            : selectedPdf
+              ? "Saved with PDF export selected."
+              : "Saved without a delivery target."
+      );
+      showNotice("Newsletter publishing updated.", "success");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "The newsletter could not be published.";
+      setDistributionState("error");
+      setDistributionMessage(message);
+      showNotice(message, "error");
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
 
@@ -333,7 +393,9 @@ export function IssueWizard() {
   }, [document]);
 
   return (
-    <div className="grid gap-8">
+    <>
+      {notice ? <ActionNotice message={notice.message} onDismiss={() => setNotice(null)} tone={notice.tone} /> : null}
+      <div className="grid gap-8">
       <section className="grid gap-6">
         <div className="grid gap-6">
           <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
@@ -516,6 +578,35 @@ export function IssueWizard() {
           {activeStep === "distribution" ? (
             <>
               <DistributionSelector onToggle={toggleDistribution} options={document.distributionOptions} />
+              <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
+                <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Step 3</p>
+                <h2 className="mt-2 font-display text-3xl text-brand-navy">Publish and archive</h2>
+                <p className="mt-3 max-w-3xl text-sm leading-6 text-brand-muted">
+                  Publishing to the school website adds this issue to the hosted archive and RSS feed. PDF
+                  stays as the optional export if someone needs a file version.
+                </p>
+                <div
+                  className={`mt-5 rounded-[24px] p-4 text-sm leading-6 ${
+                    distributionState === "error"
+                      ? "bg-red-50 text-red-700"
+                      : distributionState === "published"
+                        ? "bg-emerald-50 text-emerald-700"
+                        : "bg-[#EAF2FB] text-brand-muted"
+                  }`}
+                >
+                  {distributionMessage}
+                </div>
+                <div className="mt-6 flex flex-wrap gap-3">
+                  <button
+                    className="rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white disabled:cursor-not-allowed disabled:opacity-40"
+                    disabled={distributionState === "publishing"}
+                    onClick={() => void publishDistribution()}
+                    type="button"
+                  >
+                    {distributionState === "publishing" ? "Publishing..." : "Publish newsletter"}
+                  </button>
+                </div>
+              </section>
               <NewsletterPreview
                 channel={activeChannel}
                 document={document}
@@ -536,6 +627,7 @@ export function IssueWizard() {
         </div>
       </section>
     </div>
+    </>
   );
 }
 

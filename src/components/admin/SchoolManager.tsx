@@ -120,6 +120,8 @@ export function SchoolManager() {
   const appOrigin = typeof window !== "undefined" ? window.location.origin : "";
   const feedUrl =
     activeSchoolId && appOrigin ? `${appOrigin}/schools/${activeSchoolId}/feed` : "";
+  const archiveUrl =
+    activeSchoolId && appOrigin ? `${appOrigin}/schools/${activeSchoolId}` : "";
 
   const copyFeedUrl = async () => {
     if (!feedUrl) {
@@ -473,6 +475,9 @@ export function SchoolManager() {
             <div className="mt-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-brand-text">
               {feedUrl || "Save the school profile to generate the feed URL."}
             </div>
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-brand-text">
+              {archiveUrl || "Save the school profile to generate the archive URL."}
+            </div>
             <div className="mt-4 flex flex-wrap gap-3">
               <button
                 className="rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white"
@@ -481,6 +486,16 @@ export function SchoolManager() {
               >
                 Copy feed URL
               </button>
+              {archiveUrl ? (
+                <a
+                  className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
+                  href={archiveUrl}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  Open archive
+                </a>
+              ) : null}
             </div>
           </div>
         ) : null}
