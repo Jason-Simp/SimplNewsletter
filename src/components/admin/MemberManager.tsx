@@ -19,6 +19,8 @@ export function MemberManager() {
   const [isActive, setIsActive] = useState(true);
   const [member, setMember] = useState<MemberRecord | null>(null);
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [notice, setNotice] = useState<{ message: string; tone: "success" | "error" | "info" } | null>(null);
 
   useEffect(() => {
@@ -79,6 +81,23 @@ export function MemberManager() {
   const showNotice = (message: string, tone: "success" | "error" | "info") => {
     setNotice({ message, tone });
   };
+
+  const visibleMembers = members
+    .filter((item) => {
+      if (statusFilter === "active") {
+        return item.isActive;
+      }
+
+      if (statusFilter === "inactive") {
+        return !item.isActive;
+      }
+
+      return true;
+    })
+    .filter((item) => {
+      const haystack = `${item.email} ${item.fullName} ${item.schoolName} ${item.role}`.toLowerCase();
+      return haystack.includes(search.trim().toLowerCase());
+    });
 
   const saveOrUpdateMember = async () => {
     setStatus(editingMemberId ? "Updating member..." : "Saving member...");
@@ -215,6 +234,12 @@ export function MemberManager() {
         </p>
       </div>
 
+      <div className="grid gap-4 md:grid-cols-3">
+        <SummaryCard label="Visible members" value={String(visibleMembers.length)} />
+        <SummaryCard label="Active members" value={String(members.filter((item) => item.isActive).length)} />
+        <SummaryCard label="School admins" value={String(members.filter((item) => item.role === "school_admin").length)} />
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2">
         <article className="rounded-editorial border border-slate-200 bg-[#F7F9FC] p-6">
           <div className="text-sm font-semibold text-brand-text">
@@ -250,8 +275,8 @@ export function MemberManager() {
               onChange={(event) => setRole(event.target.value as "school_admin" | "editor")}
               value={role}
             >
-              <option value="school_admin">school_admin</option>
-              <option value="editor">editor</option>
+              <option value="school_admin">School admin</option>
+              <option value="editor">Editor</option>
             </select>
             <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-brand-text">
               <input
@@ -308,19 +333,41 @@ export function MemberManager() {
         <article className="rounded-editorial border border-slate-200 bg-white p-6">
           <div className="text-sm font-semibold text-brand-text">Current members</div>
           <div className="mt-4 grid gap-3">
-            {members.map((member) => (
+            <div className="grid gap-3 md:grid-cols-[1fr_180px]">
+              <input
+                className="rounded-2xl border border-slate-200 px-4 py-3"
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search by name, email, school, or role"
+                value={search}
+              />
+              <select
+                className="rounded-2xl border border-slate-200 px-4 py-3"
+                onChange={(event) => setStatusFilter(event.target.value as "all" | "active" | "inactive")}
+                value={statusFilter}
+              >
+                <option value="all">All members</option>
+                <option value="active">Active only</option>
+                <option value="inactive">Inactive only</option>
+              </select>
+            </div>
+            {visibleMembers.map((member) => (
               <div key={member.id} className="rounded-2xl border border-slate-200 px-4 py-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <div className="font-semibold text-brand-text">{member.email}</div>
+                    <div className="font-semibold text-brand-text">{member.fullName || member.email}</div>
+                    <div className="mt-1 text-sm text-brand-muted">{member.email}</div>
                     <div className="mt-1 text-sm text-brand-muted">
-                      {member.role} · {member.schoolName}
+                      {member.role === "school_admin" ? "School admin" : member.role === "company_admin" ? "Company admin" : "Editor"} · {member.schoolName}
                     </div>
-                    {member.fullName ? (
-                      <div className="mt-1 text-sm text-brand-muted">{member.fullName}</div>
-                    ) : null}
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] ${
+                        member.isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-700"
+                      }`}
+                    >
+                      {member.isActive ? "Active" : "Inactive"}
+                    </span>
                     <button
                       className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-brand-text"
                       onClick={() => startEdit(member)}
@@ -339,9 +386,23 @@ export function MemberManager() {
                 </div>
               </div>
             ))}
+            {visibleMembers.length === 0 ? (
+              <div className="rounded-2xl bg-brand-background px-4 py-4 text-sm text-brand-muted">
+                No members match the current search or filter.
+              </div>
+            ) : null}
           </div>
         </article>
       </div>
     </section>
+  );
+}
+
+function SummaryCard({ label, value }: { label: string; value: string }) {
+  return (
+    <article className="rounded-editorial border border-slate-200 bg-white p-6">
+      <div className="text-xs font-bold uppercase tracking-[0.25em] text-brand-secondary">{label}</div>
+      <div className="mt-3 text-2xl font-bold text-brand-navy">{value}</div>
+    </article>
   );
 }

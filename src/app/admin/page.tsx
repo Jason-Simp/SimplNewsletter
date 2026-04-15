@@ -6,10 +6,13 @@ import Link from "next/link";
 import { useAuthSession } from "@/lib/auth-client";
 import { isCompanyAdmin } from "@/lib/member-access";
 import type { MemberRecord } from "@/types/member";
+import type { SchoolProfile } from "@/types/school";
 
 export default function AdminPage() {
   const { session } = useAuthSession();
   const [member, setMember] = useState<MemberRecord | null>(null);
+  const [schools, setSchools] = useState<SchoolProfile[]>([]);
+  const [members, setMembers] = useState<MemberRecord[]>([]);
 
   useEffect(() => {
     async function loadMember() {
@@ -25,7 +28,58 @@ export default function AdminPage() {
     void loadMember();
   }, [session?.user?.email]);
 
+  useEffect(() => {
+    async function loadDashboardData() {
+      const [schoolsResponse, membersResponse] = await Promise.all([
+        fetch("/api/schools"),
+        fetch("/api/members")
+      ]);
+
+      const schoolsPayload = schoolsResponse.ok ? await schoolsResponse.json() : { data: [] };
+      const membersPayload = membersResponse.ok ? await membersResponse.json() : { data: [] };
+
+      setSchools((schoolsPayload.data ?? []) as SchoolProfile[]);
+      setMembers((membersPayload.data ?? []) as MemberRecord[]);
+    }
+
+    void loadDashboardData();
+  }, []);
+
   const companyView = isCompanyAdmin(member);
+  const currentSchool =
+    companyView
+      ? null
+      : schools.find((school) => school.id === member?.schoolId) ?? schools[0] ?? null;
+  const currentSchoolMembers = members.filter((item) => item.schoolId === currentSchool?.id);
+  const currentSchoolAdmins = currentSchoolMembers.filter((item) => item.role === "school_admin");
+  const logoReady = Boolean(currentSchool?.logoUrl);
+  const agentReady = Boolean(currentSchool?.assistantReference && currentSchool?.integrationEndpoint);
+  const websiteReady = Boolean(currentSchool?.id);
+  const setupItems = [
+    {
+      label: "School logo",
+      ready: logoReady,
+      detail: logoReady ? "Ready to use in newsletters." : "Upload a logo so the system can brand each issue."
+    },
+    {
+      label: "Writing agent",
+      ready: agentReady,
+      detail: agentReady ? "Agent ID and API are connected." : "Add the school's writing agent connection."
+    },
+    {
+      label: "Website publishing",
+      ready: websiteReady,
+      detail: websiteReady ? "Archive and feed links are available." : "Save the school so the archive and feed can be created."
+    },
+    {
+      label: "Team access",
+      ready: currentSchoolMembers.length > 0,
+      detail:
+        currentSchoolMembers.length > 0
+          ? `${currentSchoolMembers.length} member${currentSchoolMembers.length === 1 ? "" : "s"} can log in.`
+          : "Add school users so other staff can log in."
+    }
+  ];
 
   return (
     <section className="grid gap-6">
@@ -47,16 +101,16 @@ export default function AdminPage() {
         {companyView ? (
           <>
             <Stat label="Admin mode" value="Company" />
-            <Stat label="Access scope" value="All schools" />
-            <Stat label="Member controls" value="Global" />
+            <Stat label="Schools" value={String(schools.length)} />
+            <Stat label="Members" value={String(members.length)} />
             <Stat label="Signup codes" value="Enabled" />
           </>
         ) : (
           <>
             <Stat label="School" value={member?.schoolName || "Linked"} />
             <Stat label="Role" value={member?.role.replace("_", " ") || "member"} />
-            <Stat label="Publishing" value="School scoped" />
-            <Stat label="Builder access" value="Enabled" />
+            <Stat label="Team members" value={String(currentSchoolMembers.length)} />
+            <Stat label="School admins" value={String(currentSchoolAdmins.length)} />
           </>
         )}
       </div>
@@ -65,7 +119,7 @@ export default function AdminPage() {
         <section className="grid gap-4 lg:grid-cols-2">
           <article className="rounded-editorial border border-slate-200 bg-[#F7F9FC] p-6">
             <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">
-              Add new
+              Main action
             </div>
             <h2 className="mt-2 font-display text-3xl text-brand-navy">Create a newsletter</h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-brand-muted">
@@ -89,13 +143,38 @@ export default function AdminPage() {
           </article>
 
           <article className="rounded-editorial border border-slate-200 bg-white p-6">
-            <div className="text-sm font-semibold text-brand-text">What this flow should do</div>
-            <ul className="mt-4 grid gap-3 text-sm leading-6 text-brand-muted">
-              <li>Let a superintendent or principal type rough notes quickly</li>
-              <li>Use one clear prompt instead of asking them to design the newsletter themselves</li>
-              <li>Use the school&apos;s configured agent to rewrite and structure the content</li>
-              <li>Apply the template and branding automatically before review and publish</li>
-            </ul>
+            <div className="text-sm font-semibold text-brand-text">School setup progress</div>
+            <div className="mt-4 grid gap-3">
+              {setupItems.map((item) => (
+                <div key={item.label} className="rounded-2xl border border-slate-200 px-4 py-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="font-semibold text-brand-text">{item.label}</div>
+                    <div
+                      className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] ${
+                        item.ready ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                      }`}
+                    >
+                      {item.ready ? "Ready" : "Needs attention"}
+                    </div>
+                  </div>
+                  <div className="mt-2 text-sm leading-6 text-brand-muted">{item.detail}</div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <Link
+                className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
+                href="/admin/schools"
+              >
+                Open school profile
+              </Link>
+              <Link
+                className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
+                href="/admin/members"
+              >
+                Open members
+              </Link>
+            </div>
           </article>
         </section>
       ) : null}
@@ -115,10 +194,10 @@ export default function AdminPage() {
               </>
             ) : (
               <>
-                <li>Edit your school profile and branding</li>
-                <li>Manage staff access for your school</li>
-                <li>Open the builder for your school newsletters</li>
-                <li>Control school-specific publish settings</li>
+                <li>School Profile is where you connect the agent, upload the logo, and manage website publishing</li>
+                <li>Members is where you add staff, edit access, and resend password emails</li>
+                <li>Builder is where you write, review, and publish newsletters</li>
+                <li>The website archive and feed update only after you publish</li>
               </>
             )}
           </ul>
@@ -138,10 +217,10 @@ export default function AdminPage() {
               </>
             ) : (
               <>
-                <li>Open School Profile to update logo, colors, and settings</li>
-                <li>Open Members to add or remove school users</li>
-                <li>Open Builder to draft the next newsletter</li>
-                <li>Exports and publishing stay tied to your school workspace</li>
+                <li>Check the school setup progress before you hand the system to a school team</li>
+                <li>Use the school profile to confirm the agent connection and website archive links</li>
+                <li>Use the member page to make sure the right people can log in</li>
+                <li>Once those are ready, the builder should be the main working screen</li>
               </>
             )}
           </ul>
