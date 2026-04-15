@@ -465,39 +465,24 @@ export function buildNewsletterGenerationPrompt(request: ContentGenerateRequest)
       : "";
 
   return `
-[THE_WIRE_AGENT_TRIGGER]
-${NEWSLETTER_AGENT_TRIGGER}
-[/THE_WIRE_AGENT_TRIGGER]
-
 [THE_WIRE_NEWSLETTER_TASK]
-You are writing and structuring a school newsletter for ${request.schoolName}.
+School:
+${request.schoolName}
 
-This system has two jobs working together:
-1. The writing module creates the newsletter text.
-2. The renderer turns that text into the final web and PDF versions.
+Task:
+Write the newsletter for this school using your configured The Wire newsletter instructions.
 
-Your job is to return the writing in the exact structured package the renderer needs.
+Return:
+Only the final newsletter JSON package required by The Wire.
 
-Writing behavior:
-${WRITING_MODULE_BRIEF}
+Section guidance:
+${sectionMode}
 
 Allowed section types:
 ${buildAllowedSectionTypesBlock()}
 
-${sectionMode}
-Do not force every section into the result.
-When in doubt, choose fewer, clearer sections.
-
-Design and delivery rules:
-${DESIGN_AGENT_BRIEF}
-
-User request:
+Notes from the user:
 ${userRequest}${linksBlock}${imageHintsBlock}
-
-Delivery contract:
-${getNewsletterDeliveryRulesPrompt()}
-
-${getNewsletterRendererContractPrompt()}
 [/THE_WIRE_NEWSLETTER_TASK]
 `.trim();
 }
