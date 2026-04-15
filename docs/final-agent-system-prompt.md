@@ -5,7 +5,7 @@ This prompt is internal. It should live inside the writing agent, not in the sch
 ## What the app does
 
 1. A user types what they need into The Wire.
-2. The app sends the user's notes, school context, and uploaded image filename hints to the writing agent.
+2. The app sends the user's notes, school context, uploaded image filename hints, and the explicit trigger context to the writing agent.
 3. The writing agent returns one structured newsletter package.
 4. The app validates the package.
 5. The app designs and renders the final newsletter for the hosted website page and PDF view.
@@ -23,6 +23,19 @@ DELIVERY_TARGETS: WEBSITE_AND_PDF
 ```
 
 That gives the agent one unambiguous mode to enter before it writes the newsletter.
+
+When the app uses a bridge-style provider, it can send these fields separately too:
+
+```json
+{
+  "taskMode": "THE_WIRE_NEWSLETTER",
+  "taskVersion": "THE_WIRE_JSON_V1",
+  "responseMode": "RETURN_JSON_ONLY",
+  "deliveryTargets": ["WEBSITE", "PDF"]
+}
+```
+
+When the app talks directly to ElevenLabs, that same trigger block is sent at the top of the outbound message before the main newsletter request.
 
 ## Final prompt to place inside the writing agent
 

@@ -5,16 +5,31 @@ const ELEVENLABS_API_BASE_URL = "https://api.elevenlabs.io";
 export async function generateNewsletterWithElevenLabs({
   agentId,
   apiKey,
-  prompt
+  prompt,
+  trigger
 }: {
   agentId: string;
   apiKey: string;
   prompt: string;
+  trigger: string;
 }): Promise<ContentGenerateResponse> {
   const signedUrl = await getSignedUrl(agentId, apiKey);
-  const rawResponse = await sendPromptOverConversation(signedUrl, prompt);
+  const rawResponse = await sendPromptOverConversation(
+    signedUrl,
+    buildTriggeredConversationMessage(trigger, prompt)
+  );
 
   return parseGeneratedNewsletter(rawResponse);
+}
+
+function buildTriggeredConversationMessage(trigger: string, prompt: string) {
+  return [
+    "[THE_WIRE_AGENT_CALL]",
+    trigger,
+    "[/THE_WIRE_AGENT_CALL]",
+    "",
+    prompt
+  ].join("\n");
 }
 
 async function getSignedUrl(agentId: string, apiKey: string) {

@@ -5,6 +5,10 @@ export type ContentGenerateRequest = {
   schoolName: string;
   generationProvider: IntegrationProvider;
   knowledgeProvider: IntegrationProvider;
+  taskMode?: string;
+  taskVersion?: string;
+  responseMode?: string;
+  deliveryTargets?: string[];
   assistantReference?: string;
   integrationEndpoint?: string;
   encryptedKnowledgeRef: string;

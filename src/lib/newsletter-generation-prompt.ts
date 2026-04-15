@@ -22,6 +22,13 @@ const NEWSLETTER_AGENT_TRIGGER = [
   "DELIVERY_TARGETS: WEBSITE_AND_PDF"
 ].join("\n");
 
+const NEWSLETTER_AGENT_TRIGGER_CONTEXT = {
+  taskMode: "THE_WIRE_NEWSLETTER",
+  taskVersion: "THE_WIRE_JSON_V1",
+  responseMode: "RETURN_JSON_ONLY",
+  deliveryTargets: ["WEBSITE", "PDF"]
+} as const;
+
 const DESIGN_AGENT_BRIEF = `
 This newsletter should prioritize clarity, trust, usefulness, and speed of understanding.
 
@@ -300,6 +307,10 @@ export function getNewsletterAgentTriggerPrompt() {
   return NEWSLETTER_AGENT_TRIGGER;
 }
 
+export function getNewsletterAgentTriggerContext() {
+  return NEWSLETTER_AGENT_TRIGGER_CONTEXT;
+}
+
 export function getNewsletterDeliveryRulesPrompt() {
   return [
     "Return one finished newsletter package, not loose text.",
@@ -450,6 +461,11 @@ export function buildNewsletterGenerationPrompt(request: ContentGenerateRequest)
       : "";
 
   return `
+[THE_WIRE_AGENT_TRIGGER]
+${NEWSLETTER_AGENT_TRIGGER}
+[/THE_WIRE_AGENT_TRIGGER]
+
+[THE_WIRE_NEWSLETTER_TASK]
 You are writing and structuring a school newsletter for ${request.schoolName}.
 
 This system has two jobs working together:
@@ -457,9 +473,6 @@ This system has two jobs working together:
 2. The renderer turns that text into the final web and PDF versions.
 
 Your job is to return the writing in the exact structured package the renderer needs.
-
-Trigger block:
-${NEWSLETTER_AGENT_TRIGGER}
 
 Writing behavior:
 ${WRITING_MODULE_BRIEF}
@@ -481,5 +494,6 @@ Delivery contract:
 ${getNewsletterDeliveryRulesPrompt()}
 
 ${getNewsletterRendererContractPrompt()}
+[/THE_WIRE_NEWSLETTER_TASK]
 `.trim();
 }

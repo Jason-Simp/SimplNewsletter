@@ -4,7 +4,11 @@ import { ApiRouteError, jsonApiError } from "@/lib/api-route";
 import { generateNewsletterWithElevenLabs } from "@/lib/elevenlabs-generate";
 import { validateGeneratedNewsletterPackage } from "@/lib/generated-newsletter-schema";
 import { generateContentWithProvider } from "@/lib/integration-client";
-import { buildNewsletterGenerationPrompt } from "@/lib/newsletter-generation-prompt";
+import {
+  buildNewsletterGenerationPrompt,
+  getNewsletterAgentTriggerContext,
+  getNewsletterAgentTriggerPrompt
+} from "@/lib/newsletter-generation-prompt";
 import { getSchoolById } from "@/lib/school-repository";
 import { assertSchoolScope, requireBuilderAccess, requireSignedInMember } from "@/lib/server-auth";
 import type { ContentGenerateRequest } from "@/types/integration";
@@ -34,9 +38,14 @@ export async function POST(request: Request) {
       ...payload,
       schoolName: payload.schoolName || schoolProfile?.name || "the school"
     });
+    const triggerContext = getNewsletterAgentTriggerContext();
     const generationRequest: ContentGenerateRequest = {
       ...payload,
       schoolName: payload.schoolName || schoolProfile?.name || "the school",
+      taskMode: triggerContext.taskMode,
+      taskVersion: triggerContext.taskVersion,
+      responseMode: triggerContext.responseMode,
+      deliveryTargets: [...triggerContext.deliveryTargets],
       prompt: generationPrompt
     };
     const sectionRewrite = (payload.sectionTypes?.filter(Boolean) ?? []).length > 0;
@@ -59,7 +68,8 @@ export async function POST(request: Request) {
         ? await generateNewsletterWithElevenLabs({
             agentId: resolvedAssistantReference,
             apiKey: resolvedIntegrationEndpoint,
-            prompt: generationPrompt
+            prompt: generationPrompt,
+            trigger: getNewsletterAgentTriggerPrompt()
           })
         : await generateContentWithProvider(generationRequest);
 
