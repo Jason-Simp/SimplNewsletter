@@ -149,10 +149,10 @@ export function SchoolManager() {
     },
     {
       label: "Client intranet",
-      ready: hasWebhook,
+      ready: true,
       detail: hasWebhook
-        ? "The client intranet webhook is saved for this school."
-        : "Add the intranet webhook so notes and uploaded media can be submitted there."
+        ? "The optional client intranet webhook is saved for this school."
+        : "Optional: add a client intranet webhook only if this school needs an outside-system handoff."
     },
     {
       label: "Website archive",
@@ -171,7 +171,7 @@ export function SchoolManager() {
     }
   ];
   const readyCount = readyItems.filter((item) => item.ready).length;
-  const schoolReadyToWrite = hasBasicSchoolInfo && hasLogo && hasAgent && hasWebhook;
+  const schoolReadyToWrite = hasBasicSchoolInfo && hasLogo && hasAgent;
   const appOrigin = typeof window !== "undefined" ? window.location.origin : "";
   const feedUrl =
     activeSchoolId && appOrigin ? `${appOrigin}/schools/${activeSchoolId}/feed` : "";
@@ -657,7 +657,7 @@ export function SchoolManager() {
           <div className="mt-4 rounded-2xl bg-brand-background px-4 py-3 text-sm text-brand-muted">
             {hasWebhook
               ? "When a user submits a newsletter request, The Wire will send the notes, links, and uploaded media context to this school's intranet webhook before the writing agent runs."
-              : "Save the webhook URL so this school's intranet can receive newsletter request data."}
+              : "This is optional. Add a webhook only if this school needs newsletter request data sent to an outside system like an intranet or automation tool."}
           </div>
         </div>
 

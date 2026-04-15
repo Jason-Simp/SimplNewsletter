@@ -70,7 +70,6 @@ export async function POST(request: Request) {
     if (schoolProfile) {
       await postSchoolWebhook({
         school: schoolProfile,
-        required: true,
         payload: {
           event: "newsletter_input.submitted",
           submittedAt: new Date().toISOString(),
