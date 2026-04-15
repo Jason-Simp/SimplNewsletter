@@ -42,6 +42,23 @@ export function IssueWizard() {
   const stepList = buildSteps;
   const activeStepIndex = stepList.findIndex((step) => step.id === activeStep);
   const activeStepConfig = stepList[activeStepIndex] ?? stepList[0];
+  const starterPrompts = [
+    {
+      label: "Weekly school update",
+      value:
+        "Write this week's school newsletter. Include the most important campus updates, key dates families need to know, and any reminders that need attention this week."
+    },
+    {
+      label: "Celebration and highlights",
+      value:
+        "Write a warm school newsletter focused on celebrations and highlights. Include student wins, staff recognition, upcoming events, and the most important dates families should remember."
+    },
+    {
+      label: "Operations and reminders",
+      value:
+        "Write a clear school newsletter focused on reminders and operational updates. Include schedule changes, deadlines, upcoming dates, action items for families, and any important campus notices."
+    }
+  ];
 
   const updateDocumentField = (field: keyof Pick<NewsletterDocument, "title" | "intro" | "issueDate">, value: string) => {
     setDocument((current) => ({
@@ -78,6 +95,12 @@ export function IssueWizard() {
 
   const goToStep = (stepId: string) => {
     setActiveStep(stepId);
+  };
+
+  const applyStarterPrompt = (value: string) => {
+    setQuickNotes(value);
+    setGenerationState("idle");
+    setGenerationMessage("Fill in the form, then continue and the system will write the first draft for you.");
   };
 
   const showNotice = (message: string, tone: "success" | "error" | "info") => {
@@ -557,6 +580,27 @@ export function IssueWizard() {
                 draft, and build the design for you.
               </p>
               <div className="mt-6 grid gap-4">
+                <div className="rounded-[24px] bg-[#EAF2FB] p-4 text-sm leading-6 text-brand-muted">
+                  Write this however you want. Plain sentences, rough notes, or bullet points are all fine.
+                  The stronger the input, the better the first draft.
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-3">
+                  {starterPrompts.map((starter) => (
+                    <button
+                      key={starter.label}
+                      className="rounded-[24px] border border-slate-200 bg-white p-4 text-left transition hover:bg-slate-50"
+                      onClick={() => applyStarterPrompt(starter.value)}
+                      type="button"
+                    >
+                      <div className="text-sm font-semibold text-brand-text">{starter.label}</div>
+                      <div className="mt-2 text-sm leading-6 text-brand-muted">
+                        Use this as a starting point, then adjust it if needed.
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
                 <label className="grid gap-2">
                   <span className="text-sm font-semibold text-brand-text">
                     What would you like your newsletter to be about and say?
@@ -564,10 +608,18 @@ export function IssueWizard() {
                   <textarea
                     className="min-h-40 rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
                     onChange={(event) => setQuickNotes(event.target.value)}
-                    placeholder="Example: Share our back-to-school updates, welcome families, mention key dates, highlight athletics, and remind everyone about open house."
+                    placeholder="Example: Share the events for the week of April 18, congratulate the superintendent on the statewide award, mention that girls volleyball is on track for another state title, and remind families about our no-smoking and no-vaping expectations."
                     value={quickNotes}
                   />
                 </label>
+
+                <div className="rounded-[24px] border border-slate-200 bg-white p-4">
+                  <div className="text-sm font-semibold text-brand-text">Best results usually include</div>
+                  <div className="mt-2 text-sm leading-6 text-brand-muted">
+                    Main topic, dates and deadlines, celebrations or recognition, reminders for families,
+                    and anything that needs to stand out as urgent or important.
+                  </div>
+                </div>
 
                 <MediaUploadPanel document={document} onAssetsChange={setUploadedAssets} />
 
@@ -586,11 +638,11 @@ export function IssueWizard() {
                 <div className="flex flex-wrap gap-3">
                   <button
                     className="rounded-full bg-brand-primary px-6 py-4 text-sm font-semibold uppercase tracking-[0.12em] text-white disabled:cursor-not-allowed disabled:opacity-40"
-                    disabled={generationState === "generating"}
+                    disabled={generationState === "generating" || !quickNotes.trim()}
                     onClick={() => void createInstantNewsletter()}
                     type="button"
                   >
-                    {generationState === "generating" ? "Creating newsletter..." : "Create newsletter"}
+                    {generationState === "generating" ? "Writing newsletter..." : "Write newsletter"}
                   </button>
                 </div>
               </div>
