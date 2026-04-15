@@ -339,6 +339,10 @@ export function getNewsletterRendererContractPrompt() {
   return SECTION_SHAPES;
 }
 
+export function getNewsletterAllowedSectionTypesPrompt() {
+  return buildAllowedSectionTypesBlock();
+}
+
 export function getNewsletterAgentFlowPrompt() {
   return [
     "Use this trigger block to activate the newsletter-writing behavior inside the agent:",

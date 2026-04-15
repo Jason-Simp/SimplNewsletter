@@ -1,4 +1,8 @@
 import type { ContentGenerateResponse } from "@/types/integration";
+import {
+  getNewsletterAllowedSectionTypesPrompt,
+  getNewsletterRendererContractPrompt
+} from "@/lib/newsletter-generation-prompt";
 import { serverConfig } from "@/lib/server-config";
 
 const ELEVENLABS_API_BASE_URL = "https://api.elevenlabs.io";
@@ -71,7 +75,7 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
     const socket = new WebSocketImpl(signedUrl);
     let resolved = false;
     let promptSent = false;
-    let jsonReminderSent = false;
+    let packageCorrectionSent = false;
     const collectedResponses: string[] = [];
     const timeoutMs = Math.max(serverConfig.integrationTimeoutMs, 90000);
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -85,7 +89,7 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
             new Error(
               buildTimeoutMessage({
                 promptSent,
-                jsonReminderSent,
+                packageCorrectionSent,
                 hasAgentResponse: collectedResponses.length > 0
               })
             )
@@ -158,8 +162,9 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
           const responseText = message.agent_response_event.agent_response;
           collectedResponses.push(responseText);
           const combinedResponse = collectedResponses.join("\n\n");
+          const packageIssue = getPackageIssue(combinedResponse);
 
-          if (extractJsonBlock(combinedResponse)) {
+          if (!packageIssue) {
             finish(() => {
               socket.close();
               resolve(combinedResponse);
@@ -167,12 +172,12 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
             return;
           }
 
-          if (!jsonReminderSent && shouldRequestJsonRetry(combinedResponse)) {
-            jsonReminderSent = true;
+          if (!packageCorrectionSent) {
+            packageCorrectionSent = true;
             socket.send(
               JSON.stringify({
                 type: "user_message",
-                text: buildJsonRetryMessage(prompt)
+                text: buildPackageCorrectionMessage(prompt, packageIssue, combinedResponse)
               })
             );
           }
@@ -228,18 +233,18 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
 
 function buildTimeoutMessage({
   promptSent,
-  jsonReminderSent,
+  packageCorrectionSent,
   hasAgentResponse
 }: {
   promptSent: boolean;
-  jsonReminderSent: boolean;
+  packageCorrectionSent: boolean;
   hasAgentResponse: boolean;
 }) {
   if (hasAgentResponse) {
     return "The school's writing agent started responding, but it did not finish the newsletter package in time.";
   }
 
-  if (jsonReminderSent) {
+  if (packageCorrectionSent) {
     return "The school's writing agent acknowledged the request, but it did not return the newsletter package in time.";
   }
 
@@ -250,30 +255,21 @@ function buildTimeoutMessage({
   return "The school's writing agent took too long to respond. Please try again in a moment.";
 }
 
-function shouldRequestJsonRetry(response: string) {
-  const normalized = response.trim().toLowerCase();
-
-  if (!normalized) {
-    return false;
-  }
-
-  return (
-    normalized.includes("how can i help") ||
-    normalized.includes("hello") ||
-    normalized.includes("hi ") ||
-    normalized.includes("sure,") ||
-    normalized.includes("i can help") ||
-    !extractJsonBlock(response)
-  );
-}
-
-function buildJsonRetryMessage(prompt: string) {
+function buildPackageCorrectionMessage(prompt: string, issue: string, response: string) {
   return [
-    "Thank you. Do not greet or explain.",
+    "Your last reply was rejected.",
+    `Reason: ${issue}`,
+    `Last reply preview: "${buildResponsePreview(response)}"`,
+    "Replace your last reply completely.",
+    "Do not greet, explain, summarize, or wrap the answer in markdown.",
     "Return only the final newsletter JSON package for this exact request.",
-    "Do not include any prose before or after the JSON.",
-    'Use this exact top-level shape: {"title":"string","intro":"string","sections":[{"sectionType":"string","title":"string","content":{}}]}',
-    "The response will be rejected if it is not valid JSON in the required newsletter package format.",
+    "Use this exact top-level shape:",
+    '{"title":"string","intro":"string","sections":[{"sectionType":"string","title":"string","content":{}}]}',
+    "Use only these section types:",
+    getNewsletterAllowedSectionTypesPrompt(),
+    "Use this renderer contract exactly:",
+    getNewsletterRendererContractPrompt(),
+    "The response will be rejected again if it is not valid JSON in the required newsletter package format.",
     "",
     prompt
   ].join("\n");
@@ -362,6 +358,21 @@ function parseGeneratedNewsletter(rawResponse: string): ContentGenerateResponse 
     throw new Error(
       "The school's writing agent returned a newsletter package that could not be read."
     );
+  }
+}
+
+function getPackageIssue(rawResponse: string) {
+  const extractedJson = extractJsonBlock(rawResponse);
+
+  if (!extractedJson) {
+    return "No valid JSON package was returned.";
+  }
+
+  try {
+    JSON.parse(extractedJson);
+    return null;
+  } catch {
+    return "The reply included JSON-like content, but it was not valid JSON.";
   }
 }
 
