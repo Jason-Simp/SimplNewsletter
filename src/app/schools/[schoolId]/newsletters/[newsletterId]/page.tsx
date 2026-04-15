@@ -14,6 +14,14 @@ export default async function PublicNewsletterPage({
     notFound();
   }
 
+  const websiteSelected = document.distributionOptions.some(
+    (option) => option.channel === "web" && option.selected
+  );
+
+  if (!websiteSelected) {
+    notFound();
+  }
+
   return (
     <main className="min-h-screen bg-[linear-gradient(180deg,#F7F9FC_0%,#EAF2FB_100%)] px-4 py-8 lg:px-8">
       <div className="mx-auto max-w-6xl">
@@ -37,4 +45,3 @@ export default async function PublicNewsletterPage({
     </main>
   );
 }
-

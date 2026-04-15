@@ -121,6 +121,20 @@ export function SchoolManager() {
   const feedUrl =
     activeSchoolId && appOrigin ? `${appOrigin}/schools/${activeSchoolId}/feed` : "";
 
+  const copyFeedUrl = async () => {
+    if (!feedUrl) {
+      showNotice("Save the school profile first so the feed URL exists.", "error");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(feedUrl);
+      showNotice("Feed URL copied.", "success");
+    } catch {
+      showNotice("Could not copy the feed URL. You can still copy it manually.", "info");
+    }
+  };
+
   const saveSchool = async () => {
     setStatus("Saving school profile...");
     const response = await fetch("/api/schools", {
@@ -400,30 +414,6 @@ export function SchoolManager() {
           </div>
         </div>
 
-        <div className="mt-6 rounded-[24px] border border-slate-200 p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Webhook delivery</div>
-            <div className="rounded-full bg-brand-background px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-brand-primary">
-              Per school
-            </div>
-          </div>
-
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <Input
-              help="Paste the webhook URL for this school if newsletters should also be sent to Monday.com, n8n, Zapier, or another system."
-              label="Webhook URL"
-              value={form.webhookUrl}
-              onChange={(value) => updateField("webhookUrl", value)}
-            />
-            <Input
-              help="Optional secret or token to send with the webhook request for this school."
-              label="Webhook secret"
-              value={form.webhookSecret}
-              onChange={(value) => updateField("webhookSecret", value)}
-            />
-          </div>
-        </div>
-
         <div className="mt-6 rounded-[24px] bg-brand-background p-4">
           <div className="font-semibold text-brand-text">Brand colors</div>
           <div className="mt-1 text-sm text-brand-muted">
@@ -475,13 +465,22 @@ export function SchoolManager() {
         {activeSchoolId ? (
           <div className="mt-6 rounded-[24px] border border-slate-200 bg-[#F7F9FC] p-5">
             <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Website feed</div>
-            <h3 className="mt-2 text-xl font-semibold text-brand-text">Use this to publish on school websites</h3>
+            <h3 className="mt-2 text-xl font-semibold text-brand-text">School website archive and feed</h3>
             <p className="mt-2 text-sm leading-6 text-brand-muted">
-              This feed is the lowest-friction website option. A web team can plug it into an RSS block,
-              receiver, or automation and new newsletters will flow from there.
+              This is the easiest website option. Every newsletter that is marked for the school website
+              will live in the hosted archive and appear in this feed for the web team to pull.
             </p>
             <div className="mt-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-brand-text">
               {feedUrl || "Save the school profile to generate the feed URL."}
+            </div>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <button
+                className="rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white"
+                onClick={() => void copyFeedUrl()}
+                type="button"
+              >
+                Copy feed URL
+              </button>
             </div>
           </div>
         ) : null}

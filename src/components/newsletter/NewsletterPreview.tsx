@@ -10,7 +10,7 @@ type Props = {
   chrome?: "editor" | "public";
 };
 
-const channels: Channel[] = ["web", "email", "pdf", "html", "blog"];
+const channels: Channel[] = ["web", "pdf"];
 
 function getSection<T>(sections: NewsletterSection[], type: NewsletterSection["type"]) {
   return sections.find((section) => section.type === type && section.enabled) as NewsletterSection<T> | undefined;
@@ -75,8 +75,8 @@ export function NewsletterPreview({
             <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Preview</p>
             <h2 className="font-display text-3xl text-brand-navy">{channel.toUpperCase()} preview</h2>
             <p className="mt-2 max-w-xl text-sm leading-6 text-brand-muted">
-              This is the live output for the selected channel. Switch formats here to see how the same
-              newsletter will render before you publish or export it.
+              This is the live output for the selected channel. Switch between website and PDF views before
+              you share or export the newsletter.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">

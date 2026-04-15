@@ -33,38 +33,14 @@ export const mediaConstraints: MediaConstraint[] = [
 export const defaultDistributionOptions: DistributionOption[] = [
   {
     channel: "web",
-    label: "Hosted web page",
-    description: "Publish a shareable hosted version on the app domain.",
-    selected: true
-  },
-  {
-    channel: "html",
-    label: "HTML export",
-    description: "Generate exportable HTML plus CSS packaging for WordPress or similar CMS blocks.",
+    label: "School website feed",
+    description: "Add this newsletter to the school's hosted archive and website feed.",
     selected: true
   },
   {
     channel: "pdf",
     label: "PDF export",
     description: "Generate a paginated PDF using the same visual direction as the polished preview.",
-    selected: false
-  },
-  {
-    channel: "email",
-    label: "Email send",
-    description: "Prepare an email-safe version with subject line, preview text, and mailing workflow.",
-    selected: false
-  },
-  {
-    channel: "blog",
-    label: "Blog/CMS post",
-    description: "Render an article-ready variant for website or CMS publishing.",
-    selected: false
-  },
-  {
-    channel: "webhook",
-    label: "Webhook",
-    description: "Send the finished newsletter package to the school's connected webhook.",
     selected: false
   }
 ];
@@ -83,7 +59,7 @@ export const publishModeOptions: { value: PublishMode; label: string; descriptio
 ];
 
 export const distributionLabels: Record<DistributionChannel, string> = {
-  web: "Hosted web page",
+  web: "School website feed",
   email: "Email send",
   pdf: "PDF export",
   html: "HTML export",

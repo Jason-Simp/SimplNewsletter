@@ -1,33 +1,13 @@
 const distributionChannels = [
   {
-    name: "Hosted web",
-    description: "Publish to a branded school URL with archive support and analytics hooks.",
-    status: "Ready next"
-  },
-  {
-    name: "Email send",
-    description: "Generate email-safe HTML, subject line, preview text, and future list sending jobs.",
-    status: "Architecture defined"
-  },
-  {
-    name: "Blog publish",
-    description: "Create article-ready HTML for CMS posting or future adapter-based publishing.",
-    status: "Renderer planned"
+    name: "School website feed",
+    description: "Add each newsletter to the hosted school archive and expose it through a feed that a website can pull automatically.",
+    status: "Ready"
   },
   {
     name: "PDF export",
     description: "Separate print-aware layout inspired by the editorial sample newsletter.",
-    status: "Worker task planned"
-  },
-  {
-    name: "HTML export",
-    description: "Produce standalone HTML for websites, archives, or manual publishing.",
-    status: "Renderer planned"
-  },
-  {
-    name: "Webhook delivery",
-    description: "Send the finished newsletter package to a school-specific webhook such as Monday.com, n8n, or Zapier.",
-    status: "Client assignment ready"
+    status: "Next"
   }
 ];
 
@@ -35,13 +15,13 @@ export function DistributionPanel() {
   return (
     <section className="rounded-editorial border border-slate-200 bg-[#0f2745] p-6 text-white shadow-editorial">
       <p className="text-xs font-bold uppercase tracking-[0.3em] text-[#f3c7b7]">Distribution</p>
-      <h2 className="mt-2 font-display text-3xl">One draft, many channels</h2>
+      <h2 className="mt-2 font-display text-3xl">Website and PDF</h2>
       <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-200">
-        Distribution is treated as a product surface instead of an afterthought. The builder should
-        preview and prepare every channel from the same structured source.
+        Keep this part simple. The main delivery path is the school&apos;s website feed and archive, with PDF
+        as the optional export when someone needs a file.
       </p>
 
-      <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="mt-6 grid gap-4 md:grid-cols-2">
         {distributionChannels.map((channel) => (
           <article key={channel.name} className="rounded-3xl border border-white/10 bg-white/5 p-5">
             <div className="text-sm font-bold uppercase tracking-[0.2em] text-[#e7b55e]">

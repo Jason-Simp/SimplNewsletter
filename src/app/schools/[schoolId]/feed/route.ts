@@ -6,11 +6,14 @@ export async function GET(
   { params }: { params: { schoolId: string } }
 ) {
   const newsletters = await listNewsletters(params.schoolId);
+  const publishedNewsletters = newsletters.filter((newsletter) =>
+    newsletter.distributionOptions.some((option) => option.channel === "web" && option.selected)
+  );
   const schoolName = newsletters[0]?.organization.name ?? "School";
   const siteUrl = serverConfig.renderExternalUrl.replace(/\/$/, "");
   const feedUrl = `${siteUrl}/schools/${params.schoolId}/feed`;
 
-  const items = newsletters
+  const items = publishedNewsletters
     .map((newsletter) => {
       const link = `${siteUrl}/schools/${params.schoolId}/newsletters/${newsletter.id}`;
       const description = escapeXml(newsletter.intro || newsletter.previewText || newsletter.title);
@@ -54,4 +57,3 @@ function escapeXml(value: string) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&apos;");
 }
-
