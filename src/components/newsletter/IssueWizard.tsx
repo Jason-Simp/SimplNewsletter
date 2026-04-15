@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { authFetch } from "@/lib/api-client";
@@ -73,6 +73,14 @@ export function IssueWizard() {
   ];
   const cloneFromId = searchParams.get("from");
   const draftId = searchParams.get("draft");
+  const browserDraftKey = useMemo(
+    () =>
+      [
+        "the-wire-builder-draft",
+        draftId?.trim() || cloneFromId?.trim() || document.workspace.schoolId || session?.user?.id || "default"
+      ].join(":"),
+    [cloneFromId, document.workspace.schoolId, draftId, session?.user?.id]
+  );
 
   const updateDocumentField = (field: keyof Pick<NewsletterDocument, "title" | "intro" | "issueDate">, value: string) => {
     setDocument((current) => ({
@@ -553,19 +561,35 @@ export function IssueWizard() {
               }
             : nextDocument;
 
-          setDocument(mergedDocument);
-          setSourceIssueLabel(selectedSource ? selectedSource.title : null);
-          if (selectedDraft) {
-            setQuickNotes(buildQuickNotesFromDocument(selectedDraft));
-            setGenerationState("idle");
-            setGenerationMessage("This draft is already in progress. Review it, update it, or ask the system for another pass.");
-          } else if (selectedSource) {
-            setQuickNotes(buildQuickNotesFromDocument(selectedSource));
-            setGenerationState("idle");
-            setGenerationMessage(
-              "This draft started from a previous issue. Keep what works, update the message, and rewrite when you're ready."
-            );
-          }
+          const restoredState = readBuilderDraft(browserDraftKey);
+          const restoredDocument =
+            restoredState?.document &&
+            restoredState.document.workspace?.schoolId === mergedDocument.workspace.schoolId
+              ? restoredState.document
+              : null;
+
+          setDocument(restoredDocument ?? mergedDocument);
+          setSourceIssueLabel(restoredState?.sourceIssueLabel ?? (selectedSource ? selectedSource.title : null));
+          setQuickNotes(
+            restoredState?.quickNotes ??
+              (selectedDraft
+                ? buildQuickNotesFromDocument(selectedDraft)
+                : selectedSource
+                  ? buildQuickNotesFromDocument(selectedSource)
+                  : buildQuickNotesFromDocument(mergedDocument))
+          );
+          setUploadedAssets(restoredState?.uploadedAssets ?? []);
+          setActiveStep(restoredState?.activeStep ?? "setup");
+          setGenerationState(restoredState?.generationState ?? "idle");
+          setGenerationMessage(
+            restoredState?.generationMessage ??
+              (selectedDraft
+                ? "This draft is already in progress. Review it, update it, or ask the system for another pass."
+                : selectedSource
+                  ? "This draft started from a previous issue. Keep what works, update the message, and rewrite when you're ready."
+                  : "Fill in the form, then continue and the system will write the first draft for you.")
+          );
+          setLastGeneratedAt(restoredState?.lastGeneratedAt ?? null);
           setSaveMessage("Draft loaded.");
         }
       } catch {
@@ -582,7 +606,34 @@ export function IssueWizard() {
     return () => {
       cancelled = true;
     };
-  }, [cloneFromId, draftId, session?.user?.email, supabase]);
+  }, [browserDraftKey, cloneFromId, draftId, session?.user?.email, supabase]);
+
+  useEffect(() => {
+    if (!initialLoadComplete.current || typeof window === "undefined") {
+      return;
+    }
+
+    writeBuilderDraft(browserDraftKey, {
+      document,
+      quickNotes,
+      uploadedAssets,
+      activeStep,
+      generationState,
+      generationMessage,
+      lastGeneratedAt,
+      sourceIssueLabel
+    });
+  }, [
+    activeStep,
+    browserDraftKey,
+    document,
+    generationMessage,
+    generationState,
+    lastGeneratedAt,
+    quickNotes,
+    sourceIssueLabel,
+    uploadedAssets
+  ]);
 
   useEffect(() => {
     if (!initialLoadComplete.current) {
@@ -1082,6 +1133,46 @@ export function IssueWizard() {
     </div>
     </>
   );
+}
+
+type BuilderDraftSnapshot = {
+  document: NewsletterDocument;
+  quickNotes: string;
+  uploadedAssets: UploadedAsset[];
+  activeStep: string;
+  generationState: "idle" | "generating" | "ready" | "error";
+  generationMessage: string;
+  lastGeneratedAt: string | null;
+  sourceIssueLabel: string | null;
+};
+
+function readBuilderDraft(key: string): BuilderDraftSnapshot | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) {
+      return null;
+    }
+
+    return JSON.parse(raw) as BuilderDraftSnapshot;
+  } catch {
+    return null;
+  }
+}
+
+function writeBuilderDraft(key: string, snapshot: BuilderDraftSnapshot) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(key, JSON.stringify(snapshot));
+  } catch {
+    // Ignore local persistence failures and rely on server draft saves.
+  }
 }
 
 function getStepInstruction(stepId: string) {
