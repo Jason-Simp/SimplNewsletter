@@ -7,6 +7,11 @@ import { ActionNotice } from "@/components/ui/ActionNotice";
 import { authFetch } from "@/lib/api-client";
 import { extractPaletteFromImage } from "@/lib/color-extraction";
 import { useAuthSession } from "@/lib/auth-client";
+import {
+  getNewsletterAgentFlowPrompt,
+  getNewsletterAgentExamplePrompt,
+  getNewsletterAgentExampleResponse
+} from "@/lib/newsletter-generation-prompt";
 import type { SchoolProfile } from "@/types/school";
 import type { MemberRecord } from "@/types/member";
 
@@ -194,6 +199,15 @@ export function SchoolManager() {
       showNotice("Archive URL copied.", "success");
     } catch {
       showNotice("Could not copy the archive URL. You can still copy it manually.", "info");
+    }
+  };
+
+  const copyAgentHandoff = async (value: string, successMessage: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      showNotice(successMessage, "success");
+    } catch {
+      showNotice("Could not copy that text. You can still copy it manually.", "info");
     }
   };
 
@@ -552,6 +566,41 @@ export function SchoolManager() {
             {hasAgent
               ? "The writing agent details are saved. Run the connection check if you want to confirm they still work."
               : "Once Agent ID and Agent API are filled in and saved, this school will be ready for the system to write newsletters."}
+          </div>
+        </div>
+
+        <div className="mt-6 rounded-[24px] border border-slate-200 bg-[#F7F9FC] p-5">
+          <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Agent handoff</div>
+          <h3 className="mt-2 text-xl font-semibold text-brand-text">What the writing agent needs</h3>
+          <p className="mt-2 text-sm leading-6 text-brand-muted">
+            Give your agent the contract below. The Wire will send the user&apos;s newsletter notes to the agent,
+            receive the structured JSON package back, validate it, and then design the final newsletter.
+          </p>
+          <div className="mt-4 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-sm leading-6 text-brand-muted">
+            {getNewsletterAgentFlowPrompt()}
+          </div>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button
+              className="rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white"
+              onClick={() => void copyAgentHandoff(getNewsletterAgentFlowPrompt(), "Agent handoff copied.")}
+              type="button"
+            >
+              Copy agent handoff
+            </button>
+            <button
+              className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
+              onClick={() => void copyAgentHandoff(getNewsletterAgentExamplePrompt(), "Example request copied.")}
+              type="button"
+            >
+              Copy example request
+            </button>
+            <button
+              className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
+              onClick={() => void copyAgentHandoff(getNewsletterAgentExampleResponse(), "Example response copied.")}
+              type="button"
+            >
+              Copy example response
+            </button>
           </div>
         </div>
 

@@ -317,6 +317,92 @@ export function getNewsletterRendererContractPrompt() {
   return SECTION_SHAPES;
 }
 
+export function getNewsletterAgentFlowPrompt() {
+  return [
+    "The agent writes one school newsletter at a time from rough user input.",
+    "The agent must return one structured JSON package, not loose text.",
+    "The app sends the user's notes, school context, and uploaded image filename hints to the agent.",
+    "The app then validates the returned package and renders the final web and PDF versions.",
+    "",
+    "Use these three layers together:",
+    "",
+    "1. Writing behavior",
+    getNewsletterWritingBehaviorPrompt(),
+    "",
+    "2. Delivery rules",
+    getNewsletterDeliveryRulesPrompt(),
+    "",
+    "3. Renderer contract",
+    getNewsletterRendererContractPrompt()
+  ].join("\n");
+}
+
+export function getNewsletterAgentExamplePrompt() {
+  return [
+    "Write this week's school newsletter.",
+    "Include the voting day closure next Tuesday, congratulate the superintendent on the statewide award, mention the girls volleyball team is still on track for a second straight state title, and remind families about our no-smoking and no-vaping expectations.",
+    "Make dates and action items easy to spot."
+  ].join(" ");
+}
+
+export function getNewsletterAgentExampleResponse() {
+  return JSON.stringify(
+    {
+      title: "Peach Valley Elementary weekly update",
+      intro:
+        "Here are the most important school updates for families this week, including next Tuesday's closure, a district celebration, athletics news, and a reminder about campus expectations.",
+      sections: [
+        {
+          sectionType: "hero",
+          title: "Hero",
+          content: {
+            eyebrow: "What families should know this week",
+            headline: "School will be closed next Tuesday for the voting special election",
+            body:
+              "Peach Valley Elementary will be closed next Tuesday while the campus serves as a voting location for the special election. Families should plan ahead now and watch for any final reminders from the school before the closure.",
+            stats: [
+              { label: "School status", value: "Closed Tuesday" },
+              { label: "Main reminder", value: "Plan ahead" }
+            ]
+          }
+        },
+        {
+          sectionType: "top_story",
+          title: "District update",
+          content: {
+            headline: "Superintendent recognized with statewide honor",
+            summary:
+              "The district is celebrating the superintendent's statewide recognition, a reflection of the steady work happening across schools and the support of the broader school community.",
+            url: "#"
+          }
+        },
+        {
+          sectionType: "news_grid",
+          title: "Campus news",
+          content: {
+            items: [
+              {
+                headline: "Girls volleyball keeps strong momentum",
+                summary:
+                  "The girls volleyball team remains on track for another state title run, giving the school community another reason to cheer them on this season.",
+                tag: "Athletics"
+              },
+              {
+                headline: "Reminder about campus expectations",
+                summary:
+                  "Families are encouraged to review the school's no-smoking and no-vaping expectations so students and visitors help keep the campus safe and healthy.",
+                tag: "Reminder"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    null,
+    2
+  );
+}
+
 export function buildNewsletterGenerationPrompt(request: ContentGenerateRequest) {
   const userRequest = request.notes?.trim() || request.prompt.trim();
   const requestedSectionTypes = request.sectionTypes?.filter(Boolean) ?? [];
