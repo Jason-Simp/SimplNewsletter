@@ -11,6 +11,7 @@ export default async function SchoolArchivePage({
 }) {
   const newsletters = await listNewsletters(params.schoolId);
   const publishedNewsletters = newsletters.filter((newsletter) =>
+    newsletter.status === "published" &&
     newsletter.distributionOptions.some((option) => option.channel === "web" && option.selected)
   );
   const schoolName = newsletters[0]?.organization.name;

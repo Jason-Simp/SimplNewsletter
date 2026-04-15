@@ -22,7 +22,7 @@ export default async function PublicNewsletterPage({
     (option) => option.channel === "pdf" && option.selected
   );
 
-  if (!websiteSelected) {
+  if (document.status !== "published" || !websiteSelected) {
     notFound();
   }
 

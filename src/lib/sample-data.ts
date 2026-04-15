@@ -13,6 +13,7 @@ const visibleEverywhere = {
 
 export const sampleNewsletter: NewsletterDocument = {
   id: "spring-april-2025",
+  status: "draft",
   title: "Spring Momentum",
   issueDate: "April 2025",
   audience: "District Families and Staff",
@@ -48,6 +49,7 @@ export const sampleNewsletter: NewsletterDocument = {
     roles: ["school_admin", "editor"]
   },
   distributionOptions: defaultDistributionOptions,
+  publishedAt: null,
   sections: [
     {
       id: "hero",

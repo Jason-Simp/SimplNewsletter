@@ -24,10 +24,13 @@ export async function POST(request: Request) {
       throw new Error("Newsletter document is missing.");
     }
 
-    const saveResult = await saveNewsletter({
-      ...document,
-      distributionOptions: payload?.distributionOptions ?? document.distributionOptions
-    });
+    const saveResult = await saveNewsletter(
+      {
+        ...document,
+        distributionOptions: payload?.distributionOptions ?? document.distributionOptions
+      },
+      { publish: true }
+    );
     const savedDocument = saveResult.newsletter;
     const schoolId = savedDocument.workspace.schoolId;
     const newsletterId = savedDocument.id;

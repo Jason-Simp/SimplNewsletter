@@ -36,12 +36,14 @@ type SchoolRow = {
 
 type NewsletterRow = {
   id: string;
+  status: "draft" | "published" | "archived";
   title: string;
   issue_date: string | null;
   audience: string | null;
   intro: string | null;
   subject_line: string | null;
   preview_text: string | null;
+  published_at: string | null;
 };
 
 type SectionRow = {
@@ -72,6 +74,7 @@ function toDocument(
 
   return {
     id: newsletter.id,
+    status: newsletter.status ?? "draft",
     title: newsletter.title,
     issueDate: newsletter.issue_date ?? sampleNewsletter.issueDate,
     audience: newsletter.audience ?? sampleNewsletter.audience,
@@ -118,6 +121,7 @@ function toDocument(
       ...option,
       selected: selectedMap.get(option.channel)?.selected ?? option.selected
     })),
+    publishedAt: newsletter.published_at,
     sections: sections.sort((a, b) => a.sort_order - b.sort_order).map((section) => ({
       id: section.id,
       type: section.section_type,
@@ -140,7 +144,7 @@ export async function listNewsletters(schoolId?: string) {
 
   let query = supabase
     .from("newsletters")
-    .select("id,title,issue_date,audience,intro,subject_line,preview_text,school_id")
+    .select("id,status,title,issue_date,audience,intro,subject_line,preview_text,published_at,school_id")
     .order("created_at", { ascending: false })
     .limit(10);
 
@@ -189,7 +193,10 @@ export async function getNewsletterById(newsletterId: string, schoolId?: string)
   return newsletters.find((newsletter) => newsletter.id === newsletterId) ?? null;
 }
 
-export async function saveNewsletter(document: NewsletterDocument) {
+export async function saveNewsletter(
+  document: NewsletterDocument,
+  options?: { publish?: boolean }
+) {
   const supabase = getServiceSupabase();
 
   if (!supabase) {
@@ -241,13 +248,15 @@ export async function saveNewsletter(document: NewsletterDocument) {
 
   const newsletterPayload = {
     school_id: school.id,
+    status: options?.publish ? "published" : document.status ?? "draft",
     title: document.title,
     slug: slugify(document.title),
     issue_date: normalizeIssueDate(document.issueDate),
     audience: document.audience,
     intro: document.intro,
     subject_line: document.subjectLine,
-    preview_text: document.previewText
+    preview_text: document.previewText,
+    published_at: options?.publish ? new Date().toISOString() : document.publishedAt ?? null
   };
 
   const { data: newsletter, error: newsletterError } = await supabase
@@ -302,10 +311,12 @@ export async function saveNewsletter(document: NewsletterDocument) {
     newsletter: {
       ...document,
       id: newsletter.id,
+      status: newsletterPayload.status,
       workspace: {
         ...document.workspace,
         schoolId: school.id
-      }
+      },
+      publishedAt: newsletterPayload.published_at
     }
   };
 }

@@ -3,6 +3,7 @@ export type Channel = "web" | "email" | "pdf" | "html" | "blog";
 export type DistributionChannel = Channel | "webhook";
 
 export type PublishMode = "instant" | "approval";
+export type NewsletterPublicationStatus = "draft" | "published" | "archived";
 
 export type UserRole = "school_admin" | "editor";
 
@@ -111,6 +112,7 @@ export type WorkspaceSettings = {
 
 export type NewsletterDocument = {
   id: string;
+  status: NewsletterPublicationStatus;
   title: string;
   issueDate: string;
   audience: string;
@@ -122,4 +124,5 @@ export type NewsletterDocument = {
   workspace: WorkspaceSettings;
   distributionOptions: DistributionOption[];
   sections: NewsletterSection[];
+  publishedAt?: string | null;
 };

@@ -7,6 +7,7 @@ export async function GET(
 ) {
   const newsletters = await listNewsletters(params.schoolId);
   const publishedNewsletters = newsletters.filter((newsletter) =>
+    newsletter.status === "published" &&
     newsletter.distributionOptions.some((option) => option.channel === "web" && option.selected)
   );
   const schoolName = newsletters[0]?.organization.name ?? "School";
@@ -17,7 +18,9 @@ export async function GET(
     .map((newsletter) => {
       const link = `${siteUrl}/schools/${params.schoolId}/newsletters/${newsletter.id}`;
       const description = escapeXml(newsletter.intro || newsletter.previewText || newsletter.title);
-      const pubDate = new Date().toUTCString();
+      const pubDate = newsletter.publishedAt
+        ? new Date(newsletter.publishedAt).toUTCString()
+        : new Date().toUTCString();
 
       return `
         <item>

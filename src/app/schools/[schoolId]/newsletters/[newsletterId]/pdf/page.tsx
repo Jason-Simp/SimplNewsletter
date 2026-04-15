@@ -21,7 +21,7 @@ export default async function PublicNewsletterPdfPage({
     (option) => option.channel === "pdf" && option.selected
   );
 
-  if (!pdfSelected) {
+  if (document.status !== "published" || !pdfSelected) {
     notFound();
   }
 
