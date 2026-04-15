@@ -16,6 +16,22 @@ const RENDERABLE_SECTION_TYPES = new Set<SectionType>([
   "quick_links"
 ]);
 
+const GENERIC_PHRASES = [
+  "generated draft",
+  "generated newsletter draft",
+  "hello, i'm",
+  "how can i help today",
+  "school newsletter"
+];
+
+const GENERIC_HEADLINES = new Set([
+  "top story",
+  "newsletter",
+  "school newsletter",
+  "generated draft",
+  "generated newsletter draft"
+]);
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -49,6 +65,28 @@ function asStringArray(value: unknown) {
     : [];
 }
 
+function assertMeaningfulCopy(value: string, context: string) {
+  const normalized = value.trim().toLowerCase();
+
+  if (!normalized) {
+    throw new Error(`${context} is missing.`);
+  }
+
+  if (GENERIC_PHRASES.some((phrase) => normalized.includes(phrase))) {
+    throw new Error(`${context} came back as placeholder copy instead of a real newsletter draft.`);
+  }
+}
+
+function assertSpecificHeadline(value: string, context: string) {
+  const normalized = value.trim().toLowerCase();
+
+  assertMeaningfulCopy(value, context);
+
+  if (GENERIC_HEADLINES.has(normalized)) {
+    throw new Error(`${context} is still too generic. The writing agent needs to return a specific headline.`);
+  }
+}
+
 function normalizeHeroContent(content: Record<string, unknown>) {
   const headline = getString(content, ["headline", "title"]);
   const body = getString(content, ["body", "summary", "intro", "description"]);
@@ -56,6 +94,9 @@ function normalizeHeroContent(content: Record<string, unknown>) {
   if (!headline || !body) {
     throw new Error("Hero section must include a headline and body.");
   }
+
+  assertSpecificHeadline(headline, "Hero headline");
+  assertMeaningfulCopy(body, "Hero summary");
 
   const stats = asObjectArray(content.stats).slice(0, 3).map((item, index) => {
     const label = getString(item, ["label", "name"], `Stat ${index + 1}`);
@@ -83,6 +124,8 @@ function normalizePrincipalContent(content: Record<string, unknown>) {
     throw new Error("Principal message section must include the message text.");
   }
 
+  assertMeaningfulCopy(quote, "Leadership message");
+
   return {
     quote,
     author: getString(content, ["author", "name"], "School leadership")
@@ -96,6 +139,9 @@ function normalizeTopStoryContent(content: Record<string, unknown>) {
   if (!headline || !summary) {
     throw new Error("Top story section must include a headline and summary.");
   }
+
+  assertSpecificHeadline(headline, "Top story headline");
+  assertMeaningfulCopy(summary, "Top story summary");
 
   return {
     headline,
@@ -113,6 +159,9 @@ function normalizeNewsGridContent(content: Record<string, unknown>) {
     if (!headline || !summary) {
       throw new Error("Each news item must include a headline and summary.");
     }
+
+    assertSpecificHeadline(headline, `Campus news headline ${index + 1}`);
+    assertMeaningfulCopy(summary, `Campus news summary ${index + 1}`);
 
     return {
       id: getString(item, ["id"], `news-${index + 1}`),
@@ -140,6 +189,22 @@ function normalizeAcademicsContent(content: Record<string, unknown>) {
     throw new Error("Academics section must include an academics headline and summary.");
   }
 
+  assertSpecificHeadline(academicsHeadline, "Academics headline");
+  assertMeaningfulCopy(academicsSummary, "Academics summary");
+
+  if (athletics) {
+    const athleticsHeadline = getString(athletics, ["headline", "title"]);
+    const athleticsSummary = getString(athletics, ["summary", "body", "description"]);
+
+    if (athleticsHeadline) {
+      assertSpecificHeadline(athleticsHeadline, "Athletics headline");
+    }
+
+    if (athleticsSummary) {
+      assertMeaningfulCopy(athleticsSummary, "Athletics summary");
+    }
+  }
+
   return {
     academics: {
       headline: academicsHeadline,
@@ -162,6 +227,8 @@ function normalizeSpotlightContent(content: Record<string, unknown>) {
     throw new Error("Student spotlight must include a name and summary.");
   }
 
+  assertMeaningfulCopy(summary, "Student spotlight summary");
+
   return {
     name,
     role: getString(content, ["role", "subtitle"]),
@@ -179,6 +246,9 @@ function normalizeEventsContent(content: Record<string, unknown>) {
     if (!date || !title || !summary) {
       throw new Error("Each event item must include a date, title, and summary.");
     }
+
+    assertSpecificHeadline(title, `Event title ${index + 1}`);
+    assertMeaningfulCopy(summary, `Event summary ${index + 1}`);
 
     return {
       id: getString(item, ["id"], `event-${index + 1}`),
@@ -247,6 +317,8 @@ function normalizeQuoteContent(content: Record<string, unknown>) {
   if (!quote) {
     throw new Error("Quote or mission section must include the quote.");
   }
+
+  assertMeaningfulCopy(quote, "Quote or mission text");
 
   return {
     quote,
@@ -328,8 +400,15 @@ export function validateGeneratedNewsletterPackage(value: unknown): ContentGener
     throw new Error("The school's writing agent did not return a newsletter introduction.");
   }
 
+  assertSpecificHeadline(title, "Newsletter title");
+  assertMeaningfulCopy(intro, "Newsletter introduction");
+
   if (!Array.isArray(sections) || sections.length === 0) {
     throw new Error("The school's writing agent did not return any newsletter sections.");
+  }
+
+  if (sections.length < 2) {
+    throw new Error("The school's writing agent needs to return a fuller newsletter package with at least two sections.");
   }
 
   const normalizedSections = sections.map((section, index) => {
@@ -361,6 +440,10 @@ export function validateGeneratedNewsletterPackage(value: unknown): ContentGener
       content: normalizeSectionContent(sectionType, content)
     };
   });
+
+  if (!normalizedSections.some((section) => section.sectionType === "hero")) {
+    throw new Error("The school's writing agent must return a hero section for the newsletter.");
+  }
 
   return {
     title,

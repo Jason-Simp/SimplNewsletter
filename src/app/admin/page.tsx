@@ -6,7 +6,9 @@ import Link from "next/link";
 import { authFetch } from "@/lib/api-client";
 import { useAuthSession } from "@/lib/auth-client";
 import { isCompanyAdmin } from "@/lib/member-access";
+import { getNewsletterPdfPath, getNewsletterWebPath, getSchoolArchivePath } from "@/lib/public-links";
 import type { MemberRecord } from "@/types/member";
+import type { NewsletterDocument } from "@/types/newsletter";
 import type { SchoolProfile } from "@/types/school";
 
 export default function AdminPage() {
@@ -14,6 +16,7 @@ export default function AdminPage() {
   const [member, setMember] = useState<MemberRecord | null>(null);
   const [schools, setSchools] = useState<SchoolProfile[]>([]);
   const [members, setMembers] = useState<MemberRecord[]>([]);
+  const [newsletters, setNewsletters] = useState<NewsletterDocument[]>([]);
 
   useEffect(() => {
     async function loadMember() {
@@ -31,16 +34,19 @@ export default function AdminPage() {
 
   useEffect(() => {
     async function loadDashboardData() {
-      const [schoolsResponse, membersResponse] = await Promise.all([
+      const [schoolsResponse, membersResponse, newslettersResponse] = await Promise.all([
         authFetch(supabase, "/api/schools"),
-        authFetch(supabase, "/api/members")
+        authFetch(supabase, "/api/members"),
+        authFetch(supabase, "/api/newsletters")
       ]);
 
       const schoolsPayload = schoolsResponse.ok ? await schoolsResponse.json() : { data: [] };
       const membersPayload = membersResponse.ok ? await membersResponse.json() : { data: [] };
+      const newslettersPayload = newslettersResponse.ok ? await newslettersResponse.json() : { data: [] };
 
       setSchools((schoolsPayload.data ?? []) as SchoolProfile[]);
       setMembers((membersPayload.data ?? []) as MemberRecord[]);
+      setNewsletters((newslettersPayload.data ?? []) as NewsletterDocument[]);
     }
 
     void loadDashboardData();
@@ -53,6 +59,24 @@ export default function AdminPage() {
       : schools.find((school) => school.id === member?.schoolId) ?? schools[0] ?? null;
   const currentSchoolMembers = members.filter((item) => item.schoolId === currentSchool?.id);
   const currentSchoolAdmins = currentSchoolMembers.filter((item) => item.role === "school_admin");
+  const recentPublishedIssues = newsletters
+    .filter((newsletter) => {
+      if (newsletter.status !== "published") {
+        return false;
+      }
+
+      if (companyView) {
+        return true;
+      }
+
+      return newsletter.workspace.schoolId === currentSchool?.id;
+    })
+    .sort((left, right) => {
+      const leftDate = left.publishedAt || left.issueDate || "";
+      const rightDate = right.publishedAt || right.issueDate || "";
+      return rightDate.localeCompare(leftDate);
+    })
+    .slice(0, 3);
   const logoReady = Boolean(currentSchool?.logoUrl);
   const agentReady = Boolean(currentSchool?.assistantReference && currentSchool?.integrationEndpoint);
   const websiteReady = Boolean(currentSchool?.id);
@@ -227,6 +251,80 @@ export default function AdminPage() {
           </ul>
         </article>
       </div>
+
+      {!companyView ? (
+        <section className="rounded-editorial border border-slate-200 bg-white p-6">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <div className="text-sm font-semibold text-brand-text">Recently published</div>
+              <div className="mt-2 text-sm leading-6 text-brand-muted">
+                This gives school admins a quick way to confirm what is already live on the website and in the archive.
+              </div>
+            </div>
+            {currentSchool ? (
+              <Link
+                className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
+                href={getSchoolArchivePath(currentSchool.id)}
+              >
+                Open archive
+              </Link>
+            ) : null}
+          </div>
+
+          {recentPublishedIssues.length ? (
+            <div className="mt-6 grid gap-4 lg:grid-cols-3">
+              {recentPublishedIssues.map((newsletter) => {
+                const schoolId = newsletter.workspace.schoolId || currentSchool?.id;
+                const pdfSelected = newsletter.distributionOptions.some(
+                  (option) => option.channel === "pdf" && option.selected
+                );
+
+                return (
+                  <article key={newsletter.id} className="rounded-[24px] border border-slate-200 p-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-xs font-bold uppercase tracking-[0.25em] text-brand-secondary">
+                        Published
+                      </div>
+                      <div className="rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-emerald-700">
+                        Live
+                      </div>
+                    </div>
+                    <div className="mt-3 text-lg font-semibold text-brand-text">{newsletter.title}</div>
+                    <div className="mt-2 text-sm leading-6 text-brand-muted">
+                      {formatDisplayDate(newsletter.publishedAt || newsletter.issueDate)}
+                    </div>
+                    <div className="mt-4 text-sm leading-6 text-brand-muted">
+                      {newsletter.intro || "Published to the school archive."}
+                    </div>
+                    {schoolId ? (
+                      <div className="mt-5 flex flex-wrap gap-2">
+                        <Link
+                          className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-brand-text"
+                          href={getNewsletterWebPath(schoolId, newsletter.id)}
+                        >
+                          Open issue
+                        </Link>
+                        {pdfSelected ? (
+                          <Link
+                            className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-brand-text"
+                            href={getNewsletterPdfPath(schoolId, newsletter.id)}
+                          >
+                            PDF view
+                          </Link>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="mt-6 rounded-[24px] bg-[#F7F9FC] p-5 text-sm leading-6 text-brand-muted">
+              No published issues yet. Once a newsletter is published, this dashboard will show the latest live issues here.
+            </div>
+          )}
+        </section>
+      ) : null}
     </section>
   );
 }
@@ -238,4 +336,22 @@ function Stat({ label, value }: { label: string; value: string }) {
       <div className="mt-3 text-2xl font-bold text-brand-navy">{value}</div>
     </article>
   );
+}
+
+function formatDisplayDate(value?: string | null) {
+  if (!value) {
+    return "Recently published";
+  }
+
+  const parsed = new Date(value);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return parsed.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric"
+  });
 }

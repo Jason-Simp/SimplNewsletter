@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { jsonApiError } from "@/lib/api-route";
+import { ApiRouteError, jsonApiError } from "@/lib/api-route";
 import { generateNewsletterWithElevenLabs } from "@/lib/elevenlabs-generate";
 import { validateGeneratedNewsletterPackage } from "@/lib/generated-newsletter-schema";
 import { generateContentWithProvider } from "@/lib/integration-client";
@@ -61,7 +61,20 @@ export async function POST(request: Request) {
             prompt: generationPrompt
           })
         : await generateContentWithProvider(generationRequest);
-    const validatedResult = validateGeneratedNewsletterPackage(result);
+
+    let validatedResult: ReturnType<typeof validateGeneratedNewsletterPackage>;
+
+    try {
+      validatedResult = validateGeneratedNewsletterPackage(result);
+    } catch (error) {
+      throw new ApiRouteError(
+        422,
+        error instanceof Error
+          ? `${error.message} Please try again or adjust the newsletter notes so the writing agent has clearer direction.`
+          : "The school's writing agent returned a draft that could not be used. Please try again.",
+        { exposeMessage: true }
+      );
+    }
 
     return NextResponse.json({
       status: "ok",

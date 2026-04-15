@@ -268,8 +268,11 @@ Additional rules:
 - If the request includes operational or policy items, keep them direct and grounded.
 - Use the school's tone, but prioritize clarity over flourish.
 - Return a finished draft, not an outline.
+- Always include a hero section and at least one additional section.
 - Return only the section types that are genuinely needed for this issue.
 - Do not invent image descriptions. If you refer to uploaded images, use the uploaded file names only as hints.
+- Do not use placeholder or chatbot phrases such as "Generated draft", "Generated newsletter draft", "Hello, I'm...", or "How can I help today?"
+- Do not leave section headlines generic. Headlines should reflect the actual topic of this issue.
 - Do not return markdown, commentary, or explanatory text outside the JSON object.
 
 ${SECTION_SHAPES}

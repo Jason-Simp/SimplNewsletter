@@ -39,6 +39,7 @@ export function IssueWizard() {
   const [notice, setNotice] = useState<{ message: string; tone: "success" | "error" | "info" } | null>(null);
   const [quickNotes, setQuickNotes] = useState("");
   const [uploadedAssets, setUploadedAssets] = useState<UploadedAsset[]>([]);
+  const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
   const initialLoadComplete = useRef(false);
   const stepList = buildSteps;
   const activeStepIndex = stepList.findIndex((step) => step.id === activeStep);
@@ -108,6 +109,14 @@ export function IssueWizard() {
     setQuickNotes(value);
     setGenerationState("idle");
     setGenerationMessage("Fill in the form, then continue and the system will write the first draft for you.");
+    setLastGeneratedAt(null);
+  };
+
+  const updateQuickNotes = (value: string) => {
+    setQuickNotes(value);
+    setGenerationState("idle");
+    setGenerationMessage("Fill in the form, then continue and the system will write the first draft for you.");
+    setLastGeneratedAt(null);
   };
 
   const showNotice = (message: string, tone: "success" | "error" | "info") => {
@@ -266,13 +275,23 @@ export function IssueWizard() {
 
       setGenerationState("ready");
       setGenerationMessage("Your first draft is ready. Review it and keep going.");
+      setLastGeneratedAt(new Date().toISOString());
       return true;
     } catch (error) {
       setGenerationState("error");
       setGenerationMessage(
         error instanceof Error ? error.message : "The draft could not be created. Please try again."
       );
+      setLastGeneratedAt(null);
       return false;
+    }
+  };
+
+  const retryDraftGeneration = async () => {
+    const generated = await generateInstantDraft();
+
+    if (generated && activeStep !== "review") {
+      setActiveStep("review");
     }
   };
 
@@ -497,6 +516,8 @@ export function IssueWizard() {
     (option) => option.channel === "pdf" && option.selected
   );
   const enabledSectionsCount = document.sections.filter((section) => section.enabled).length;
+  const draftReady =
+    generationState === "ready" || document.status === "published" || Boolean(lastGeneratedAt);
   const publishReadinessChecks = [
     {
       label: "Main message added",
@@ -505,7 +526,7 @@ export function IssueWizard() {
     },
     {
       label: "Draft generated",
-      ready: generationState === "ready",
+      ready: draftReady,
       detail: "The system has written the first draft."
     },
     {
@@ -663,7 +684,7 @@ export function IssueWizard() {
                   </span>
                   <textarea
                     className="min-h-40 rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
-                    onChange={(event) => setQuickNotes(event.target.value)}
+                    onChange={(event) => updateQuickNotes(event.target.value)}
                     placeholder="Example: Share the events for the week of April 18, congratulate the superintendent on the statewide award, mention that girls volleyball is on track for another state title, and remind families about our no-smoking and no-vaping expectations."
                     value={quickNotes}
                   />
@@ -693,6 +714,15 @@ export function IssueWizard() {
 
                 {generationState === "error" ? (
                   <div className="flex flex-wrap gap-3">
+                    {hasSchoolWorkspace && hasWritingAgentConnection && quickNotes.trim() ? (
+                      <button
+                        className="rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white"
+                        onClick={() => void retryDraftGeneration()}
+                        type="button"
+                      >
+                        Try again
+                      </button>
+                    ) : null}
                     {!hasWritingAgentConnection ? (
                       <a
                         className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
@@ -752,6 +782,10 @@ export function IssueWizard() {
                   The first draft should now be on screen. Read through it, switch output formats if needed,
                   and make sure it looks right before sharing.
                 </p>
+                <div className="mt-4 rounded-[24px] bg-[#EAF2FB] p-4 text-sm leading-6 text-brand-muted">
+                  If this draft is close but not quite there, you can make light edits below or ask the
+                  system to write another pass from the same notes.
+                </div>
                 <ReviewReadinessPanel
                   enabledSectionsCount={enabledSectionsCount}
                   issueDate={document.issueDate}
@@ -767,11 +801,19 @@ export function IssueWizard() {
                     Back to form
                   </button>
                   <button
+                    className="rounded-full border border-brand-primary bg-brand-background px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-primary disabled:cursor-not-allowed disabled:opacity-40"
+                    disabled={generationState === "generating" || !quickNotes.trim() || !hasWritingAgentConnection}
+                    onClick={() => void retryDraftGeneration()}
+                    type="button"
+                  >
+                    {generationState === "generating" ? "Writing another draft..." : "Try another draft"}
+                  </button>
+                  <button
                     className="rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white"
                     onClick={() => setActiveStep("distribution")}
                     type="button"
                   >
-                    Continue
+                    Keep this draft
                   </button>
                 </div>
               </section>
