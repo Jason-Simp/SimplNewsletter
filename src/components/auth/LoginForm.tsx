@@ -146,6 +146,26 @@ export function LoginForm({
       : mode === "signup"
         ? "Use your invite code to create a member account for your school."
         : "Request a sign-in link by email if your account is already set up.";
+  const helperItems =
+    audience === "admin"
+      ? [
+          "Use this if you manage school setup, users, or multiple school dashboards.",
+          "After sign-in, you will land in the admin workspace."
+        ]
+      : mode === "signup"
+        ? [
+            "You need your email, a password, and the school signup code.",
+            "After account creation, you will finish school setup before using the builder."
+          ]
+        : mode === "magic"
+          ? [
+              "Use this if your account already exists and you prefer a sign-in link by email.",
+              "The link will bring you back into your school workspace."
+            ]
+          : [
+              "Use this if your school account is already set up.",
+              "After sign-in, you will go to your school dashboard or setup if your workspace is still being connected."
+            ];
 
   return (
     <section className="w-full max-w-md rounded-editorial border border-white/10 bg-white p-8 shadow-editorial">
@@ -156,6 +176,25 @@ export function LoginForm({
       <p className="mt-3 text-sm leading-6 text-brand-muted">
         {description}
       </p>
+
+      <div className="mt-5 rounded-[24px] border border-slate-200 bg-[#F7F9FC] p-4">
+        <div className="text-sm font-semibold text-brand-text">
+          {audience === "admin"
+            ? "Use this screen for"
+            : mode === "signup"
+              ? "Before you create the account"
+              : mode === "magic"
+                ? "Before you request the link"
+                : "Before you sign in"}
+        </div>
+        <div className="mt-3 grid gap-2">
+          {helperItems.map((item) => (
+            <div key={item} className="text-sm leading-6 text-brand-muted">
+              {item}
+            </div>
+          ))}
+        </div>
+      </div>
 
       <div className="mt-6 grid grid-cols-3 gap-2 rounded-2xl bg-brand-background p-2">
         <button
@@ -227,6 +266,9 @@ export function LoginForm({
                 onChange={(event) => setSignupCode(event.target.value)}
                 value={signupCode}
               />
+              <span className="text-xs leading-5 text-brand-muted">
+                This is the school access code required before a new account can be created.
+              </span>
             </label>
           </>
         ) : null}
