@@ -63,15 +63,23 @@ export async function POST(request: Request) {
       );
     }
 
-    const result =
-      hasElevenLabsConnection
-        ? await generateNewsletterWithElevenLabs({
-            agentId: resolvedAssistantReference,
-            apiKey: resolvedIntegrationEndpoint,
-            prompt: generationPrompt,
-            trigger: getNewsletterAgentTriggerPrompt()
-          })
-        : await generateContentWithProvider(generationRequest);
+    let result;
+
+    try {
+      result =
+        hasElevenLabsConnection
+          ? await generateNewsletterWithElevenLabs({
+              agentId: resolvedAssistantReference,
+              apiKey: resolvedIntegrationEndpoint,
+              prompt: generationPrompt,
+              trigger: getNewsletterAgentTriggerPrompt()
+            })
+          : await generateContentWithProvider(generationRequest);
+    } catch (error) {
+      throw new ApiRouteError(502, normalizeGenerationErrorMessage(error), {
+        exposeMessage: true
+      });
+    }
 
     let validatedResult: ReturnType<typeof validateGeneratedNewsletterPackage>;
 
@@ -98,4 +106,43 @@ export async function POST(request: Request) {
   } catch (error) {
     return jsonApiError("api.agent.generate.post", error, "The newsletter could not be written right now.");
   }
+}
+
+function normalizeGenerationErrorMessage(error: unknown) {
+  const message =
+    error instanceof Error && error.message
+      ? error.message
+      : "The school's writing agent could not complete the newsletter.";
+
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("unable to start the elevenlabs conversation")) {
+    return "The school's writing agent could not be started. Re-check the Agent ID and Agent API on the school profile.";
+  }
+
+  if (normalized.includes("took too long")) {
+    return "The school's writing agent took too long to respond. Please try again in a moment.";
+  }
+
+  if (normalized.includes("closed the conversation too early")) {
+    return "The school's writing agent stopped before returning the newsletter. Please try again.";
+  }
+
+  if (normalized.includes("could not accept the submission")) {
+    return "The school's writing agent rejected the newsletter request. Re-check the agent settings and try again.";
+  }
+
+  if (normalized.includes("returned plain text instead of the required newsletter package")) {
+    return "The school's writing agent replied, but it did not return the required newsletter package. Update the agent so it returns the expected JSON only.";
+  }
+
+  if (normalized.includes("returned a newsletter package that could not be read")) {
+    return "The school's writing agent returned a newsletter package that could not be read. Check that it is returning valid JSON only.";
+  }
+
+  if (normalized.includes("integration call failed")) {
+    return "The newsletter writing connection did not complete successfully. Please try again.";
+  }
+
+  return message;
 }
