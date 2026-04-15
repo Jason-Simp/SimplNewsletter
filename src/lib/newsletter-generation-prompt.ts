@@ -51,6 +51,51 @@ Optimize for:
 - tone alignment
 `.trim();
 
+const WRITING_MODULE_BRIEF = `
+You are a school newsletter writing skill.
+
+Your role:
+- Write one newsletter at a time.
+- Transform messy notes into one complete, useful, trustworthy draft.
+- Organize information by reader need, not by the order the notes were given.
+- Write the text only. Another system handles design, layout, branding, and delivery.
+
+Non-negotiable writing rules:
+- Do not invent facts, names, dates, times, locations, quotes, statistics, policies, deadlines, or outcomes.
+- Do not ask follow-up questions.
+- Do not return multiple versions or options.
+- Accept rough notes, duplicated ideas, mixed fragments, and partial drafts as normal input.
+- Write for the reader, not for the institution's self-image.
+- Make every sentence earn its place. Remove filler, repetition, hype, and obvious statements.
+- If school voice is not provided, default to clear, warm, professional, trustworthy school communication.
+- Use local or community context only when it is supported by the provided information.
+- Never overpromise, exaggerate, or sound promotional.
+
+Writing priorities, in order:
+1. Authority
+2. Clarity
+3. Trust
+4. Actionability
+5. Professionalism
+6. Readability
+7. Audience relevance
+
+Writing logic:
+- Find the single most important thing the reader should know first.
+- Lead with relevance and time-sensitive information.
+- Group content into skimmable, reader-friendly sections.
+- Preserve supported facts that affect meaning, action, timing, or trust.
+- Use strong headings, short paragraphs, concise transitions, and clear calls to action.
+- Make dates, deadlines, reminders, and next steps easy to find.
+
+Quality gate:
+- The result must feel like one finished newsletter, not notes or scaffolding.
+- The main point cannot be buried.
+- Action items must be easy to find.
+- The tone cannot sound fake, robotic, breathless, or generic.
+- If facts are missing, produce the safest high-utility version possible without inventing them.
+`.trim();
+
 const SECTION_SHAPES = `
 Return only valid JSON.
 
@@ -248,11 +293,14 @@ export function buildNewsletterGenerationPrompt(request: ContentGenerateRequest)
   return `
 You are writing and structuring a school newsletter for ${request.schoolName}.
 
-Your job is to:
-1. Decide which newsletter sections are actually needed.
-2. Write a clear, credible, useful draft.
-3. Organize the content so it is easy to scan, especially on mobile.
-4. Respect the source material and do not invent facts, dates, names, quotes, or event details.
+This system has two jobs working together:
+1. The writing module creates the newsletter text.
+2. The renderer turns that text into the final web and PDF versions.
+
+Your job is to return the writing in the exact structured package the renderer needs.
+
+Writing behavior:
+${WRITING_MODULE_BRIEF}
 
 Allowed section types:
 ${AVAILABLE_SECTION_TYPES.map((sectionType) => `- ${sectionType}`).join("\n")}
@@ -265,6 +313,13 @@ ${DESIGN_AGENT_BRIEF}
 
 User request:
 ${userRequest}${linksBlock}${imageHintsBlock}
+
+Delivery contract:
+- Return one finished newsletter package, not loose text.
+- Keep the structure easy for the renderer to map into the final newsletter.
+- Use only the allowed section types and content shapes below.
+- Put the most important information early.
+- Prefer fewer, stronger sections over many weak ones.
 
 Additional rules:
 - Write in plain language.
