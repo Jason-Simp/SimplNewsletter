@@ -119,6 +119,50 @@ export function SchoolManager() {
     () => members.filter((item) => item.schoolId === activeSchoolId),
     [activeSchoolId, members]
   );
+  const hasBasicSchoolInfo = Boolean(form.name.trim() && form.contactEmail.trim());
+  const hasLogo = Boolean(form.logoUrl.trim());
+  const hasAgent = Boolean(form.assistantReference.trim() && form.integrationEndpoint.trim());
+  const hasWebsitePublishing = Boolean(activeSchoolId);
+  const readyItems = [
+    {
+      label: "School profile",
+      ready: hasBasicSchoolInfo,
+      detail: hasBasicSchoolInfo
+        ? "School name and contact details are filled in."
+        : "Add the school name and contact email first."
+    },
+    {
+      label: "Logo and colors",
+      ready: hasLogo,
+      detail: hasLogo
+        ? "Logo is ready and colors can be adjusted below."
+        : "Upload the school logo so newsletters use the right brand."
+    },
+    {
+      label: "Writing agent",
+      ready: hasAgent,
+      detail: hasAgent
+        ? "Agent ID and Agent API are saved for this school."
+        : "Add the Agent ID and Agent API so the system can write newsletters."
+    },
+    {
+      label: "Website archive",
+      ready: hasWebsitePublishing,
+      detail: hasWebsitePublishing
+        ? "Archive and feed links are ready for the website team."
+        : "Save the school once so the archive and feed links can be created."
+    },
+    {
+      label: "School users",
+      ready: schoolMembers.length > 0,
+      detail:
+        schoolMembers.length > 0
+          ? `${schoolMembers.length} member${schoolMembers.length === 1 ? "" : "s"} can log in.`
+          : "Add the first school user at the bottom of this page."
+    }
+  ];
+  const readyCount = readyItems.filter((item) => item.ready).length;
+  const schoolReadyToWrite = hasBasicSchoolInfo && hasLogo && hasAgent;
   const appOrigin = typeof window !== "undefined" ? window.location.origin : "";
   const feedUrl =
     activeSchoolId && appOrigin ? `${appOrigin}/schools/${activeSchoolId}/feed` : "";
@@ -383,6 +427,66 @@ export function SchoolManager() {
           </div>
         </div>
 
+        <div className="mt-6 rounded-[24px] border border-slate-200 bg-[#F7F9FC] p-5">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <div className="text-sm font-semibold text-brand-text">School setup progress</div>
+              <div className="mt-1 text-sm leading-6 text-brand-muted">
+                This is the checklist for getting one school fully ready to write and publish newsletters.
+              </div>
+            </div>
+            <div
+              className={`rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] ${
+                schoolReadyToWrite
+                  ? "bg-emerald-100 text-emerald-700"
+                  : "bg-amber-100 text-amber-700"
+              }`}
+            >
+              {schoolReadyToWrite ? "Ready to write" : `${readyCount}/${readyItems.length} ready`}
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {readyItems.map((item) => (
+              <div key={item.label} className="rounded-2xl border border-slate-200 bg-white px-4 py-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="font-semibold text-brand-text">{item.label}</div>
+                  <div
+                    className={`rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] ${
+                      item.ready ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                    }`}
+                  >
+                    {item.ready ? "Ready" : "Needed"}
+                  </div>
+                </div>
+                <div className="mt-2 text-sm leading-6 text-brand-muted">{item.detail}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-3">
+            {!hasAgent ? (
+              <button
+                className="rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white"
+                onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+                type="button"
+              >
+                Finish setup here
+              </button>
+            ) : null}
+            {hasWebsitePublishing ? (
+              <a
+                className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
+                href={archiveUrl}
+                rel="noreferrer"
+                target="_blank"
+              >
+                Open school archive
+              </a>
+            ) : null}
+          </div>
+        </div>
+
         <div className="mt-6 rounded-[24px] border border-slate-200 p-5">
           <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Basic school info</div>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -397,7 +501,12 @@ export function SchoolManager() {
 
         <div className="mt-6 rounded-[24px] border border-slate-200 p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">School writing agent</div>
+            <div>
+              <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">School writing agent</div>
+              <div className="mt-2 text-sm leading-6 text-brand-muted">
+                This is the one connection the system needs before it can write newsletters for this school.
+              </div>
+            </div>
             <div className="rounded-full bg-brand-background px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-brand-primary">
               ElevenLabs MVP
             </div>
@@ -425,9 +534,24 @@ export function SchoolManager() {
             >
               Check agent connection
             </button>
-            <div className="rounded-full bg-brand-background px-4 py-2 text-sm text-brand-muted">
+            <div
+              className={`rounded-full px-4 py-2 text-sm ${
+                agentStatus.toLowerCase().includes("connected")
+                  ? "bg-emerald-100 text-emerald-700"
+                  : agentStatus.toLowerCase().includes("checking")
+                    ? "bg-amber-100 text-amber-700"
+                    : agentStatus.toLowerCase().includes("not checked")
+                      ? "bg-brand-background text-brand-muted"
+                      : "bg-red-50 text-red-700"
+              }`}
+            >
               {agentStatus}
             </div>
+          </div>
+          <div className="mt-4 rounded-2xl bg-brand-background px-4 py-3 text-sm text-brand-muted">
+            {hasAgent
+              ? "The writing agent details are saved. Run the connection check if you want to confirm they still work."
+              : "Once Agent ID and Agent API are filled in and saved, this school will be ready for the system to write newsletters."}
           </div>
         </div>
 
