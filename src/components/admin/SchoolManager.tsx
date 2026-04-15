@@ -48,7 +48,6 @@ export function SchoolManager() {
   const [userRole, setUserRole] = useState<"school_admin" | "editor">("editor");
   const [logoStatus, setLogoStatus] = useState("Upload a logo to get started.");
   const [agentStatus, setAgentStatus] = useState("Not checked yet.");
-  const [webhookStatus, setWebhookStatus] = useState("Not checked yet.");
   const [notice, setNotice] = useState<{ message: string; tone: "success" | "error" | "info" } | null>(null);
 
   useEffect(() => {
@@ -123,7 +122,7 @@ export function SchoolManager() {
   const hasBasicSchoolInfo = Boolean(form.name.trim() && form.contactEmail.trim());
   const hasLogo = Boolean(form.logoUrl.trim());
   const hasAgent = Boolean(form.assistantReference.trim() && form.integrationEndpoint.trim());
-  const hasWebhook = Boolean(form.webhookUrl.trim());
+  const hasWebhookSecret = Boolean(form.webhookSecret.trim());
   const hasWebsitePublishing = Boolean(activeSchoolId);
   const readyItems = [
     {
@@ -150,9 +149,9 @@ export function SchoolManager() {
     {
       label: "Client intranet",
       ready: true,
-      detail: hasWebhook
-        ? "The optional client intranet webhook is saved for this school."
-        : "Optional: add a client intranet webhook only if this school needs an outside-system handoff."
+      detail: hasWebhookSecret
+        ? "The optional inbound webhook is ready to share with this school's outside systems."
+        : "Optional: generate a webhook secret only if this school needs outside systems to send newsletter inputs into The Wire."
     },
     {
       label: "Website archive",
@@ -177,6 +176,8 @@ export function SchoolManager() {
     activeSchoolId && appOrigin ? `${appOrigin}/schools/${activeSchoolId}/feed` : "";
   const archiveUrl =
     activeSchoolId && appOrigin ? `${appOrigin}/schools/${activeSchoolId}` : "";
+  const inboundWebhookUrl =
+    activeSchoolId && appOrigin ? `${appOrigin}/api/schools/webhook-input/${activeSchoolId}` : "";
 
   const copyFeedUrl = async () => {
     if (!feedUrl) {
@@ -204,6 +205,45 @@ export function SchoolManager() {
     } catch {
       showNotice("Could not copy the archive URL. You can still copy it manually.", "info");
     }
+  };
+
+  const copyInboundWebhookUrl = async () => {
+    if (!inboundWebhookUrl) {
+      showNotice("Save the school profile first so the webhook URL exists.", "error");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(inboundWebhookUrl);
+      showNotice("Webhook URL copied.", "success");
+    } catch {
+      showNotice("Could not copy the webhook URL. You can still copy it manually.", "info");
+    }
+  };
+
+  const copyWebhookSecret = async () => {
+    if (!form.webhookSecret.trim()) {
+      showNotice("Generate or enter a webhook secret first.", "error");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(form.webhookSecret.trim());
+      showNotice("Webhook secret copied.", "success");
+    } catch {
+      showNotice("Could not copy the webhook secret. You can still copy it manually.", "info");
+    }
+  };
+
+  const generateWebhookSecret = () => {
+    if (typeof window === "undefined" || !window.crypto?.randomUUID) {
+      updateField("webhookSecret", `wire-${Date.now()}`);
+      showNotice("Webhook secret generated. Save the school profile to keep it.", "success");
+      return;
+    }
+
+    updateField("webhookSecret", `wire-${window.crypto.randomUUID()}`);
+    showNotice("Webhook secret generated. Save the school profile to keep it.", "success");
   };
 
   const saveSchool = async () => {
@@ -382,47 +422,6 @@ export function SchoolManager() {
 
     const message = payload?.message ?? "Agent connected.";
     setAgentStatus(message);
-    showNotice(message, "success");
-  };
-
-  const verifyWebhook = async () => {
-    if (!activeSchoolId) {
-      const message = "Save the school profile first.";
-      setWebhookStatus(message);
-      showNotice(message, "error");
-      return;
-    }
-
-    if (!form.webhookUrl.trim()) {
-      const message = "Add the client intranet webhook URL first.";
-      setWebhookStatus(message);
-      showNotice(message, "error");
-      return;
-    }
-
-    setWebhookStatus("Checking connection...");
-
-    const response = await authFetch(supabase, "/api/schools/webhook-test", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        schoolId: activeSchoolId
-      })
-    });
-
-    const payload = await response.json();
-
-    if (!response.ok) {
-      const message = payload?.message ?? "Webhook connection failed.";
-      setWebhookStatus(message);
-      showNotice(message, "error");
-      return;
-    }
-
-    const message = payload?.message ?? "Webhook connected.";
-    setWebhookStatus(message);
     showNotice(message, "success");
   };
 
@@ -608,9 +607,9 @@ export function SchoolManager() {
         <div className="mt-6 rounded-[24px] border border-slate-200 p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Client intranet webhook</div>
+              <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Client intranet handoff</div>
               <div className="mt-2 text-sm leading-6 text-brand-muted">
-                This school-level webhook receives the notes, links, and uploaded media context when a newsletter request is submitted so your client intranet can track or process the job too.
+                Give this webhook URL and secret to the outside team. Their intranet or automation can POST newsletter notes, links, and image metadata directly into The Wire for this school.
               </div>
             </div>
             <div className="rounded-full bg-brand-background px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-brand-primary">
@@ -619,14 +618,13 @@ export function SchoolManager() {
           </div>
 
           <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <Input
-              help="Paste the webhook URL on the client's intranet that should receive newsletter request data."
-              label="Webhook URL"
-              value={form.webhookUrl}
-              onChange={(value) => updateField("webhookUrl", value)}
+            <ReadOnlyField
+              help="Share this URL with the other team. This is the The Wire endpoint they should POST newsletter inputs to."
+              label="Inbound webhook URL"
+              value={inboundWebhookUrl || "Save the school profile first to generate the webhook URL."}
             />
             <Input
-              help="Optional secret or token for the client's intranet webhook."
+              help="Share this secret with the other team so their requests can be authenticated."
               label="Webhook secret"
               value={form.webhookSecret}
               onChange={(value) => updateField("webhookSecret", value)}
@@ -635,29 +633,39 @@ export function SchoolManager() {
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <button
               className="rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white"
-              onClick={() => void verifyWebhook()}
+              onClick={() => void copyInboundWebhookUrl()}
               type="button"
             >
-              Send test webhook
+              Copy webhook URL
+            </button>
+            <button
+              className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
+              onClick={() => void copyWebhookSecret()}
+              type="button"
+            >
+              Copy webhook secret
+            </button>
+            <button
+              className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
+              onClick={generateWebhookSecret}
+              type="button"
+            >
+              Generate secret
             </button>
             <div
               className={`rounded-full px-4 py-2 text-sm ${
-                webhookStatus.toLowerCase().includes("successfully") || webhookStatus.toLowerCase().includes("connected")
+                hasWebhookSecret
                   ? "bg-emerald-100 text-emerald-700"
-                  : webhookStatus.toLowerCase().includes("checking")
-                    ? "bg-amber-100 text-amber-700"
-                    : webhookStatus.toLowerCase().includes("not checked")
-                      ? "bg-brand-background text-brand-muted"
-                      : "bg-red-50 text-red-700"
+                  : "bg-brand-background text-brand-muted"
               }`}
             >
-              {webhookStatus}
+              {hasWebhookSecret ? "Ready to share" : "Secret needed"}
             </div>
           </div>
           <div className="mt-4 rounded-2xl bg-brand-background px-4 py-3 text-sm text-brand-muted">
-            {hasWebhook
-              ? "When a user submits a newsletter request, The Wire will send the notes, links, and uploaded media context to this school's intranet webhook before the writing agent runs."
-              : "This is optional. Add a webhook only if this school needs newsletter request data sent to an outside system like an intranet or automation tool."}
+            {hasWebhookSecret
+              ? "This school now has an inbound webhook. The outside team can post newsletter notes and image context into The Wire with this URL and secret."
+              : "This is optional. Only set it up if this school needs an outside system, such as an intranet or automation tool, to send newsletter inputs into The Wire."}
           </div>
         </div>
 
@@ -836,6 +844,26 @@ function Input({
       <span className="text-sm font-semibold text-brand-text">{label}</span>
       {help ? <span className="text-sm leading-6 text-brand-muted">{help}</span> : null}
       <input className="rounded-2xl border border-slate-200 px-4 py-3" onChange={(event) => onChange(event.target.value)} value={value} />
+    </label>
+  );
+}
+
+function ReadOnlyField({
+  label,
+  value,
+  help
+}: {
+  label: string;
+  value: string;
+  help?: string;
+}) {
+  return (
+    <label className="grid gap-2">
+      <span className="text-sm font-semibold text-brand-text">{label}</span>
+      {help ? <span className="text-sm leading-6 text-brand-muted">{help}</span> : null}
+      <div className="rounded-2xl border border-slate-200 bg-brand-background px-4 py-3 text-sm text-brand-text">
+        {value}
+      </div>
     </label>
   );
 }
