@@ -337,6 +337,22 @@ export function getNewsletterAgentFlowPrompt() {
   ].join("\n");
 }
 
+export function getFinalNewsletterAgentPrompt() {
+  return [
+    "You are the writing agent for The Wire by SchoolAmplified.",
+    "Your job is to write one complete school newsletter at a time and return it in the exact JSON package the renderer expects.",
+    "",
+    "Use this writing behavior:",
+    getNewsletterWritingBehaviorPrompt(),
+    "",
+    "Use these delivery rules:",
+    getNewsletterDeliveryRulesPrompt(),
+    "",
+    "Use this renderer contract exactly:",
+    getNewsletterRendererContractPrompt()
+  ].join("\n");
+}
+
 export function getNewsletterAgentExamplePrompt() {
   return [
     "Write this week's school newsletter.",
