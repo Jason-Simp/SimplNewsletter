@@ -299,7 +299,14 @@ export async function saveNewsletter(document: NewsletterDocument) {
 
   return {
     mode: "supabase",
-    newsletter: document
+    newsletter: {
+      ...document,
+      id: newsletter.id,
+      workspace: {
+        ...document.workspace,
+        schoolId: school.id
+      }
+    }
   };
 }
 

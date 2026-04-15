@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { getNewsletterPdfPath } from "@/lib/public-links";
 import { listNewsletters } from "@/lib/newsletter-repository";
 
 export default async function SchoolArchivePage({
@@ -48,6 +49,17 @@ export default async function SchoolArchivePage({
               >
                 Open newsletter
               </Link>
+              {newsletter.distributionOptions.some(
+                (option) => option.channel === "pdf" && option.selected
+              ) ? (
+                <Link
+                  className="mt-5 ml-3 inline-flex rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
+                  href={getNewsletterPdfPath(params.schoolId, newsletter.id, true)}
+                  target="_blank"
+                >
+                  PDF view
+                </Link>
+              ) : null}
             </article>
           ))}
 
@@ -65,4 +77,3 @@ export default async function SchoolArchivePage({
     </main>
   );
 }
-

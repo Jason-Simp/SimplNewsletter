@@ -6,8 +6,8 @@ const distributionChannels = [
   },
   {
     name: "PDF export",
-    description: "Separate print-aware layout inspired by the editorial sample newsletter.",
-    status: "Next"
+    description: "Open the print-friendly PDF view and save the newsletter as a PDF directly from the browser.",
+    status: "Ready"
   }
 ];
 

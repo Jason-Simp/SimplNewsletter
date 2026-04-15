@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { NewsletterPreview } from "@/components/newsletter/NewsletterPreview";
+import { getNewsletterPdfPath } from "@/lib/public-links";
 import { getNewsletterById } from "@/lib/newsletter-repository";
 
 export default async function PublicNewsletterPage({
@@ -16,6 +17,9 @@ export default async function PublicNewsletterPage({
 
   const websiteSelected = document.distributionOptions.some(
     (option) => option.channel === "web" && option.selected
+  );
+  const pdfSelected = document.distributionOptions.some(
+    (option) => option.channel === "pdf" && option.selected
   );
 
   if (!websiteSelected) {
@@ -33,6 +37,18 @@ export default async function PublicNewsletterPage({
           <p className="mt-3 max-w-3xl text-sm leading-6 text-brand-muted">
             {document.organization.name} newsletter hosted by The Wire by SchoolAmplified.
           </p>
+          {pdfSelected ? (
+            <div className="mt-5">
+              <a
+                className="inline-flex rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
+                href={getNewsletterPdfPath(params.schoolId, params.newsletterId, true)}
+                rel="noreferrer"
+                target="_blank"
+              >
+                Open PDF view
+              </a>
+            </div>
+          ) : null}
         </div>
 
         <NewsletterPreview

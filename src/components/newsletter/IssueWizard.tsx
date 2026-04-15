@@ -4,9 +4,10 @@ import { useEffect, useRef, useState } from "react";
 
 import { useAuthSession } from "@/lib/auth-client";
 import { buildSteps, sampleNewsletter } from "@/lib/sample-data";
+import { getNewsletterPdfPath, getNewsletterWebPath, getSchoolArchivePath } from "@/lib/public-links";
 import type { ContentGenerateResponse } from "@/types/integration";
 import type { UploadedAsset } from "@/types/media";
-import type { Channel, DistributionChannel } from "@/types/newsletter";
+import type { Channel, DistributionChannel, NewsletterDocument } from "@/types/newsletter";
 import type { SchoolProfile } from "@/types/school";
 import { ActionNotice } from "@/components/ui/ActionNotice";
 import { DistributionPanel } from "@/components/newsletter/DistributionPanel";
@@ -29,6 +30,11 @@ export function IssueWizard() {
   const [distributionMessage, setDistributionMessage] = useState(
     "Choose whether this newsletter should go to the school website feed, PDF export, or both."
   );
+  const [distributionLinks, setDistributionLinks] = useState<{
+    archivePath?: string;
+    websitePath?: string;
+    pdfPath?: string;
+  } | null>(null);
   const [notice, setNotice] = useState<{ message: string; tone: "success" | "error" | "info" } | null>(null);
   const [quickNotes, setQuickNotes] = useState("");
   const [uploadedAssets, setUploadedAssets] = useState<UploadedAsset[]>([]);
@@ -238,21 +244,38 @@ export function IssueWizard() {
         throw new Error(payload?.message ?? "The newsletter could not be published.");
       }
 
-      const selectedWebsite = document.distributionOptions.some(
+      if (payload?.data) {
+        setDocument(payload.data);
+      }
+
+      const nextDocument = (payload?.data as NewsletterDocument | undefined) ?? document;
+      const selectedWebsite = nextDocument.distributionOptions.some(
         (option) => option.channel === "web" && option.selected
       );
-      const selectedPdf = document.distributionOptions.some(
+      const selectedPdf = nextDocument.distributionOptions.some(
         (option) => option.channel === "pdf" && option.selected
+      );
+      const schoolId = nextDocument.workspace.schoolId;
+      const newsletterId = nextDocument.id;
+
+      setDistributionLinks(
+        schoolId && newsletterId
+          ? {
+              archivePath: getSchoolArchivePath(schoolId),
+              websitePath: selectedWebsite ? getNewsletterWebPath(schoolId, newsletterId) : undefined,
+              pdfPath: selectedPdf ? getNewsletterPdfPath(schoolId, newsletterId, true) : undefined
+            }
+          : null
       );
 
       setDistributionState("published");
       setDistributionMessage(
         selectedWebsite && selectedPdf
-          ? "Published to the school website and marked for PDF export."
+          ? "Published to the school website. The PDF view is ready too."
           : selectedWebsite
             ? "Published to the school website feed and archive."
             : selectedPdf
-              ? "Saved with PDF export selected."
+              ? "PDF view is ready. Open it and save it as a PDF from your browser."
               : "Saved without a delivery target."
       );
       showNotice("Newsletter publishing updated.", "success");
@@ -375,6 +398,14 @@ export function IssueWizard() {
 
         if (!response.ok) {
           throw new Error(payload?.message ?? "Unable to save draft.");
+        }
+
+        if (
+          payload?.data &&
+          (payload.data.id !== document.id ||
+            payload.data.workspace?.schoolId !== document.workspace.schoolId)
+        ) {
+          setDocument(payload.data);
         }
 
         setSaveState("saved");
@@ -605,6 +636,36 @@ export function IssueWizard() {
                   >
                     {distributionState === "publishing" ? "Publishing..." : "Publish newsletter"}
                   </button>
+                  {distributionLinks?.websitePath ? (
+                    <a
+                      className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
+                      href={distributionLinks.websitePath}
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      Open website page
+                    </a>
+                  ) : null}
+                  {distributionLinks?.archivePath ? (
+                    <a
+                      className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
+                      href={distributionLinks.archivePath}
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      Open archive
+                    </a>
+                  ) : null}
+                  {distributionLinks?.pdfPath ? (
+                    <a
+                      className="rounded-full border border-brand-primary bg-brand-background px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-primary"
+                      href={distributionLinks.pdfPath}
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      Open PDF view
+                    </a>
+                  ) : null}
                 </div>
               </section>
               <NewsletterPreview
