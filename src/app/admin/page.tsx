@@ -59,6 +59,24 @@ export default function AdminPage() {
       : schools.find((school) => school.id === member?.schoolId) ?? schools[0] ?? null;
   const currentSchoolMembers = members.filter((item) => item.schoolId === currentSchool?.id);
   const currentSchoolAdmins = currentSchoolMembers.filter((item) => item.role === "school_admin");
+  const recentDraftIssues = newsletters
+    .filter((newsletter) => {
+      if (newsletter.status !== "draft") {
+        return false;
+      }
+
+      if (companyView) {
+        return true;
+      }
+
+      return newsletter.workspace.schoolId === currentSchool?.id;
+    })
+    .sort((left, right) => {
+      const leftDate = left.issueDate || "";
+      const rightDate = right.issueDate || "";
+      return rightDate.localeCompare(leftDate);
+    })
+    .slice(0, 3);
   const recentPublishedIssues = newsletters
     .filter((newsletter) => {
       if (newsletter.status !== "published") {
@@ -251,6 +269,87 @@ export default function AdminPage() {
           </ul>
         </article>
       </div>
+
+      {!companyView ? (
+        <section className="rounded-editorial border border-slate-200 bg-white p-6">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <div className="text-sm font-semibold text-brand-text">Recent drafts</div>
+              <div className="mt-2 text-sm leading-6 text-brand-muted">
+                Jump back into unfinished work without hunting through the builder. This is the fastest way to keep moving on an issue you already started.
+              </div>
+            </div>
+            <Link
+              className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
+              href="/builder"
+            >
+              Start a fresh issue
+            </Link>
+          </div>
+
+          {recentDraftIssues.length ? (
+            <div className="mt-6 grid gap-4 lg:grid-cols-3">
+              {recentDraftIssues.map((newsletter) => {
+                const sectionCount = newsletter.sections.filter((section) => section.enabled).length;
+                const photoSelected = newsletter.sections.some((section) => {
+                  if (section.type === "hero" && typeof (section.content as { heroImage?: unknown }).heroImage === "string") {
+                    return Boolean((section.content as { heroImage: string }).heroImage);
+                  }
+
+                  if (
+                    section.type === "top_story" &&
+                    typeof (section.content as { image?: unknown }).image === "string"
+                  ) {
+                    return Boolean((section.content as { image: string }).image);
+                  }
+
+                  return false;
+                });
+
+                return (
+                  <article key={newsletter.id} className="rounded-[24px] border border-slate-200 p-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-xs font-bold uppercase tracking-[0.25em] text-brand-secondary">
+                        Draft
+                      </div>
+                      <div className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-amber-700">
+                        In progress
+                      </div>
+                    </div>
+                    <div className="mt-3 text-lg font-semibold text-brand-text">{newsletter.title}</div>
+                    <div className="mt-2 text-sm leading-6 text-brand-muted">
+                      {newsletter.intro || "Still being prepared."}
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-brand-muted">
+                      <span className="rounded-full bg-[#F7F9FC] px-3 py-1">{sectionCount} sections</span>
+                      <span className="rounded-full bg-[#F7F9FC] px-3 py-1">{photoSelected ? "Images added" : "No images yet"}</span>
+                      <span className="rounded-full bg-[#F7F9FC] px-3 py-1">{formatDisplayDate(newsletter.issueDate)}</span>
+                    </div>
+                    <div className="mt-5 flex flex-wrap gap-2">
+                      <Link
+                        className="rounded-full bg-brand-primary px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white"
+                        href={`/builder?draft=${newsletter.id}`}
+                      >
+                        Continue draft
+                      </Link>
+                      <Link
+                        className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-brand-text"
+                        href={`/builder?from=${newsletter.id}`}
+                      >
+                        Copy as new draft
+                      </Link>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="mt-6 rounded-[24px] bg-[#F7F9FC] p-5 text-sm leading-6 text-brand-muted">
+              No saved drafts yet. Once someone starts a newsletter and it autosaves, it will appear here so the team can jump back into it.
+            </div>
+          )}
+        </section>
+      ) : null}
 
       {!companyView ? (
         <section className="rounded-editorial border border-slate-200 bg-white p-6">

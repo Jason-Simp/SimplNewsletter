@@ -72,6 +72,7 @@ export function IssueWizard() {
     }
   ];
   const cloneFromId = searchParams.get("from");
+  const draftId = searchParams.get("draft");
 
   const updateDocumentField = (field: keyof Pick<NewsletterDocument, "title" | "intro" | "issueDate">, value: string) => {
     setDocument((current) => ({
@@ -502,13 +503,19 @@ export function IssueWizard() {
         const response = await authFetch(supabase, `/api/newsletters${query}`);
         const payload = await response.json();
         const loadedDocuments = (payload?.data ?? []) as NewsletterDocument[];
+        const selectedDraft =
+          draftId?.trim()
+            ? loadedDocuments.find((newsletter) => newsletter.id === draftId.trim()) ?? null
+            : null;
         const selectedSource =
-          cloneFromId?.trim()
+          !selectedDraft && cloneFromId?.trim()
             ? loadedDocuments.find((newsletter) => newsletter.id === cloneFromId.trim()) ?? null
             : null;
-        const nextDocument = selectedSource
-          ? createDraftFromExistingNewsletter(selectedSource)
-          : loadedDocuments[0];
+        const nextDocument = selectedDraft
+          ? selectedDraft
+          : selectedSource
+            ? createDraftFromExistingNewsletter(selectedSource)
+            : loadedDocuments[0];
 
         if (!cancelled && nextDocument) {
           const mergedDocument = nextSchool
@@ -548,7 +555,11 @@ export function IssueWizard() {
 
           setDocument(mergedDocument);
           setSourceIssueLabel(selectedSource ? selectedSource.title : null);
-          if (selectedSource) {
+          if (selectedDraft) {
+            setQuickNotes(buildQuickNotesFromDocument(selectedDraft));
+            setGenerationState("idle");
+            setGenerationMessage("This draft is already in progress. Review it, update it, or ask the system for another pass.");
+          } else if (selectedSource) {
             setQuickNotes(buildQuickNotesFromDocument(selectedSource));
             setGenerationState("idle");
             setGenerationMessage(
@@ -571,7 +582,7 @@ export function IssueWizard() {
     return () => {
       cancelled = true;
     };
-  }, [cloneFromId, session?.user?.email, supabase]);
+  }, [cloneFromId, draftId, session?.user?.email, supabase]);
 
   useEffect(() => {
     if (!initialLoadComplete.current) {
