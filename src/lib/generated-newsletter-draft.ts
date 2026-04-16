@@ -275,6 +275,20 @@ function chooseImageForText(
 
   const combinedText = textParts.filter(Boolean).join(" ");
   const tokens = tokenizeForMatching(combinedText);
+  const deterministicAssets = availableAssets
+    .map((asset) => ({
+      asset,
+      strength: getDeterministicMatchStrength(asset, tokens, combinedText)
+    }))
+    .filter((candidate) => candidate.strength > 0)
+    .sort((left, right) => right.strength - left.strength);
+
+  if (deterministicAssets.length > 0) {
+    const bestMatch = deterministicAssets[0].asset;
+    usedNames.add(bestMatch.name);
+    return bestMatch.url ?? "";
+  }
+
   const scoredAssets = availableAssets
     .map((asset) => ({
       asset,
@@ -293,6 +307,42 @@ function chooseImageForText(
   return bestMatch.url ?? "";
 }
 
+function getDeterministicMatchStrength(asset: UploadedAsset, tokens: string[], sourceText: string) {
+  const normalizedSource = normalizeForMatching(sourceText);
+  const sourceTokens = tokenizeForMatching(sourceText);
+  const assetTokens = tokenizeForMatching(asset.name);
+
+  if (!assetTokens.length || !sourceTokens.length) {
+    return 0;
+  }
+
+  const overlapCount = assetTokens.filter((assetToken) => hasTokenMatch(assetToken, sourceTokens)).length;
+  const coverage = overlapCount / assetTokens.length;
+  const assetPhrase = assetTokens.join(" ");
+
+  if (assetPhrase && normalizedSource.includes(assetPhrase)) {
+    return 100 + overlapCount;
+  }
+
+  if (assetTokens.length >= 2 && containsOrderedTokenRun(assetTokens, sourceTokens) && overlapCount >= 2) {
+    return 90 + overlapCount;
+  }
+
+  if (coverage >= 1 && assetTokens.length >= 2) {
+    return 85 + overlapCount;
+  }
+
+  if (coverage >= 0.67 && overlapCount >= 2) {
+    return 80 + overlapCount;
+  }
+
+  if (assetTokens.length === 1 && overlapCount === 1 && assetTokens[0].length >= 5) {
+    return 70;
+  }
+
+  return 0;
+}
+
 function scoreAssetAgainstTokens(asset: UploadedAsset, tokens: string[], sourceText: string) {
   const normalizedName = normalizeForMatching(asset.name);
   const assetTokens = tokenizeForMatching(asset.name);
@@ -308,7 +358,7 @@ function scoreAssetAgainstTokens(asset: UploadedAsset, tokens: string[], sourceT
       continue;
     }
 
-    if (normalizedName.includes(token)) {
+    if (normalizedName.includes(token) || hasTokenMatch(token, assetTokens)) {
       score += 5;
       continue;
     }
@@ -346,6 +396,20 @@ function scoreAssetAgainstTokens(asset: UploadedAsset, tokens: string[], sourceT
   return score;
 }
 
+function hasTokenMatch(token: string, otherTokens: string[]) {
+  return otherTokens.some((otherToken) => {
+    if (otherToken === token) {
+      return true;
+    }
+
+    if (otherToken.includes(token) || token.includes(otherToken)) {
+      return true;
+    }
+
+    return findTokenVariant(token, [otherToken]);
+  });
+}
+
 function containsOrderedTokenRun(assetTokens: string[], sourceTokens: string[]) {
   if (assetTokens.length < 2 || sourceTokens.length < 2) {
     return false;
@@ -369,7 +433,7 @@ function containsOrderedTokenRun(assetTokens: string[], sourceTokens: string[]) 
 
 function tokenizeForMatching(value: string) {
   return normalizeForMatching(value)
-    .replace(/[^a-z0-9\s-]/g, " ")
+    .replace(/[^a-z0-9\s]/g, " ")
     .split(/\s+/)
     .map((token) => simplifyToken(token))
     .filter((token) => token.length > 2)
@@ -378,8 +442,9 @@ function tokenizeForMatching(value: string) {
 
 function normalizeForMatching(value: string) {
   return value
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
     .toLowerCase()
-    .replace(/[_–—]+/g, "-")
+    .replace(/[_–—-]+/g, " ")
     .replace(/\.(png|jpe?g|gif|webp|svg)$/g, "");
 }
 
