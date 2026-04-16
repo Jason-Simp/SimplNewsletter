@@ -280,7 +280,7 @@ export function NewsletterPreview({
               {leadStory ? <LeadStoryCard story={leadStory} /> : null}
 
               {primarySupportingStories.length ? (
-                <section className="grid gap-4 sm:grid-cols-2">
+                <section className="grid gap-4">
                   {primarySupportingStories.map((story) => (
                     <StoryCard key={story.id} story={story} />
                   ))}
@@ -377,21 +377,23 @@ function LeadStoryCard({ story }: { story: StoryCardData }) {
 function StoryCard({ story }: { story: StoryCardData }) {
   return (
     <article className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_12px_28px_rgba(15,39,69,0.06)]">
-      {story.image ? (
-        <ImageFrame
-          alt={story.title}
-          aspectRatio="4 / 3"
-          className="bg-[#F7F9FC]"
-          imageClassName="h-full"
-          src={story.image}
-        />
-      ) : null}
-      <div className="p-5">
-        {story.eyebrow ? (
-          <div className="text-xs font-bold uppercase tracking-[0.24em] text-brand-secondary">{story.eyebrow}</div>
+      <div className={`grid ${story.image ? "md:grid-cols-[164px_minmax(0,1fr)]" : ""}`}>
+        {story.image ? (
+          <ImageFrame
+            alt={story.title}
+            aspectRatio="4 / 3"
+            className="bg-[#F7F9FC]"
+            imageClassName="h-full"
+            src={story.image}
+          />
         ) : null}
-        <h3 className="mt-3 text-2xl font-semibold leading-tight text-brand-text">{story.title}</h3>
-        <p className="mt-3 text-sm leading-6 text-brand-muted">{story.summary}</p>
+        <div className="p-5">
+          {story.eyebrow ? (
+            <div className="text-xs font-bold uppercase tracking-[0.24em] text-brand-secondary">{story.eyebrow}</div>
+          ) : null}
+          <h3 className="mt-3 text-2xl font-semibold leading-tight text-brand-text">{story.title}</h3>
+          <p className="mt-3 text-sm leading-6 text-brand-muted">{story.summary}</p>
+        </div>
       </div>
     </article>
   );
@@ -403,12 +405,26 @@ function PlainUpdatesSection({ stories }: { stories: StoryCardData[] }) {
       <div className="text-xs font-bold uppercase tracking-[0.28em] text-brand-secondary">More updates</div>
       <div className="mt-4 grid gap-4">
         {stories.map((story) => (
-          <article key={story.id} className="border-t border-slate-200 pt-4 first:border-t-0 first:pt-0">
-            {story.eyebrow ? (
-              <div className="text-xs font-bold uppercase tracking-[0.2em] text-brand-secondary">{story.eyebrow}</div>
+          <article
+            key={story.id}
+            className={`border-t border-slate-200 pt-4 first:border-t-0 first:pt-0 ${story.image ? "grid gap-4 md:grid-cols-[124px_minmax(0,1fr)] md:items-start" : ""}`}
+          >
+            {story.image ? (
+              <ImageFrame
+                alt={story.title}
+                aspectRatio="4 / 3"
+                className="overflow-hidden rounded-[16px] bg-[#F7F9FC]"
+                imageClassName="rounded-[16px]"
+                src={story.image}
+              />
             ) : null}
-            <h3 className="mt-2 text-xl font-semibold text-brand-text">{story.title}</h3>
-            <p className="mt-2 text-sm leading-6 text-brand-muted">{story.summary}</p>
+            <div>
+              {story.eyebrow ? (
+                <div className="text-xs font-bold uppercase tracking-[0.2em] text-brand-secondary">{story.eyebrow}</div>
+              ) : null}
+              <h3 className="mt-2 text-xl font-semibold text-brand-text">{story.title}</h3>
+              <p className="mt-2 text-sm leading-6 text-brand-muted">{story.summary}</p>
+            </div>
           </article>
         ))}
       </div>

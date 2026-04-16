@@ -1836,6 +1836,7 @@ function ReviewEditorPanel({
   const newsItems = readItemList(getSectionContent(document, "news_grid"), "items");
   const eventItems = readItemList(getSectionContent(document, "arts_events"), "items");
   const [showImageTools, setShowImageTools] = useState(false);
+  const [principalQuoteDraft, setPrincipalQuoteDraft] = useState(readString(principal, "quote"));
   const imageOptions = uploadedAssets
     .filter((asset) => asset.type.startsWith("image/") && asset.url)
     .map((asset) => ({
@@ -1843,6 +1844,10 @@ function ReviewEditorPanel({
       value: asset.url ?? "",
       previewUrl: asset.url ?? ""
     }));
+
+  useEffect(() => {
+    setPrincipalQuoteDraft(readString(principal, "quote"));
+  }, [principal]);
 
   return (
     <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
@@ -2038,8 +2043,11 @@ function ReviewEditorPanel({
             <span className="text-sm font-semibold text-brand-text">Principal or leadership message</span>
             <textarea
               className="min-h-28 rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
-              onChange={(event) => onPrincipalQuoteChange(event.target.value)}
-              value={readString(principal, "quote")}
+              onChange={(event) => {
+                setPrincipalQuoteDraft(event.target.value);
+                onPrincipalQuoteChange(event.target.value);
+              }}
+              value={principalQuoteDraft}
             />
           </label>
         </div>
