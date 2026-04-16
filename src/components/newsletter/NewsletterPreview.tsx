@@ -44,6 +44,7 @@ type QuoteContent = { quote: string; attribution: string };
 type QuickLinksContent = { items: { id: string; label: string; url: string }[] };
 
 type LayoutKind = "announcement" | "balanced" | "story_heavy";
+type LeadStoryEmphasis = "feature" | "standard" | "compact";
 
 type StoryCardData = {
   id: string;
@@ -113,6 +114,13 @@ export function NewsletterPreview({
     hasQuickLinks: Boolean(quickLinks?.content.items.length),
     hasCalendar: Boolean(calendar?.content.items.length),
     hasPrincipal: Boolean(principal?.content.quote)
+  });
+  const leadStoryEmphasis = getLeadStoryEmphasis({
+    layout,
+    supportCount: supportStories.length,
+    utilityWeight,
+    hasHeroImage: Boolean(hero?.content.heroImage),
+    hasGallery: galleryImages.length > 0
   });
 
   return (
@@ -232,6 +240,7 @@ export function NewsletterPreview({
               supportStories={supportStories}
               supportModules={supportModules}
               topStory={topStory}
+              leadStoryEmphasis={leadStoryEmphasis}
             />
           ) : layout === "announcement" ? (
             <AnnouncementLayout
@@ -251,6 +260,7 @@ export function NewsletterPreview({
               supportStories={supportStories}
               supportModules={supportModules}
               topStory={topStory}
+              leadStoryEmphasis={leadStoryEmphasis}
             />
           ) : (
             <BalancedLayout
@@ -270,6 +280,7 @@ export function NewsletterPreview({
               supportStories={supportStories}
               supportModules={supportModules}
               topStory={topStory}
+              leadStoryEmphasis={leadStoryEmphasis}
             />
           )}
         </div>
@@ -402,7 +413,8 @@ function StoryHeavyLayout({
   secondaryColor,
   primaryTextOnColor,
   secondaryTextOnColor,
-  accentColor
+  accentColor,
+  leadStoryEmphasis
 }: {
   topStory: NewsletterSection<TopStoryContent> | undefined;
   supportStories: StoryCardData[];
@@ -419,17 +431,18 @@ function StoryHeavyLayout({
   primaryTextOnColor: string;
   secondaryTextOnColor: string;
   accentColor: string;
+  leadStoryEmphasis: LeadStoryEmphasis;
 }) {
   return (
     <div className="grid gap-6">
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_340px]">
         <div className="grid gap-6">
-          {topStory ? <LeadStoryCard story={topStory.content} eyebrow="Top story" /> : null}
+          {topStory ? <LeadStoryCard emphasis={leadStoryEmphasis} story={topStory.content} eyebrow="Top story" /> : null}
           {supportStories.length > 0 ? (
             <SectionShell eyebrow="Campus stories" title="What families should know">
-              <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <div className={`mt-5 grid gap-4 ${supportStories.length >= 4 ? "md:grid-cols-2" : ""}`}>
                 {supportStories.slice(0, 6).map((story) => (
-                  <StoryCard key={story.id} story={story} />
+                  <StoryCard compact={supportStories.length >= 5} key={story.id} story={story} />
                 ))}
               </div>
             </SectionShell>
@@ -478,7 +491,8 @@ function BalancedLayout({
   secondaryColor,
   primaryTextOnColor,
   secondaryTextOnColor,
-  accentColor
+  accentColor,
+  leadStoryEmphasis
 }: {
   topStory: NewsletterSection<TopStoryContent> | undefined;
   supportStories: StoryCardData[];
@@ -496,17 +510,18 @@ function BalancedLayout({
   primaryTextOnColor: string;
   secondaryTextOnColor: string;
   accentColor: string;
+  leadStoryEmphasis: LeadStoryEmphasis;
 }) {
   return (
     <div className="grid gap-6">
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(300px,0.7fr)]">
+      <div className={`grid gap-6 ${supportStories.length <= 1 ? "xl:grid-cols-[minmax(0,1.45fr)_320px]" : "xl:grid-cols-[minmax(0,1.3fr)_minmax(300px,0.7fr)]"}`}>
         <div className="grid gap-6">
-          {topStory ? <LeadStoryCard story={topStory.content} eyebrow="Lead story" /> : null}
+          {topStory ? <LeadStoryCard emphasis={leadStoryEmphasis} story={topStory.content} eyebrow="Lead story" /> : null}
           {supportStories.length > 0 ? (
             <SectionShell eyebrow="More to know" title="Additional updates">
-              <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <div className={`mt-5 grid gap-4 ${supportStories.length >= 3 ? "md:grid-cols-2" : ""}`}>
                 {supportStories.slice(0, 4).map((story) => (
-                  <StoryCard key={story.id} story={story} />
+                  <StoryCard compact={supportStories.length >= 4} key={story.id} story={story} />
                 ))}
               </div>
             </SectionShell>
@@ -557,7 +572,8 @@ function AnnouncementLayout({
   secondaryColor,
   primaryTextOnColor,
   secondaryTextOnColor,
-  accentColor
+  accentColor,
+  leadStoryEmphasis
 }: {
   topStory: NewsletterSection<TopStoryContent> | undefined;
   supportStories: StoryCardData[];
@@ -575,12 +591,13 @@ function AnnouncementLayout({
   primaryTextOnColor: string;
   secondaryTextOnColor: string;
   accentColor: string;
+  leadStoryEmphasis: LeadStoryEmphasis;
 }) {
   return (
     <div className="grid gap-6">
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_320px]">
         <div className="grid gap-6">
-          {topStory ? <LeadStoryCard story={topStory.content} eyebrow="Main update" compact /> : null}
+          {topStory ? <LeadStoryCard compact emphasis={leadStoryEmphasis} story={topStory.content} eyebrow="Main update" /> : null}
           {supportStories.length > 0 ? (
             <SectionShell eyebrow="Quick read" title="Supporting updates">
               <div className="mt-5 grid gap-4">
@@ -643,30 +660,37 @@ function SectionShell({
 function LeadStoryCard({
   story,
   eyebrow,
-  compact = false
+  compact = false,
+  emphasis = "standard"
 }: {
   story: TopStoryContent;
   eyebrow: string;
   compact?: boolean;
+  emphasis?: LeadStoryEmphasis;
 }) {
+  const featured = emphasis === "feature";
+  const resolvedCompact = compact || emphasis === "compact";
+
   return (
-    <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-[0_18px_40px_rgba(15,39,69,0.08)]">
-      <div className={`${compact ? "lg:grid-cols-[minmax(220px,0.8fr)_minmax(0,1.2fr)]" : "lg:grid-cols-[minmax(260px,0.9fr)_minmax(0,1.1fr)]"} grid gap-0`}>
+    <section className={`overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-[0_18px_40px_rgba(15,39,69,0.08)] ${featured ? "ring-1 ring-brand-primary/10" : ""}`}>
+      <div className={`${resolvedCompact ? "lg:grid-cols-[minmax(220px,0.8fr)_minmax(0,1.2fr)]" : featured ? "lg:grid-cols-[minmax(320px,1.05fr)_minmax(0,1.15fr)]" : "lg:grid-cols-[minmax(260px,0.9fr)_minmax(0,1.1fr)]"} grid gap-0`}>
         {story.image ? (
           <ImageFrame
             alt={story.headline}
-            aspectRatio={compact ? "4 / 3" : "5 / 4"}
+            aspectRatio={resolvedCompact ? "4 / 3" : featured ? "1 / 1" : "5 / 4"}
             className="h-full rounded-none bg-[linear-gradient(180deg,#f7f9fc_0%,#ffffff_100%)] p-4"
             imageClassName="rounded-[22px]"
             src={story.image}
           />
         ) : null}
-        <div className="bg-[linear-gradient(180deg,#ffffff_0%,#fbfdff_100%)] p-6 lg:p-7">
+        <div className={`bg-[linear-gradient(180deg,#ffffff_0%,#fbfdff_100%)] ${featured ? "p-7 lg:p-9" : "p-6 lg:p-7"}`}>
           <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-primary">{eyebrow}</div>
-          <h2 className={`${compact ? "text-3xl" : "text-4xl"} mt-4 font-display leading-none text-brand-text`}>
+          <h2 className={`${resolvedCompact ? "text-3xl" : featured ? "text-[3.25rem]" : "text-4xl"} mt-4 font-display leading-[0.96] text-brand-text`}>
             {story.headline}
           </h2>
-          <p className="mt-4 text-base leading-7 text-brand-muted">{story.summary}</p>
+          <p className={`mt-4 ${featured ? "text-lg leading-8" : "text-base leading-7"} text-brand-muted`}>
+            {story.summary}
+          </p>
           {story.url ? (
             <a
               className="mt-6 inline-flex rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(18,58,105,0.22)]"
@@ -706,7 +730,7 @@ function StoryCard({
         <h3 className={`${compact ? "text-xl" : "text-2xl"} mt-3 font-semibold leading-tight text-brand-text`}>
           {story.title}
         </h3>
-        <p className="mt-3 text-sm leading-6 text-brand-muted">{story.summary}</p>
+        <p className={`${compact ? "line-clamp-4" : ""} mt-3 text-sm leading-6 text-brand-muted`}>{story.summary}</p>
       </div>
     </article>
   );
@@ -1275,7 +1299,7 @@ function getDesiredSupportModuleCount({
   schoolDefinedCount: number;
 }) {
   if (schoolDefinedCount > 0) {
-    return Math.min(schoolDefinedCount, supportCount <= 2 ? 3 : 2);
+    return Math.min(schoolDefinedCount, supportCount <= 1 ? 2 : supportCount <= 3 ? 1 : 0);
   }
 
   if (layout === "announcement") {
@@ -1283,10 +1307,34 @@ function getDesiredSupportModuleCount({
   }
 
   if (layout === "story_heavy") {
-    return supportCount >= 5 ? 1 : 2;
+    return supportCount >= 4 ? 0 : 1;
   }
 
-  return utilityWeight >= 2 ? 1 : supportCount <= 2 ? 2 : 1;
+  return utilityWeight >= 2 ? 0 : supportCount <= 2 ? 1 : 0;
+}
+
+function getLeadStoryEmphasis({
+  layout,
+  supportCount,
+  utilityWeight,
+  hasHeroImage,
+  hasGallery
+}: {
+  layout: LayoutKind;
+  supportCount: number;
+  utilityWeight: number;
+  hasHeroImage: boolean;
+  hasGallery: boolean;
+}): LeadStoryEmphasis {
+  if (layout === "announcement" || (supportCount <= 1 && !hasGallery)) {
+    return hasHeroImage || utilityWeight <= 1 ? "feature" : "standard";
+  }
+
+  if (layout === "story_heavy" || supportCount >= 4) {
+    return "compact";
+  }
+
+  return "standard";
 }
 
 function dedupeSupportModules(modules: SupportModule[]) {
