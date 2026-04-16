@@ -153,39 +153,44 @@ export function NewsletterPreview({
         {hero ? (
           <>
             <section
-              className="grid gap-6 px-6 py-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch lg:px-8"
+              className="grid gap-6 px-6 py-8 lg:grid-cols-[minmax(0,1.3fr)_minmax(300px,0.7fr)] lg:px-8"
               style={{
                 background: `linear-gradient(135deg, ${organization.colors.primary}F0, ${organization.colors.secondary}D0)`
               }}
             >
-              <div className="rounded-[26px] bg-black/20 p-6 text-white backdrop-blur">
-                <div className="text-xs font-bold uppercase tracking-[0.3em] text-white/80">
+              <div className="rounded-[26px] bg-black/15 p-6 text-white backdrop-blur">
+                <div className="text-xs font-bold uppercase tracking-[0.3em] text-white/75">
                   {hero.content.eyebrow}
                 </div>
-                <h1 className="mt-4 font-display text-4xl leading-none lg:text-6xl">
+                <h1 className="mt-4 max-w-4xl font-display text-4xl leading-[0.96] lg:text-6xl">
                   {hero.content.headline}
                 </h1>
-                <p className="mt-5 max-w-2xl text-base leading-7 text-white/90">{hero.content.body}</p>
+                <p className="mt-5 max-w-3xl text-base leading-7 text-white/92">{hero.content.body}</p>
               </div>
-              <div className="grid gap-3 self-end">
-                {hero.content.stats.map((stat) => (
-                  <div key={stat.label} className="rounded-[24px] bg-white/90 p-5 text-brand-text">
-                    <div className="text-3xl font-bold" style={{ color: organization.colors.primary }}>
-                      {stat.value}
-                    </div>
-                    <div className="mt-1 text-sm text-brand-muted">{stat.label}</div>
+              <div className="grid gap-4">
+                {hero.content.heroImage ? (
+                  <div className="rounded-[26px] border border-white/25 bg-white/10 p-4">
+                    <ImageFrame
+                      alt={hero.content.headline}
+                      className="rounded-[20px] border border-white/20 bg-white/90 p-2"
+                      imageClassName="max-h-[380px]"
+                      src={hero.content.heroImage}
+                    />
                   </div>
-                ))}
+                ) : null}
+                {hero.content.stats.length > 0 ? (
+                  <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-1">
+                    {hero.content.stats.map((stat) => (
+                      <div key={stat.label} className="rounded-[24px] bg-white/92 p-5 text-brand-text">
+                        <div className="text-3xl font-bold" style={{ color: organization.colors.primary }}>
+                          {stat.value}
+                        </div>
+                        <div className="mt-1 text-sm text-brand-muted">{stat.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
               </div>
-              {hero.content.heroImage ? (
-                <div className="rounded-[26px] border border-white/25 bg-white/10 p-4">
-                  <ImageFrame
-                    alt={hero.content.headline}
-                    className="h-full min-h-[280px] rounded-[20px] border border-white/20 bg-white/90"
-                    src={hero.content.heroImage}
-                  />
-                </div>
-              ) : null}
             </section>
 
             {Array.isArray(hero.content.galleryImages) && hero.content.galleryImages.length > 0 ? (
@@ -198,7 +203,8 @@ export function NewsletterPreview({
                     <ImageFrame
                       key={`${imageUrl}-${index}`}
                       alt={`${organization.name} newsletter photo ${index + 1}`}
-                      className="h-48 rounded-[24px] border border-slate-200 bg-[#F7F9FC]"
+                      className="rounded-[24px] border border-slate-200 bg-[#F7F9FC] p-2"
+                      imageClassName="max-h-[220px]"
                       src={imageUrl}
                     />
                   ))}
@@ -208,7 +214,7 @@ export function NewsletterPreview({
           </>
         ) : null}
 
-        <div className={`grid gap-6 px-6 py-8 lg:px-8 ${channel === "email" ? "" : "xl:grid-cols-[1.2fr_0.8fr]"}`}>
+        <div className={`grid gap-6 px-6 py-8 lg:px-8 ${channel === "email" ? "" : "xl:grid-cols-[minmax(0,1.65fr)_minmax(320px,0.75fr)]"}`}>
           <main className="grid gap-6">
             {principal ? (
               <section className="rounded-[28px] bg-white p-6 shadow-sm">
@@ -223,10 +229,11 @@ export function NewsletterPreview({
             ) : null}
 
             {topStory ? (
-              <section className="overflow-hidden rounded-[28px] bg-white shadow-sm lg:grid lg:grid-cols-[0.95fr_1.05fr]">
+              <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm lg:grid lg:grid-cols-[minmax(220px,0.82fr)_minmax(0,1.18fr)]">
                 <ImageFrame
                   alt={topStory.content.headline}
-                  className="h-full min-h-[260px] rounded-none bg-[#F7F9FC]"
+                  className="rounded-none bg-[#F7F9FC] p-4"
+                  imageClassName="max-h-[360px]"
                   src={topStory.content.image}
                 />
                 <div className="p-6">
@@ -235,13 +242,15 @@ export function NewsletterPreview({
                   </div>
                   <h2 className="mt-4 font-display text-4xl leading-none">{topStory.content.headline}</h2>
                   <p className="mt-4 text-base leading-7 text-brand-muted">{topStory.content.summary}</p>
-                  <a
-                    className="mt-6 inline-flex rounded-full px-5 py-3 text-sm font-semibold text-white"
-                    href={topStory.content.url}
-                    style={{ backgroundColor: organization.colors.primary }}
-                  >
-                    Read the story
-                  </a>
+                  {topStory.content.url ? (
+                    <a
+                      className="mt-6 inline-flex rounded-full px-5 py-3 text-sm font-semibold text-white"
+                      href={topStory.content.url}
+                      style={{ backgroundColor: organization.colors.primary }}
+                    >
+                      Read the story
+                    </a>
+                  ) : null}
                 </div>
               </section>
             ) : null}
@@ -262,7 +271,8 @@ export function NewsletterPreview({
                       {item.image ? (
                         <ImageFrame
                           alt={item.headline}
-                          className="h-44 rounded-none bg-white"
+                          className="rounded-none bg-white p-3"
+                          imageClassName="max-h-[220px]"
                           src={item.image}
                         />
                       ) : null}
@@ -312,7 +322,8 @@ export function NewsletterPreview({
                       {item.image ? (
                         <ImageFrame
                           alt={item.title}
-                          className="h-40 rounded-none bg-[#F7F9FC]"
+                          className="rounded-none bg-[#F7F9FC] p-3"
+                          imageClassName="max-h-[220px]"
                           src={item.image}
                         />
                       ) : null}
@@ -379,7 +390,8 @@ export function NewsletterPreview({
                   </div>
                   <ImageFrame
                     alt={spotlight.content.name}
-                    className="mt-4 h-52 rounded-[24px] bg-[#F7F9FC]"
+                    className="mt-4 rounded-[24px] bg-[#F7F9FC] p-3"
+                    imageClassName="max-h-[260px]"
                     src={spotlight.content.image}
                   />
                   <h3 className="mt-4 text-2xl font-semibold">{spotlight.content.name}</h3>
@@ -435,10 +447,11 @@ export function NewsletterPreview({
               </p>
             </div>
             <div>
-              <h4 className="text-lg font-semibold">Distribution-ready footer</h4>
+              <h4 className="text-lg font-semibold">Stay connected</h4>
               <p className="mt-3 text-sm leading-6 text-slate-300">
-                The final product should support hosted archives, email footer compliance, and export-safe
-                contact information from the same source block.
+                {organization.websiteUrl
+                  ? `Visit ${organization.websiteUrl} for school updates, archive access, and additional family resources.`
+                  : "Check the school archive and district channels for future updates and family resources."}
               </p>
             </div>
           </div>
@@ -451,23 +464,24 @@ export function NewsletterPreview({
 function ImageFrame({
   src,
   alt,
-  className
+  className,
+  imageClassName
 }: {
   src?: string;
   alt: string;
   className?: string;
+  imageClassName?: string;
 }) {
   if (!src) {
     return null;
   }
 
   return (
-    <div className={`relative w-full overflow-hidden ${className ?? ""}`}>
-      <Image
+    <div className={`w-full overflow-hidden ${className ?? ""}`}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
         alt={alt}
-        className="h-full w-full object-contain"
-        fill
-        sizes="(min-width: 1280px) 40vw, (min-width: 768px) 50vw, 100vw"
+        className={`block h-auto w-full object-contain ${imageClassName ?? ""}`}
         src={src}
       />
     </div>

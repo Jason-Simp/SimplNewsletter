@@ -183,37 +183,6 @@ export function selectImageAssignments(generated: ContentGenerateResponse, asset
   const spotlight = generated.sections?.find((section) => section.sectionType === "student_spotlight");
   const events = generated.sections?.find((section) => section.sectionType === "arts_events");
 
-  const heroImage = chooseImageForText(
-    [
-      generated.title,
-      hero?.title,
-      typeof hero?.content?.headline === "string" ? hero.content.headline : "",
-      typeof hero?.content?.body === "string" ? hero.content.body : ""
-    ],
-    imageAssets,
-    usedNames
-  );
-
-  const topStoryImage = chooseImageForText(
-    [
-      topStory?.title,
-      typeof topStory?.content?.headline === "string" ? topStory.content.headline : "",
-      typeof topStory?.content?.summary === "string" ? topStory.content.summary : ""
-    ],
-    imageAssets,
-    usedNames
-  );
-
-  const spotlightImage = chooseImageForText(
-    [
-      spotlight?.title,
-      typeof spotlight?.content?.name === "string" ? spotlight.content.name : "",
-      typeof spotlight?.content?.summary === "string" ? spotlight.content.summary : ""
-    ],
-    imageAssets,
-    usedNames
-  );
-
   const newsItemImages = Array.isArray(newsGrid?.content?.items)
     ? newsGrid.content.items.map((item) =>
         chooseImageForText(
@@ -223,7 +192,8 @@ export function selectImageAssignments(generated: ContentGenerateResponse, asset
             typeof item?.tag === "string" ? item.tag : ""
           ],
           imageAssets,
-          usedNames
+          usedNames,
+          3
         )
       )
     : [];
@@ -237,10 +207,45 @@ export function selectImageAssignments(generated: ContentGenerateResponse, asset
             typeof item?.date === "string" ? item.date : ""
           ],
           imageAssets,
-          usedNames
+          usedNames,
+          3
         )
       )
     : [];
+
+  const spotlightImage = chooseImageForText(
+    [
+      spotlight?.title,
+      typeof spotlight?.content?.name === "string" ? spotlight.content.name : "",
+      typeof spotlight?.content?.summary === "string" ? spotlight.content.summary : ""
+    ],
+    imageAssets,
+    usedNames,
+    3
+  );
+
+  const topStoryImage = chooseImageForText(
+    [
+      topStory?.title,
+      typeof topStory?.content?.headline === "string" ? topStory.content.headline : "",
+      typeof topStory?.content?.summary === "string" ? topStory.content.summary : ""
+    ],
+    imageAssets,
+    usedNames,
+    3
+  );
+
+  const heroImage = chooseImageForText(
+    [
+      generated.title,
+      hero?.title,
+      typeof hero?.content?.headline === "string" ? hero.content.headline : "",
+      typeof hero?.content?.body === "string" ? hero.content.body : ""
+    ],
+    imageAssets,
+    usedNames,
+    4
+  );
 
   const galleryImages = imageAssets
     .filter((asset) => !usedNames.has(asset.name) && asset.url)
@@ -259,7 +264,8 @@ export function selectImageAssignments(generated: ContentGenerateResponse, asset
 function chooseImageForText(
   textParts: Array<string | undefined>,
   assets: UploadedAsset[],
-  usedNames: Set<string>
+  usedNames: Set<string>,
+  minimumScore = 2
 ) {
   const availableAssets = assets.filter((asset) => !usedNames.has(asset.name) && asset.url);
 
@@ -276,7 +282,13 @@ function chooseImageForText(
     }))
     .sort((left, right) => right.score - left.score);
 
-  const bestMatch = scoredAssets[0]?.asset ?? availableAssets[0];
+  const bestCandidate = scoredAssets[0];
+
+  if (!bestCandidate || bestCandidate.score < minimumScore) {
+    return "";
+  }
+
+  const bestMatch = bestCandidate.asset;
   usedNames.add(bestMatch.name);
   return bestMatch.url ?? "";
 }
@@ -284,6 +296,7 @@ function chooseImageForText(
 function scoreAssetAgainstTokens(asset: UploadedAsset, tokens: string[], sourceText: string) {
   const normalizedName = normalizeForMatching(asset.name);
   const assetTokens = tokenizeForMatching(asset.name);
+  const normalizedSource = normalizeForMatching(sourceText);
   let score = 0;
 
   if (!tokens.length) {
@@ -296,7 +309,7 @@ function scoreAssetAgainstTokens(asset: UploadedAsset, tokens: string[], sourceT
     }
 
     if (normalizedName.includes(token)) {
-      score += 4;
+      score += 5;
       continue;
     }
 
@@ -312,10 +325,18 @@ function scoreAssetAgainstTokens(asset: UploadedAsset, tokens: string[], sourceT
 
   if (assetTokens.length) {
     const combinedAssetPhrase = assetTokens.join(" ");
-    const normalizedSource = normalizeForMatching(sourceText);
     if (normalizedSource.includes(combinedAssetPhrase)) {
-      score += 6;
+      score += 10;
     }
+  }
+
+  const normalizedAssetPhrase = normalizedName.replace(/-/g, " ").trim();
+  if (normalizedAssetPhrase && normalizedSource.includes(normalizedAssetPhrase)) {
+    score += 8;
+  }
+
+  if (assetTokens.length >= 2 && containsOrderedTokenRun(assetTokens, tokens)) {
+    score += 4;
   }
 
   if (/\b(photo|image|picture)\b/.test(normalizeForMatching(sourceText))) {
@@ -323,6 +344,27 @@ function scoreAssetAgainstTokens(asset: UploadedAsset, tokens: string[], sourceT
   }
 
   return score;
+}
+
+function containsOrderedTokenRun(assetTokens: string[], sourceTokens: string[]) {
+  if (assetTokens.length < 2 || sourceTokens.length < 2) {
+    return false;
+  }
+
+  for (let index = 0; index < assetTokens.length - 1; index += 1) {
+    const first = assetTokens[index];
+    const second = assetTokens[index + 1];
+    const firstIndex = sourceTokens.findIndex((token) => token === first || token.includes(first) || first.includes(token));
+    if (firstIndex === -1) {
+      continue;
+    }
+    const secondIndex = sourceTokens.slice(firstIndex + 1).findIndex((token) => token === second || token.includes(second) || second.includes(token));
+    if (secondIndex !== -1) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function tokenizeForMatching(value: string) {
