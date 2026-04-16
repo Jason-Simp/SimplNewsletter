@@ -115,6 +115,9 @@ export function NewsletterPreview({
     hasCalendar: Boolean(calendar?.content.items.length),
     hasPrincipal: Boolean(principal?.content.quote)
   });
+  const bannerModuleCount = supportStories.length <= 1 ? Math.min(2, supportModules.length) : supportStories.length <= 2 ? Math.min(1, supportModules.length) : 0;
+  const bannerModules = supportModules.slice(0, bannerModuleCount);
+  const inlineSupportModules = supportModules.slice(bannerModuleCount);
   const leadStoryEmphasis = getLeadStoryEmphasis({
     layout,
     supportCount: supportStories.length,
@@ -220,6 +223,7 @@ export function NewsletterPreview({
           title={document.title}
         />
 
+        {bannerModules.length > 0 ? <SupportBannerRow modules={bannerModules} /> : null}
         {galleryImages.length > 0 ? <PhotoStrip images={galleryImages} organizationName={organization.name} /> : null}
 
         <div className="px-6 py-8 lg:px-8">
@@ -238,7 +242,7 @@ export function NewsletterPreview({
               showSpotlight={showSpotlight}
               spotlight={spotlight}
               supportStories={supportStories}
-              supportModules={supportModules}
+              supportModules={inlineSupportModules}
               topStory={topStory}
               leadStoryEmphasis={leadStoryEmphasis}
             />
@@ -258,7 +262,7 @@ export function NewsletterPreview({
               showSpotlight={showSpotlight}
               spotlight={spotlight}
               supportStories={supportStories}
-              supportModules={supportModules}
+              supportModules={inlineSupportModules}
               topStory={topStory}
               leadStoryEmphasis={leadStoryEmphasis}
             />
@@ -278,7 +282,7 @@ export function NewsletterPreview({
               showSpotlight={showSpotlight}
               spotlight={spotlight}
               supportStories={supportStories}
-              supportModules={supportModules}
+              supportModules={inlineSupportModules}
               topStory={topStory}
               leadStoryEmphasis={leadStoryEmphasis}
             />
@@ -307,6 +311,22 @@ export function NewsletterPreview({
             </div>
           </div>
         </footer>
+      </div>
+    </section>
+  );
+}
+
+function SupportBannerRow({ modules }: { modules: SupportModule[] }) {
+  if (!modules.length) {
+    return null;
+  }
+
+  return (
+    <section className="border-b border-black/5 bg-[linear-gradient(180deg,#ffffff_0%,#f9fbff_100%)] px-6 py-5 lg:px-8">
+      <div className={`grid gap-4 ${modules.length > 1 ? "xl:grid-cols-2" : ""}`}>
+        {modules.map((module) => (
+          <SupportBannerCard key={module.id} module={module} />
+        ))}
       </div>
     </section>
   );
@@ -1014,6 +1034,43 @@ function SupportModuleCard({
   );
 }
 
+function SupportBannerCard({ module }: { module: SupportModule }) {
+  const primary = module.tone === "primary";
+  const secondary = module.tone === "secondary";
+  const surfaceClass = primary
+    ? "border-brand-primary/10 bg-[linear-gradient(135deg,#123A69_0%,#1C4E89_100%)] text-white"
+    : secondary
+      ? "border-brand-secondary/10 bg-[linear-gradient(135deg,rgba(134,32,26,0.12)_0%,rgba(255,255,255,1)_100%)] text-brand-text"
+      : "border-slate-200 bg-[linear-gradient(135deg,#ffffff_0%,#f7f9fc_100%)] text-brand-text";
+  const eyebrowClass = primary ? "text-white/80" : secondary ? "text-brand-secondary" : "text-brand-primary";
+  const bodyClass = primary ? "text-white/90" : "text-brand-muted";
+
+  return (
+    <article className={`relative overflow-hidden rounded-[30px] border p-6 shadow-[0_16px_36px_rgba(15,39,69,0.08)] ${surfaceClass}`}>
+      <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
+        <div>
+          <div className={`text-xs font-bold uppercase tracking-[0.28em] ${eyebrowClass}`}>{module.eyebrow}</div>
+          <h3 className="mt-3 max-w-2xl text-2xl font-semibold leading-tight">{module.title}</h3>
+          <p className={`mt-3 max-w-2xl text-sm leading-6 ${bodyClass}`}>{module.body}</p>
+          {module.actionLabel && module.actionHref ? (
+            <a
+              className={`mt-5 inline-flex rounded-full px-4 py-2 text-sm font-semibold ${
+                primary ? "bg-white text-brand-primary" : "border border-slate-200 bg-white text-brand-primary"
+              }`}
+              href={module.actionHref}
+            >
+              {module.actionLabel}
+            </a>
+          ) : null}
+        </div>
+        <div className="md:justify-self-end">
+          {renderSupportGraphic(module.graphic ?? "none", module.tone)}
+        </div>
+      </div>
+    </article>
+  );
+}
+
 function PhotoStrip({
   images,
   organizationName
@@ -1164,9 +1221,9 @@ function buildSupportModules(document: NewsletterDocument): SupportModule[] {
   if (organization.websiteUrl) {
     modules.push({
       id: "website",
-      eyebrow: "School website",
-      title: "Stay close to updates and resources",
-      body: `Visit ${organization.websiteUrl} for calendars, family resources, and school updates tied to this issue.`,
+      eyebrow: "Family resources",
+      title: "Visit the school website for calendars, forms, and updates",
+      body: `Keep ${organization.websiteUrl} close for school news, family resources, and important follow-up details connected to this issue.`,
       actionHref: organization.websiteUrl.startsWith("http")
         ? organization.websiteUrl
         : `https://${organization.websiteUrl}`,
@@ -1180,7 +1237,7 @@ function buildSupportModules(document: NewsletterDocument): SupportModule[] {
     modules.push({
       id: "contact",
       eyebrow: "Need help?",
-      title: "Questions about this week’s updates?",
+      title: "Questions or follow-up? Start here.",
       body: [organization.contactEmail, organization.phone, organization.address].filter(Boolean).join(" • "),
       actionHref: organization.contactEmail ? `mailto:${organization.contactEmail}` : undefined,
       actionLabel: organization.contactEmail ? "Email the school" : undefined,
@@ -1193,7 +1250,7 @@ function buildSupportModules(document: NewsletterDocument): SupportModule[] {
     id: "family-reminder",
     eyebrow: "Family reminder",
     title: "Keep this issue handy for the week ahead",
-    body: `This newsletter for ${issueDate} is meant to help families quickly track the biggest updates, reminders, and school moments without having to hunt for details later.`,
+    body: `Use this issue as your quick reference for the week of ${issueDate} so reminders, celebrations, and next steps stay easy to find.`,
     tone: "secondary",
     graphic: "announcement"
   });
@@ -1211,9 +1268,9 @@ function buildSupportModules(document: NewsletterDocument): SupportModule[] {
 
   modules.push({
     id: "issue-context",
-    eyebrow: "This issue",
+    eyebrow: "This issue at a glance",
     title: title || `${organization.name} weekly update`,
-    body: "The Wire can use trusted school information to round out light issues with useful modules like contacts, reminders, and quick-reference school details.",
+    body: `This issue is designed to help families scan the biggest updates quickly, from important reminders to student moments worth celebrating.`,
     tone: "neutral",
     graphic: "calendar"
   });
@@ -1299,18 +1356,22 @@ function getDesiredSupportModuleCount({
   schoolDefinedCount: number;
 }) {
   if (schoolDefinedCount > 0) {
-    return Math.min(schoolDefinedCount, supportCount <= 1 ? 2 : supportCount <= 3 ? 1 : 0);
+    return Math.min(schoolDefinedCount, supportCount <= 1 ? 3 : supportCount <= 3 ? 2 : 1);
   }
 
   if (layout === "announcement") {
-    return supportCount <= 1 ? 2 : 1;
+    return supportCount <= 1 ? 3 : 2;
   }
 
   if (layout === "story_heavy") {
-    return supportCount >= 4 ? 0 : 1;
+    return supportCount >= 4 ? 1 : 2;
   }
 
-  return utilityWeight >= 2 ? 0 : supportCount <= 2 ? 1 : 0;
+  if (utilityWeight >= 2) {
+    return supportCount <= 2 ? 1 : 0;
+  }
+
+  return supportCount <= 2 ? 2 : 1;
 }
 
 function getLeadStoryEmphasis({

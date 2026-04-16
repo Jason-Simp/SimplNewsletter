@@ -76,6 +76,30 @@ const supportModulePresets: Array<{
       tone: "primary",
       graphic: "spark"
     }
+  },
+  {
+    label: "Attendance reminder",
+    module: {
+      eyebrow: "Attendance matters",
+      title: "Please notify the school about absences and schedule changes",
+      body: "Use this area for the evergreen attendance or check-in reminder families need most often.",
+      actionLabel: "",
+      actionHref: "",
+      tone: "neutral",
+      graphic: "calendar"
+    }
+  },
+  {
+    label: "Family action banner",
+    module: {
+      eyebrow: "Family action",
+      title: "Keep forms, deadlines, and follow-up steps easy to find",
+      body: "Use this for registrations, donations, volunteer opportunities, or any standing family action you want visible.",
+      actionLabel: "",
+      actionHref: "",
+      tone: "secondary",
+      graphic: "announcement"
+    }
   }
 ];
 
