@@ -1126,6 +1126,7 @@ export function IssueWizard() {
               </section>
               <ReviewEditorPanel
                 document={document}
+                uploadedAssets={uploadedAssets}
                 onRewritePrincipal={() => void rewriteSection("principal_message")}
                 onRewriteTopStory={() => void rewriteSection("top_story")}
                 onRewriteHero={() => void rewriteSection("hero")}
@@ -1162,6 +1163,104 @@ export function IssueWizard() {
                     ...content,
                     headline: value
                   }))
+                }
+                onHeroImageChange={(value) =>
+                  setDocument((current) =>
+                    reconcileImageAssignments({
+                      ...current,
+                      sections: current.sections.map((section) =>
+                        section.type === "hero"
+                          ? {
+                              ...section,
+                              content: {
+                                ...section.content,
+                                heroImage: value
+                              }
+                            }
+                          : section
+                      )
+                    })
+                  )
+                }
+                onTopStoryImageChange={(value) =>
+                  setDocument((current) =>
+                    reconcileImageAssignments({
+                      ...current,
+                      sections: current.sections.map((section) =>
+                        section.type === "top_story"
+                          ? {
+                              ...section,
+                              content: {
+                                ...section.content,
+                                image: value
+                              }
+                            }
+                          : section
+                      )
+                    })
+                  )
+                }
+                onSpotlightImageChange={(value) =>
+                  setDocument((current) =>
+                    reconcileImageAssignments({
+                      ...current,
+                      sections: current.sections.map((section) =>
+                        section.type === "student_spotlight"
+                          ? {
+                              ...section,
+                              content: {
+                                ...section.content,
+                                image: value
+                              }
+                            }
+                          : section
+                      )
+                    })
+                  )
+                }
+                onNewsImageChange={(itemId, value) =>
+                  setDocument((current) =>
+                    reconcileImageAssignments({
+                      ...current,
+                      sections: current.sections.map((section) =>
+                        section.type === "news_grid"
+                          ? {
+                              ...section,
+                              content: {
+                                ...section.content,
+                                items: Array.isArray((section.content as { items?: Array<Record<string, unknown>> }).items)
+                                  ? ((section.content as { items: Array<Record<string, unknown>> }).items).map((item) =>
+                                      item.id === itemId ? { ...item, image: value } : item
+                                    )
+                                  : []
+                              }
+                            }
+                          : section
+                      )
+                    })
+                  )
+                }
+                onEventImageChange={(itemId, value) =>
+                  setDocument((current) =>
+                    reconcileImageAssignments({
+                      ...current,
+                      sections: current.sections.map((section) =>
+                        section.type === "arts_events"
+                          ? {
+                              ...section,
+                              content: {
+                                ...section.content,
+                                items: Array.isArray((section.content as { items?: Array<Record<string, unknown>> }).items)
+                                  ? ((section.content as { items: Array<Record<string, unknown>> }).items).map((item) =>
+                                      item.id === itemId ? { ...item, image: value } : item
+                                    )
+                                  : []
+                              }
+                            }
+                          : section
+                      )
+                    })
+                  )
                 }
               />
               <NewsletterPreview
@@ -1521,6 +1620,7 @@ function PublishSummaryPanel({
 
 function ReviewEditorPanel({
   document,
+  uploadedAssets,
   onRewritePrincipal,
   onRewriteTopStory,
   onRewriteHero,
@@ -1532,9 +1632,15 @@ function ReviewEditorPanel({
   onTopStoryHeadlineChange,
   onTopStorySummaryChange,
   onHeroBodyChange,
-  onHeroHeadlineChange
+  onHeroHeadlineChange,
+  onHeroImageChange,
+  onTopStoryImageChange,
+  onSpotlightImageChange,
+  onNewsImageChange,
+  onEventImageChange
 }: {
   document: NewsletterDocument;
+  uploadedAssets: UploadedAsset[];
   onRewritePrincipal: () => void;
   onRewriteTopStory: () => void;
   onRewriteHero: () => void;
@@ -1547,10 +1653,24 @@ function ReviewEditorPanel({
   onTopStorySummaryChange: (value: string) => void;
   onHeroBodyChange: (value: string) => void;
   onHeroHeadlineChange: (value: string) => void;
+  onHeroImageChange: (value: string) => void;
+  onTopStoryImageChange: (value: string) => void;
+  onSpotlightImageChange: (value: string) => void;
+  onNewsImageChange: (itemId: string, value: string) => void;
+  onEventImageChange: (itemId: string, value: string) => void;
 }) {
   const hero = getSectionContent(document, "hero");
   const principal = getSectionContent(document, "principal_message");
   const topStory = getSectionContent(document, "top_story");
+  const spotlight = getSectionContent(document, "student_spotlight");
+  const newsItems = readItemList(getSectionContent(document, "news_grid"), "items");
+  const eventItems = readItemList(getSectionContent(document, "arts_events"), "items");
+  const imageOptions = uploadedAssets
+    .filter((asset) => asset.type.startsWith("image/") && asset.url)
+    .map((asset) => ({
+      label: asset.name,
+      value: asset.url ?? ""
+    }));
 
   return (
     <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
@@ -1623,6 +1743,12 @@ function ReviewEditorPanel({
                 value={readString(hero, "body")}
               />
             </label>
+            <ImageAssignmentField
+              currentValue={readString(hero, "heroImage")}
+              label="Lead image"
+              options={imageOptions}
+              onChange={onHeroImageChange}
+            />
           </div>
         </div>
       ) : null}
@@ -1657,6 +1783,63 @@ function ReviewEditorPanel({
                 value={readString(topStory, "summary")}
               />
             </label>
+            <ImageAssignmentField
+              currentValue={readString(topStory, "image")}
+              label="Top story image"
+              options={imageOptions}
+              onChange={onTopStoryImageChange}
+            />
+          </div>
+        </div>
+      ) : null}
+
+      {spotlight && (readString(spotlight, "name") || readString(spotlight, "summary")) ? (
+        <div className="mt-6 rounded-[24px] border border-slate-200 bg-brand-background p-5">
+          <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Student spotlight</div>
+          <div className="mt-4 grid gap-4">
+            <ImageAssignmentField
+              currentValue={readString(spotlight, "image")}
+              label="Spotlight image"
+              options={imageOptions}
+              onChange={onSpotlightImageChange}
+            />
+          </div>
+        </div>
+      ) : null}
+
+      {newsItems.length > 0 ? (
+        <div className="mt-6 rounded-[24px] border border-slate-200 bg-brand-background p-5">
+          <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Story images</div>
+          <div className="mt-2 text-sm leading-6 text-brand-muted">
+            If the system matched a photo to the wrong story, fix it here instead of rerunning the whole draft.
+          </div>
+          <div className="mt-4 grid gap-4">
+            {newsItems.map((item) => (
+              <ImageAssignmentField
+                key={item.id}
+                currentValue={item.image}
+                label={item.headline || "Story image"}
+                options={imageOptions}
+                onChange={(value) => onNewsImageChange(item.id, value)}
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {eventItems.length > 0 ? (
+        <div className="mt-6 rounded-[24px] border border-slate-200 bg-brand-background p-5">
+          <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Event images</div>
+          <div className="mt-4 grid gap-4">
+            {eventItems.map((item) => (
+              <ImageAssignmentField
+                key={item.id}
+                currentValue={item.image}
+                label={item.title || "Event image"}
+                options={imageOptions}
+                onChange={(value) => onEventImageChange(item.id, value)}
+              />
+            ))}
           </div>
         </div>
       ) : null}
@@ -1690,12 +1873,81 @@ function ReviewEditorPanel({
   );
 }
 
+function ImageAssignmentField({
+  label,
+  currentValue,
+  options,
+  onChange
+}: {
+  label: string;
+  currentValue: string;
+  options: Array<{ label: string; value: string }>;
+  onChange: (value: string) => void;
+}) {
+  if (!options.length) {
+    return null;
+  }
+
+  return (
+    <label className="grid gap-2">
+      <span className="text-sm font-semibold text-brand-text">{label}</span>
+      <select
+        className="rounded-2xl border border-slate-200 px-4 py-3 text-brand-text outline-none focus:border-brand-primary"
+        onChange={(event) => onChange(event.target.value)}
+        value={currentValue}
+      >
+        <option value="">No image</option>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 function getSectionContent(
   document: NewsletterDocument,
   sectionType: NewsletterDocument["sections"][number]["type"]
 ) {
   return (document.sections.find((section) => section.type === sectionType && section.enabled)
     ?.content ?? {}) as Record<string, unknown>;
+}
+
+function readItemList(
+  content: Record<string, unknown>,
+  key: string
+): Array<{ id: string; headline?: string; title?: string; image: string }> {
+  const value = content[key];
+
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  type ImageAssignableItem = { id: string; headline?: string; title?: string; image: string };
+
+  const mappedItems: Array<ImageAssignableItem | null> = value.map((item) => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+
+      const record = item as Record<string, unknown>;
+      const id = typeof record.id === "string" ? record.id : "";
+
+      if (!id) {
+        return null;
+      }
+
+      return {
+        id,
+        headline: typeof record.headline === "string" ? record.headline : undefined,
+        title: typeof record.title === "string" ? record.title : undefined,
+        image: typeof record.image === "string" ? record.image : ""
+      };
+    });
+
+  return mappedItems.filter((item): item is ImageAssignableItem => item !== null);
 }
 
 function readString(content: Record<string, unknown>, key: string) {
@@ -1875,6 +2127,79 @@ function formatStatusTime(value: string) {
     hour: "numeric",
     minute: "2-digit"
   });
+}
+
+function reconcileImageAssignments(document: NewsletterDocument) {
+  const usedImages = new Set<string>();
+
+  for (const section of document.sections) {
+    if (!section.enabled || !section.content || typeof section.content !== "object") {
+      continue;
+    }
+
+    const content = section.content as Record<string, unknown>;
+
+    if (typeof content.heroImage === "string" && content.heroImage.trim()) {
+      usedImages.add(content.heroImage.trim());
+    }
+
+    if (typeof content.image === "string" && content.image.trim()) {
+      usedImages.add(content.image.trim());
+    }
+
+    if (Array.isArray(content.items)) {
+      for (const item of content.items) {
+        if (!item || typeof item !== "object") {
+          continue;
+        }
+
+        const image = (item as Record<string, unknown>).image;
+
+        if (typeof image === "string" && image.trim()) {
+          usedImages.add(image.trim());
+        }
+      }
+    }
+  }
+
+  return {
+    ...document,
+    sections: document.sections.map((section) => {
+      if (section.type !== "hero") {
+        return section;
+      }
+
+      const content = section.content as {
+        galleryImages?: string[];
+        heroImage?: string;
+      };
+      const heroImage = typeof content.heroImage === "string" ? content.heroImage.trim() : "";
+      const filteredGallery = Array.isArray(content.galleryImages)
+        ? content.galleryImages.filter((image, index, collection) => {
+            const normalizedImage = typeof image === "string" ? image.trim() : "";
+
+            if (!normalizedImage) {
+              return false;
+            }
+
+            if (normalizedImage === heroImage) {
+              return false;
+            }
+
+            return collection.indexOf(image) === index && !usedImages.has(normalizedImage);
+          })
+        : [];
+
+      return {
+        ...section,
+        content: {
+          ...content,
+          heroImage,
+          galleryImages: filteredGallery
+        }
+      };
+    })
+  };
 }
 
 function isPersistedDraftId(id: string) {
