@@ -20,8 +20,7 @@ const GENERIC_PHRASES = [
   "generated draft",
   "generated newsletter draft",
   "hello, i'm",
-  "how can i help today",
-  "school newsletter"
+  "how can i help today"
 ];
 
 const GENERIC_HEADLINES = new Set([
@@ -77,10 +76,28 @@ function assertMeaningfulCopy(value: string, context: string) {
   }
 }
 
+function assertMeaningfulTitle(value: string, context: string) {
+  const normalized = value.trim().toLowerCase();
+
+  if (!normalized) {
+    throw new Error(`${context} is missing.`);
+  }
+
+  if (
+    GENERIC_PHRASES.some((phrase) => phrase !== "school newsletter" && normalized.includes(phrase))
+  ) {
+    throw new Error(`${context} came back as placeholder copy instead of a real newsletter draft.`);
+  }
+}
+
 function assertSpecificHeadline(value: string, context: string) {
   const normalized = value.trim().toLowerCase();
 
-  assertMeaningfulCopy(value, context);
+  if (context === "Newsletter title") {
+    assertMeaningfulTitle(value, context);
+  } else {
+    assertMeaningfulCopy(value, context);
+  }
 
   if (GENERIC_HEADLINES.has(normalized)) {
     throw new Error(`${context} is still too generic. The writing agent needs to return a specific headline.`);

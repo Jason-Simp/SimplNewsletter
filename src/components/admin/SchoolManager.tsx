@@ -762,7 +762,7 @@ export function SchoolManager() {
             </div>
           </div>
 
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <div className="mt-4 grid gap-4 xl:grid-cols-2">
             <ReadOnlyField
               help="Share this URL with the other team. This is the The Wire endpoint they should POST newsletter inputs to."
               label="Inbound webhook URL"
@@ -784,7 +784,8 @@ export function SchoolManager() {
               Copy webhook URL
             </button>
             <button
-              className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
+              className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={!hasWebhookSecret}
               onClick={() => void copyWebhookSecret()}
               type="button"
             >
@@ -1156,10 +1157,14 @@ function Input({
   help?: string;
 }) {
   return (
-    <label className="grid gap-2">
+    <label className="grid min-w-0 gap-2">
       <span className="text-sm font-semibold text-brand-text">{label}</span>
       {help ? <span className="text-sm leading-6 text-brand-muted">{help}</span> : null}
-      <input className="rounded-2xl border border-slate-200 px-4 py-3" onChange={(event) => onChange(event.target.value)} value={value} />
+      <input
+        className="min-w-0 rounded-2xl border border-slate-200 px-4 py-3"
+        onChange={(event) => onChange(event.target.value)}
+        value={value}
+      />
     </label>
   );
 }
@@ -1364,10 +1369,10 @@ function ReadOnlyField({
   help?: string;
 }) {
   return (
-    <label className="grid gap-2">
+    <label className="grid min-w-0 gap-2">
       <span className="text-sm font-semibold text-brand-text">{label}</span>
       {help ? <span className="text-sm leading-6 text-brand-muted">{help}</span> : null}
-      <div className="rounded-2xl border border-slate-200 bg-brand-background px-4 py-3 text-sm text-brand-text">
+      <div className="min-w-0 break-all rounded-2xl border border-slate-200 bg-brand-background px-4 py-3 text-sm text-brand-text">
         {value}
       </div>
     </label>
