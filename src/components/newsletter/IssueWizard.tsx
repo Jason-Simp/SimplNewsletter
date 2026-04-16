@@ -1669,7 +1669,8 @@ function ReviewEditorPanel({
     .filter((asset) => asset.type.startsWith("image/") && asset.url)
     .map((asset) => ({
       label: asset.name,
-      value: asset.url ?? ""
+      value: asset.url ?? "",
+      previewUrl: asset.url ?? ""
     }));
 
   return (
@@ -1881,7 +1882,7 @@ function ImageAssignmentField({
 }: {
   label: string;
   currentValue: string;
-  options: Array<{ label: string; value: string }>;
+  options: Array<{ label: string; value: string; previewUrl: string }>;
   onChange: (value: string) => void;
 }) {
   if (!options.length) {
@@ -1889,21 +1890,61 @@ function ImageAssignmentField({
   }
 
   return (
-    <label className="grid gap-2">
-      <span className="text-sm font-semibold text-brand-text">{label}</span>
-      <select
-        className="rounded-2xl border border-slate-200 px-4 py-3 text-brand-text outline-none focus:border-brand-primary"
-        onChange={(event) => onChange(event.target.value)}
-        value={currentValue}
-      >
-        <option value="">No image</option>
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </label>
+    <div className="grid gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <span className="text-sm font-semibold text-brand-text">{label}</span>
+        <button
+          className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] ${
+            currentValue
+              ? "border border-slate-200 bg-white text-brand-text"
+              : "bg-brand-background text-brand-muted"
+          }`}
+          onClick={() => onChange("")}
+          type="button"
+        >
+          No image
+        </button>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {options.map((option) => {
+          const selected = option.value === currentValue;
+
+          return (
+            <button
+              key={option.value}
+              className={`overflow-hidden rounded-[20px] border text-left transition ${
+                selected
+                  ? "border-brand-primary bg-[#EAF2FB] shadow-[0_10px_24px_rgba(18,58,105,0.12)]"
+                  : "border-slate-200 bg-white hover:border-brand-primary/40 hover:bg-slate-50"
+              }`}
+              onClick={() => onChange(option.value)}
+              type="button"
+            >
+              <div className="relative bg-[#F7F9FC] p-2">
+                <div className="aspect-[4/3] overflow-hidden rounded-[14px] bg-white">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    alt={option.label}
+                    className="h-full w-full object-cover"
+                    src={option.previewUrl}
+                  />
+                </div>
+                {selected ? (
+                  <div className="absolute right-4 top-4 rounded-full bg-brand-primary px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-white">
+                    Selected
+                  </div>
+                ) : null}
+              </div>
+              <div className="px-4 pb-4 pt-2">
+                <div className="line-clamp-2 text-sm font-semibold leading-6 text-brand-text">
+                  {option.label}
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
