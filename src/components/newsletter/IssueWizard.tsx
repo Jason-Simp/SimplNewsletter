@@ -526,6 +526,10 @@ export function IssueWizard() {
             restoredGenerationState === "idle" && !restoredJobId
               ? defaultGenerationMessage
               : restoredState?.generationMessage ?? defaultGenerationMessage;
+          const nextActiveStep =
+            restoredState?.activeStep && restoredState.activeStep !== "setup" && !hasReviewableDraftContent(restoredDocument ?? mergedDocument)
+              ? "setup"
+              : restoredState?.activeStep ?? "setup";
 
           setDocument(restoredDocument ?? mergedDocument);
           setSourceIssueLabel(restoredState?.sourceIssueLabel ?? (selectedSource ? selectedSource.title : null));
@@ -538,7 +542,7 @@ export function IssueWizard() {
                   : "")
           );
           setUploadedAssets(restoredState?.uploadedAssets ?? []);
-          setActiveStep(restoredState?.activeStep ?? "setup");
+          setActiveStep(nextActiveStep);
           setGenerationJobId(restoredJobId);
           setGenerationState(restoredGenerationState);
           setGenerationMessage(restoredGenerationMessage);
@@ -792,8 +796,8 @@ export function IssueWizard() {
     (option) => option.channel === "pdf" && option.selected
   );
   const enabledSectionsCount = document.sections.filter((section) => section.enabled).length;
-  const draftReady =
-    generationState === "ready" || document.status === "published" || Boolean(lastGeneratedAt);
+  const hasReviewableDraft = hasReviewableDraftContent(document);
+  const draftReady = hasReviewableDraft || document.status === "published";
   const publishReadinessChecks = [
     {
       label: "Main message added",
@@ -857,6 +861,7 @@ export function IssueWizard() {
                         ? "border-brand-primary bg-brand-background"
                         : "border-slate-200 bg-white hover:bg-slate-50"
                     }`}
+                    disabled={step.id !== "setup" && !draftReady}
                     onClick={() => goToStep(step.id)}
                     type="button"
                   >
@@ -868,6 +873,11 @@ export function IssueWizard() {
                 );
               })}
             </div>
+            {!draftReady ? (
+              <div className="mt-4 rounded-[24px] bg-[#F7F9FC] p-4 text-sm leading-6 text-brand-muted">
+                Review and Share will unlock after the system writes a real first draft.
+              </div>
+            ) : null}
             {sourceIssueLabel ? (
               <div className="mt-5 rounded-[24px] bg-[#EAF2FB] p-4 text-sm leading-6 text-brand-muted">
                 This draft started from a previous issue: <span className="font-semibold text-brand-text">{sourceIssueLabel}</span>.
@@ -1115,163 +1125,176 @@ export function IssueWizard() {
                   >
                     {generationState === "generating" ? "Writing another draft..." : "Try another draft"}
                   </button>
-                  <button
-                    className="rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white"
-                    onClick={() => setActiveStep("distribution")}
-                    type="button"
-                  >
-                    Keep this draft
-                  </button>
-                </div>
-              </section>
-              <ReviewEditorPanel
-                document={document}
-                uploadedAssets={uploadedAssets}
-                onRewritePrincipal={() => void rewriteSection("principal_message")}
-                onRewriteTopStory={() => void rewriteSection("top_story")}
-                onRewriteHero={() => void rewriteSection("hero")}
-                rewritingSection={rewritingSection}
-                onIssueDateChange={(value) => updateDocumentField("issueDate", value)}
-                onIntroChange={(value) => updateDocumentField("intro", value)}
-                onPrincipalQuoteChange={(value) =>
-                  updateSectionContent("principal_message", (content) => ({
-                    ...content,
-                    quote: value
-                  }))
-                }
-                onTitleChange={(value) => updateDocumentField("title", value)}
-                onTopStoryHeadlineChange={(value) =>
-                  updateSectionContent("top_story", (content) => ({
-                    ...content,
-                    headline: value
-                  }))
-                }
-                onTopStorySummaryChange={(value) =>
-                  updateSectionContent("top_story", (content) => ({
-                    ...content,
-                    summary: value
-                  }))
-                }
-                onHeroBodyChange={(value) =>
-                  updateSectionContent("hero", (content) => ({
-                    ...content,
-                    body: value
-                  }))
-                }
-                onHeroHeadlineChange={(value) =>
-                  updateSectionContent("hero", (content) => ({
-                    ...content,
-                    headline: value
-                  }))
-                }
-                onHeroImageChange={(value) =>
-                  setDocument((current) =>
-                    reconcileImageAssignments({
-                      ...current,
-                      sections: current.sections.map((section) =>
-                        section.type === "hero"
-                          ? {
-                              ...section,
-                              content: {
-                                ...section.content,
-                                heroImage: value
-                              }
-                            }
-                          : section
+                <button
+                  className="rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white"
+                  disabled={!hasReviewableDraft}
+                  onClick={() => setActiveStep("distribution")}
+                  type="button"
+                >
+                  Keep this draft
+                </button>
+              </div>
+            </section>
+              {hasReviewableDraft ? (
+                <>
+                  <ReviewEditorPanel
+                    document={document}
+                    uploadedAssets={uploadedAssets}
+                    onRewritePrincipal={() => void rewriteSection("principal_message")}
+                    onRewriteTopStory={() => void rewriteSection("top_story")}
+                    onRewriteHero={() => void rewriteSection("hero")}
+                    rewritingSection={rewritingSection}
+                    onIssueDateChange={(value) => updateDocumentField("issueDate", value)}
+                    onIntroChange={(value) => updateDocumentField("intro", value)}
+                    onPrincipalQuoteChange={(value) =>
+                      updateSectionContent("principal_message", (content) => ({
+                        ...content,
+                        quote: value
+                      }))
+                    }
+                    onTitleChange={(value) => updateDocumentField("title", value)}
+                    onTopStoryHeadlineChange={(value) =>
+                      updateSectionContent("top_story", (content) => ({
+                        ...content,
+                        headline: value
+                      }))
+                    }
+                    onTopStorySummaryChange={(value) =>
+                      updateSectionContent("top_story", (content) => ({
+                        ...content,
+                        summary: value
+                      }))
+                    }
+                    onHeroBodyChange={(value) =>
+                      updateSectionContent("hero", (content) => ({
+                        ...content,
+                        body: value
+                      }))
+                    }
+                    onHeroHeadlineChange={(value) =>
+                      updateSectionContent("hero", (content) => ({
+                        ...content,
+                        headline: value
+                      }))
+                    }
+                    onHeroImageChange={(value) =>
+                      setDocument((current) =>
+                        reconcileImageAssignments({
+                          ...current,
+                          sections: current.sections.map((section) =>
+                            section.type === "hero"
+                              ? {
+                                  ...section,
+                                  content: {
+                                    ...section.content,
+                                    heroImage: value
+                                  }
+                                }
+                              : section
+                          )
+                        })
                       )
-                    })
-                  )
-                }
-                onTopStoryImageChange={(value) =>
-                  setDocument((current) =>
-                    reconcileImageAssignments({
-                      ...current,
-                      sections: current.sections.map((section) =>
-                        section.type === "top_story"
-                          ? {
-                              ...section,
-                              content: {
-                                ...section.content,
-                                image: value
-                              }
-                            }
-                          : section
+                    }
+                    onTopStoryImageChange={(value) =>
+                      setDocument((current) =>
+                        reconcileImageAssignments({
+                          ...current,
+                          sections: current.sections.map((section) =>
+                            section.type === "top_story"
+                              ? {
+                                  ...section,
+                                  content: {
+                                    ...section.content,
+                                    image: value
+                                  }
+                                }
+                              : section
+                          )
+                        })
                       )
-                    })
-                  )
-                }
-                onSpotlightImageChange={(value) =>
-                  setDocument((current) =>
-                    reconcileImageAssignments({
-                      ...current,
-                      sections: current.sections.map((section) =>
-                        section.type === "student_spotlight"
-                          ? {
-                              ...section,
-                              content: {
-                                ...section.content,
-                                image: value
-                              }
-                            }
-                          : section
+                    }
+                    onSpotlightImageChange={(value) =>
+                      setDocument((current) =>
+                        reconcileImageAssignments({
+                          ...current,
+                          sections: current.sections.map((section) =>
+                            section.type === "student_spotlight"
+                              ? {
+                                  ...section,
+                                  content: {
+                                    ...section.content,
+                                    image: value
+                                  }
+                                }
+                              : section
+                          )
+                        })
                       )
-                    })
-                  )
-                }
-                onNewsImageChange={(itemId, value) =>
-                  setDocument((current) =>
-                    reconcileImageAssignments({
-                      ...current,
-                      sections: current.sections.map((section) =>
-                        section.type === "news_grid"
-                          ? {
-                              ...section,
-                              content: {
-                                ...section.content,
-                                items: Array.isArray((section.content as { items?: Array<Record<string, unknown>> }).items)
-                                  ? ((section.content as { items: Array<Record<string, unknown>> }).items).map((item) =>
-                                      item.id === itemId ? { ...item, image: value } : item
-                                    )
-                                  : []
-                              }
-                            }
-                          : section
+                    }
+                    onNewsImageChange={(itemId, value) =>
+                      setDocument((current) =>
+                        reconcileImageAssignments({
+                          ...current,
+                          sections: current.sections.map((section) =>
+                            section.type === "news_grid"
+                              ? {
+                                  ...section,
+                                  content: {
+                                    ...section.content,
+                                    items: Array.isArray((section.content as { items?: Array<Record<string, unknown>> }).items)
+                                      ? ((section.content as { items: Array<Record<string, unknown>> }).items).map((item) =>
+                                          item.id === itemId ? { ...item, image: value } : item
+                                        )
+                                      : []
+                                  }
+                                }
+                              : section
+                          )
+                        })
                       )
-                    })
-                  )
-                }
-                onEventImageChange={(itemId, value) =>
-                  setDocument((current) =>
-                    reconcileImageAssignments({
-                      ...current,
-                      sections: current.sections.map((section) =>
-                        section.type === "arts_events"
-                          ? {
-                              ...section,
-                              content: {
-                                ...section.content,
-                                items: Array.isArray((section.content as { items?: Array<Record<string, unknown>> }).items)
-                                  ? ((section.content as { items: Array<Record<string, unknown>> }).items).map((item) =>
-                                      item.id === itemId ? { ...item, image: value } : item
-                                    )
-                                  : []
-                              }
-                            }
-                          : section
+                    }
+                    onEventImageChange={(itemId, value) =>
+                      setDocument((current) =>
+                        reconcileImageAssignments({
+                          ...current,
+                          sections: current.sections.map((section) =>
+                            section.type === "arts_events"
+                              ? {
+                                  ...section,
+                                  content: {
+                                    ...section.content,
+                                    items: Array.isArray((section.content as { items?: Array<Record<string, unknown>> }).items)
+                                      ? ((section.content as { items: Array<Record<string, unknown>> }).items).map((item) =>
+                                          item.id === itemId ? { ...item, image: value } : item
+                                        )
+                                      : []
+                                  }
+                                }
+                              : section
+                          )
+                        })
                       )
-                    })
-                  )
-                }
-              />
-              <NewsletterPreview
-                channel={activeChannel}
-                document={document}
-                onChannelChange={setActiveChannel}
-              />
+                    }
+                  />
+                  <NewsletterPreview
+                    channel={activeChannel}
+                    document={document}
+                    onChannelChange={setActiveChannel}
+                  />
+                </>
+              ) : (
+                <EmptyReviewState
+                  generationMessage={generationMessage}
+                  generationState={generationState}
+                  onReturnToCreate={() => setActiveStep("setup")}
+                  onTryAgain={() => void retryDraftGeneration()}
+                />
+              )}
             </>
           ) : null}
 
           {activeStep === "distribution" ? (
+            hasReviewableDraft ? (
             <>
               <DistributionSelector onToggle={toggleDistribution} options={document.distributionOptions} />
               <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
@@ -1354,6 +1377,14 @@ export function IssueWizard() {
               </div>
               <DistributionPanel />
             </>
+            ) : (
+              <EmptyReviewState
+                generationMessage="There is not a complete newsletter draft to share yet."
+                generationState={generationState}
+                onReturnToCreate={() => setActiveStep("setup")}
+                onTryAgain={() => void retryDraftGeneration()}
+              />
+            )
           ) : null}
         </div>
       </section>
@@ -1615,6 +1646,57 @@ function PublishSummaryPanel({
         </div>
       </div>
     </div>
+  );
+}
+
+function EmptyReviewState({
+  generationState,
+  generationMessage,
+  onReturnToCreate,
+  onTryAgain
+}: {
+  generationState: "idle" | "generating" | "ready" | "error";
+  generationMessage: string;
+  onReturnToCreate: () => void;
+  onTryAgain: () => void;
+}) {
+  return (
+    <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
+      <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Draft status</div>
+      <h2 className="mt-2 font-display text-3xl text-brand-navy">There is not a real draft to review yet</h2>
+      <p className="mt-4 max-w-3xl text-sm leading-7 text-brand-muted">
+        This screen should only open after the system has written actual newsletter content. Right now,
+        the safest next move is to go back to Create and let the system finish or start a fresh pass.
+      </p>
+      <div
+        className={`mt-5 rounded-[24px] p-4 text-sm leading-6 ${
+          generationState === "error"
+            ? "bg-red-50 text-red-700"
+            : generationState === "generating"
+              ? "bg-amber-50 text-amber-700"
+              : "bg-[#EAF2FB] text-brand-muted"
+        }`}
+      >
+        {generationMessage}
+      </div>
+      <div className="mt-6 flex flex-wrap gap-3">
+        <button
+          className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
+          onClick={onReturnToCreate}
+          type="button"
+        >
+          Back to create
+        </button>
+        <button
+          className="rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white disabled:cursor-not-allowed disabled:opacity-40"
+          disabled={generationState === "generating"}
+          onClick={onTryAgain}
+          type="button"
+        >
+          {generationState === "generating" ? "Still writing..." : "Try again"}
+        </button>
+      </div>
+    </section>
   );
 }
 
@@ -2154,6 +2236,61 @@ function shouldAutosaveDraft(
     }
 
     return true;
+  });
+}
+
+function hasReviewableDraftContent(document: NewsletterDocument) {
+  if (document.status === "published") {
+    return true;
+  }
+
+  if (document.title.trim() && document.intro.trim()) {
+    return true;
+  }
+
+  return document.sections.some((section) => {
+    if (!section.enabled || section.type === "footer") {
+      return false;
+    }
+
+    const content = section.content as Record<string, unknown>;
+
+    switch (section.type) {
+      case "hero":
+        return Boolean(readString(content, "headline").trim() || readString(content, "body").trim());
+      case "top_story":
+        return Boolean(readString(content, "headline").trim() || readString(content, "summary").trim());
+      case "principal_message":
+        return Boolean(readString(content, "quote").trim());
+      case "student_spotlight":
+        return Boolean(
+          readString(content, "name").trim() ||
+            readString(content, "summary").trim() ||
+            readString(content, "achievement").trim()
+        );
+      case "calendar_snapshot":
+      case "quick_links":
+      case "news_grid":
+      case "arts_events":
+      case "academics":
+      case "athletics":
+      case "clubs_and_organizations":
+        return Array.isArray(content.items) && content.items.length > 0;
+      case "quote_or_mission":
+        return Boolean(readString(content, "quote").trim() || readString(content, "mission").trim());
+      case "cta_band":
+        return Boolean(readString(content, "headline").trim() || readString(content, "ctaLabel").trim());
+      case "stats_band":
+        return Array.isArray(content.stats) && content.stats.length > 0;
+      default:
+        return Object.values(content).some((value) => {
+          if (typeof value === "string") {
+            return Boolean(value.trim());
+          }
+
+          return Array.isArray(value) && value.length > 0;
+        });
+    }
   });
 }
 
