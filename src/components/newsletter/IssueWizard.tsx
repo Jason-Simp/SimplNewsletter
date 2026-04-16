@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { authFetch } from "@/lib/api-client";
 import { useAuthSession } from "@/lib/auth-client";
@@ -19,6 +19,7 @@ import { NewsletterPreview } from "@/components/newsletter/NewsletterPreview";
 
 export function IssueWizard() {
   const { session, supabase } = useAuthSession();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [activeStep, setActiveStep] = useState<string>(buildSteps[0].id);
   const [activeChannel, setActiveChannel] = useState<Channel>("web");
@@ -73,6 +74,7 @@ export function IssueWizard() {
   ];
   const cloneFromId = searchParams.get("from");
   const draftId = searchParams.get("draft");
+  const freshIssue = searchParams.get("fresh") === "1";
   const browserDraftKey = useMemo(
     () =>
       [
@@ -578,7 +580,9 @@ export function IssueWizard() {
           ? selectedDraft
           : selectedSource
             ? createDraftFromExistingNewsletter(selectedSource)
-            : createFreshDraft(nextSchool);
+            : !freshIssue && loadedDocuments.length > 0
+              ? loadedDocuments[0]
+              : createFreshDraft(nextSchool);
 
         if (!cancelled && nextDocument) {
           const mergedDocument = nextSchool
@@ -661,7 +665,7 @@ export function IssueWizard() {
     return () => {
       cancelled = true;
     };
-  }, [browserDraftKey, cloneFromId, draftId, session?.user?.email, supabase]);
+  }, [browserDraftKey, cloneFromId, draftId, freshIssue, session?.user?.email, supabase]);
 
   useEffect(() => {
     if (!initialLoadComplete.current || typeof window === "undefined") {
@@ -695,6 +699,12 @@ export function IssueWizard() {
       return;
     }
 
+    if (!shouldAutosaveDraft(document, quickNotes, uploadedAssets, lastGeneratedAt)) {
+      setSaveState("idle");
+      setSaveMessage("Draft ready.");
+      return;
+    }
+
     const timeoutId = window.setTimeout(async () => {
       setSaveState("saving");
       setSaveMessage("Saving draft...");
@@ -722,6 +732,10 @@ export function IssueWizard() {
           setDocument(payload.data);
         }
 
+        if (payload?.data?.id && payload.data.id !== draftId && !cloneFromId) {
+          router.replace(`/builder?draft=${encodeURIComponent(payload.data.id)}`);
+        }
+
         setSaveState("saved");
         setSaveMessage(
           payload.mode === "supabase"
@@ -735,7 +749,7 @@ export function IssueWizard() {
     }, 900);
 
     return () => window.clearTimeout(timeoutId);
-  }, [document, supabase]);
+  }, [cloneFromId, document, draftId, lastGeneratedAt, quickNotes, router, supabase, uploadedAssets]);
 
   const selectedWebsite = document.distributionOptions.some(
     (option) => option.channel === "web" && option.selected
@@ -932,7 +946,7 @@ export function IssueWizard() {
                   </div>
                 </div>
 
-                <MediaUploadPanel document={document} onAssetsChange={setUploadedAssets} />
+                <MediaUploadPanel assets={uploadedAssets} document={document} onAssetsChange={setUploadedAssets} />
 
                 <div
                   className={`rounded-[24px] p-4 text-sm leading-6 ${
@@ -1765,6 +1779,65 @@ function createFreshDraft(school: SchoolProfile | null): NewsletterDocument {
       };
     })
   };
+}
+
+function shouldAutosaveDraft(
+  document: NewsletterDocument,
+  quickNotes: string,
+  uploadedAssets: UploadedAsset[],
+  lastGeneratedAt: string | null
+) {
+  if (isPersistedDraftId(document.id)) {
+    return true;
+  }
+
+  if (quickNotes.trim()) {
+    return true;
+  }
+
+  if (uploadedAssets.length > 0) {
+    return true;
+  }
+
+  if (lastGeneratedAt) {
+    return true;
+  }
+
+  if (document.intro.trim() || document.subjectLine.trim() || document.previewText.trim()) {
+    return true;
+  }
+
+  return document.sections.some((section) => {
+    if (section.type === "footer") {
+      return false;
+    }
+
+    if (!section.enabled) {
+      return false;
+    }
+
+    if (section.type === "hero") {
+      const content = section.content as {
+        headline?: string;
+        body?: string;
+        heroImage?: string;
+        galleryImages?: string[];
+      };
+
+      return Boolean(
+        content.headline?.trim() ||
+          content.body?.trim() ||
+          content.heroImage?.trim() ||
+          (Array.isArray(content.galleryImages) && content.galleryImages.length > 0)
+      );
+    }
+
+    return true;
+  });
+}
+
+function isPersistedDraftId(id: string) {
+  return Boolean(id?.trim()) && !id.startsWith("draft-") && !id.startsWith("demo-") && id !== sampleNewsletter.id;
 }
 
 function buildQuickNotesFromDocument(document: NewsletterDocument) {

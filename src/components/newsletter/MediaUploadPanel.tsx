@@ -1,7 +1,7 @@
 "use client";
 
 import imageCompression from "browser-image-compression";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type DragEvent } from "react";
 
 import { authFetch } from "@/lib/api-client";
 import { useAuthSession } from "@/lib/auth-client";
@@ -9,6 +9,7 @@ import type { NewsletterDocument } from "@/types/newsletter";
 import type { UploadedAsset } from "@/types/media";
 
 type Props = {
+  assets?: UploadedAsset[];
   document: NewsletterDocument;
   onAssetsChange?: (assets: UploadedAsset[]) => void;
 };
@@ -49,11 +50,16 @@ function getAcceptedExtensions(document: NewsletterDocument) {
   return [...accepted];
 }
 
-export function MediaUploadPanel({ document, onAssetsChange }: Props) {
+export function MediaUploadPanel({ assets: externalAssets = [], document, onAssetsChange }: Props) {
   const { supabase } = useAuthSession();
-  const [assets, setAssets] = useState<UploadedAsset[]>([]);
+  const [assets, setAssets] = useState<UploadedAsset[]>(externalAssets);
   const [message, setMessage] = useState("No uploads yet.");
   const [uploading, setUploading] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+
+  useEffect(() => {
+    setAssets(externalAssets);
+  }, [externalAssets]);
 
   const acceptedExtensions = useMemo(() => getAcceptedExtensions(document).join(","), [document]);
   const canUpload = Boolean(document.workspace.schoolId);
@@ -120,6 +126,35 @@ export function MediaUploadPanel({ document, onAssetsChange }: Props) {
     }
   };
 
+  const handleDragOver = (event: DragEvent<HTMLLabelElement>) => {
+    event.preventDefault();
+    if (!canUpload || uploading) {
+      return;
+    }
+
+    setDragActive(true);
+  };
+
+  const handleDragLeave = (event: DragEvent<HTMLLabelElement>) => {
+    event.preventDefault();
+    if (event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      return;
+    }
+
+    setDragActive(false);
+  };
+
+  const handleDrop = (event: DragEvent<HTMLLabelElement>) => {
+    event.preventDefault();
+    setDragActive(false);
+
+    if (!canUpload || uploading) {
+      return;
+    }
+
+    void handleFiles(event.dataTransfer.files);
+  };
+
   return (
     <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">
       <div className="flex items-end justify-between gap-4">
@@ -136,7 +171,16 @@ export function MediaUploadPanel({ document, onAssetsChange }: Props) {
         </div>
       </div>
 
-      <label className="mt-6 block rounded-[28px] border border-dashed border-brand-primary/30 bg-brand-background p-8 text-center">
+      <label
+        className={`mt-6 block rounded-[28px] border border-dashed p-8 text-center transition ${
+          dragActive
+            ? "border-brand-primary bg-[#EAF2FB]"
+            : "border-brand-primary/30 bg-brand-background"
+        }`}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
         <input
           accept={acceptedExtensions}
           className="hidden"
@@ -150,6 +194,9 @@ export function MediaUploadPanel({ document, onAssetsChange }: Props) {
           Add up to 10 photos per newsletter. PNG, JPG, GIF, WEBP, SVG, MP3, MP4, and PDF files are
           supported. Use descriptive file names when you can so the system has better clues about which
           images fit the story. Images are compressed automatically before upload.
+        </div>
+        <div className="mt-2 text-sm leading-6 text-brand-muted">
+          Drag and drop files here, or use the upload button below.
         </div>
         <div className="mt-2 text-sm leading-6 text-brand-muted">
           Example file names: `football-team.jpg`, `spring-concert-stage.jpg`, `science-fair-winners.png`.

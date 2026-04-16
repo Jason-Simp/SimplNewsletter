@@ -231,7 +231,7 @@ export default function AdminPage() {
             <div className="mt-6">
               <Link
                 className="block rounded-[28px] border border-slate-200 bg-white p-5 transition hover:border-brand-primary hover:bg-brand-background"
-                href="/builder"
+                href="/builder?fresh=1"
               >
                 <div className="text-xs font-bold uppercase tracking-[0.25em] text-brand-secondary">
                   Guided builder
@@ -340,7 +340,7 @@ export default function AdminPage() {
             </div>
             <Link
               className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
-              href="/builder"
+              href="/builder?fresh=1"
             >
               Start a fresh issue
             </Link>
