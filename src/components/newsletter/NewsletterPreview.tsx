@@ -115,8 +115,17 @@ export function NewsletterPreview({
     hasPrincipal: Boolean(principal?.content.quote)
   });
 
+  const usedImageUrls = new Set(
+    [
+      leadStory?.image,
+      hero?.content.heroImage,
+      showSpotlight ? spotlight?.content.image : undefined,
+      ...primarySupportingStories.map((story) => story.image),
+      ...overflowStories.map((story) => story.image)
+    ].filter((imageUrl): imageUrl is string => Boolean(imageUrl))
+  );
   const galleryImages = Array.isArray(hero?.content.galleryImages)
-    ? hero.content.galleryImages.filter((imageUrl) => imageUrl && imageUrl !== leadStory?.image)
+    ? hero.content.galleryImages.filter((imageUrl) => imageUrl && !usedImageUrls.has(imageUrl))
     : [];
   const showHeroBanner = Boolean(hero?.content.heroImage) && hero?.content.heroImage !== leadStory?.image;
   const issueHeading = getIssueHeading(document);

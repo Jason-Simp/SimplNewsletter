@@ -1835,6 +1835,7 @@ function ReviewEditorPanel({
   const spotlight = getSectionContent(document, "student_spotlight");
   const newsItems = readItemList(getSectionContent(document, "news_grid"), "items");
   const eventItems = readItemList(getSectionContent(document, "arts_events"), "items");
+  const [showImageTools, setShowImageTools] = useState(false);
   const imageOptions = uploadedAssets
     .filter((asset) => asset.type.startsWith("image/") && asset.url)
     .map((asset) => ({
@@ -1914,12 +1915,6 @@ function ReviewEditorPanel({
                 value={readString(hero, "body")}
               />
             </label>
-            <ImageAssignmentField
-              currentValue={readString(hero, "heroImage")}
-              label="Lead image"
-              options={imageOptions}
-              onChange={onHeroImageChange}
-            />
           </div>
         </div>
       ) : null}
@@ -1954,64 +1949,73 @@ function ReviewEditorPanel({
                 value={readString(topStory, "summary")}
               />
             </label>
-            <ImageAssignmentField
-              currentValue={readString(topStory, "image")}
-              label="Top story image"
-              options={imageOptions}
-              onChange={onTopStoryImageChange}
-            />
           </div>
         </div>
       ) : null}
 
-      {spotlight && (readString(spotlight, "name") || readString(spotlight, "summary")) ? (
+      {(hero || topStory || spotlight || newsItems.length > 0 || eventItems.length > 0) && imageOptions.length > 0 ? (
         <div className="mt-6 rounded-[24px] border border-slate-200 bg-brand-background p-5">
-          <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Student spotlight</div>
-          <div className="mt-4 grid gap-4">
-            <ImageAssignmentField
-              currentValue={readString(spotlight, "image")}
-              label="Spotlight image"
-              options={imageOptions}
-              onChange={onSpotlightImageChange}
-            />
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Image matching</div>
+              <div className="mt-2 max-w-2xl text-sm leading-6 text-brand-muted">
+                These controls are optional. Open them only if the system attached a photo to the wrong story.
+              </div>
+            </div>
+            <button
+              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-brand-text"
+              onClick={() => setShowImageTools((current) => !current)}
+              type="button"
+            >
+              {showImageTools ? "Hide image tools" : "Fix image matches"}
+            </button>
           </div>
-        </div>
-      ) : null}
-
-      {newsItems.length > 0 ? (
-        <div className="mt-6 rounded-[24px] border border-slate-200 bg-brand-background p-5">
-          <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Story images</div>
-          <div className="mt-2 text-sm leading-6 text-brand-muted">
-            If the system matched a photo to the wrong story, fix it here instead of rerunning the whole draft.
-          </div>
-          <div className="mt-4 grid gap-4">
-            {newsItems.map((item) => (
-              <ImageAssignmentField
-                key={item.id}
-                currentValue={item.image}
-                label={item.headline || "Story image"}
-                options={imageOptions}
-                onChange={(value) => onNewsImageChange(item.id, value)}
-              />
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      {eventItems.length > 0 ? (
-        <div className="mt-6 rounded-[24px] border border-slate-200 bg-brand-background p-5">
-          <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Event images</div>
-          <div className="mt-4 grid gap-4">
-            {eventItems.map((item) => (
-              <ImageAssignmentField
-                key={item.id}
-                currentValue={item.image}
-                label={item.title || "Event image"}
-                options={imageOptions}
-                onChange={(value) => onEventImageChange(item.id, value)}
-              />
-            ))}
-          </div>
+          {showImageTools ? (
+            <div className="mt-5 grid gap-4">
+              {hero ? (
+                <ImageAssignmentField
+                  currentValue={readString(hero, "heroImage")}
+                  label="Lead image"
+                  options={imageOptions}
+                  onChange={onHeroImageChange}
+                />
+              ) : null}
+              {topStory ? (
+                <ImageAssignmentField
+                  currentValue={readString(topStory, "image")}
+                  label="Top story image"
+                  options={imageOptions}
+                  onChange={onTopStoryImageChange}
+                />
+              ) : null}
+              {spotlight && (readString(spotlight, "name") || readString(spotlight, "summary")) ? (
+                <ImageAssignmentField
+                  currentValue={readString(spotlight, "image")}
+                  label="Student spotlight image"
+                  options={imageOptions}
+                  onChange={onSpotlightImageChange}
+                />
+              ) : null}
+              {newsItems.map((item) => (
+                <ImageAssignmentField
+                  key={item.id}
+                  currentValue={item.image}
+                  label={item.headline || "Story image"}
+                  options={imageOptions}
+                  onChange={(value) => onNewsImageChange(item.id, value)}
+                />
+              ))}
+              {eventItems.map((item) => (
+                <ImageAssignmentField
+                  key={item.id}
+                  currentValue={item.image}
+                  label={item.title || "Event image"}
+                  options={imageOptions}
+                  onChange={(value) => onEventImageChange(item.id, value)}
+                />
+              ))}
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -2060,7 +2064,7 @@ function ImageAssignmentField({
   }
 
   return (
-    <div className="grid gap-3">
+    <div className="rounded-2xl border border-slate-200 bg-white p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <span className="text-sm font-semibold text-brand-text">{label}</span>
         <button
@@ -2075,44 +2079,34 @@ function ImageAssignmentField({
           No image
         </button>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {options.map((option) => {
-          const selected = option.value === currentValue;
-
-          return (
-            <button
-              key={option.value}
-              className={`overflow-hidden rounded-[20px] border text-left transition ${
-                selected
-                  ? "border-brand-primary bg-[#EAF2FB] shadow-[0_10px_24px_rgba(18,58,105,0.12)]"
-                  : "border-slate-200 bg-white hover:border-brand-primary/40 hover:bg-slate-50"
-              }`}
-              onClick={() => onChange(option.value)}
-              type="button"
-            >
-              <div className="relative bg-[#F7F9FC] p-2">
-                <div className="aspect-[4/3] overflow-hidden rounded-[14px] bg-white">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    alt={option.label}
-                    className="h-full w-full object-cover"
-                    src={option.previewUrl}
-                  />
-                </div>
-                {selected ? (
-                  <div className="absolute right-4 top-4 rounded-full bg-brand-primary px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-white">
-                    Selected
-                  </div>
-                ) : null}
+      <div className="mt-3 grid gap-4 md:grid-cols-[112px_minmax(0,1fr)] md:items-center">
+        <div className="overflow-hidden rounded-[16px] border border-slate-200 bg-[#F7F9FC]">
+          <div className="aspect-[4/3]">
+            {currentValue ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img alt={label} className="h-full w-full object-cover" src={currentValue} />
+            ) : (
+              <div className="flex h-full items-center justify-center text-xs font-semibold uppercase tracking-[0.14em] text-brand-muted">
+                No image
               </div>
-              <div className="px-4 pb-4 pt-2">
-                <div className="line-clamp-2 text-sm font-semibold leading-6 text-brand-text">
-                  {option.label}
-                </div>
-              </div>
-            </button>
-          );
-        })}
+            )}
+          </div>
+        </div>
+        <label className="grid gap-2">
+          <span className="text-xs font-bold uppercase tracking-[0.16em] text-brand-muted">Choose image</span>
+          <select
+            className="rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none ring-brand-primary/20 focus:ring"
+            onChange={(event) => onChange(event.target.value)}
+            value={currentValue}
+          >
+            <option value="">No image</option>
+            {options.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
     </div>
   );
