@@ -240,11 +240,22 @@ export async function saveNewsletter(
     support_modules: document.organization.supportModules ?? []
   };
 
-  const { data: school, error: schoolError } = await supabase
+  let schoolResult = await supabase
     .from("schools")
     .upsert(schoolPayload)
     .select("id")
     .single();
+
+  if (isMissingSupportModulesColumnError(schoolResult.error)) {
+    const { support_modules, ...fallbackSchoolPayload } = schoolPayload;
+    schoolResult = await supabase
+      .from("schools")
+      .upsert(fallbackSchoolPayload)
+      .select("id")
+      .single();
+  }
+
+  const { data: school, error: schoolError } = schoolResult;
 
   if (schoolError || !school) {
     throw new Error(schoolError?.message ?? "Failed to save school settings.");
@@ -372,6 +383,10 @@ function normalizeSupportModules(value: unknown): SupportModule[] {
 
 function normalizeSupportTone(value: unknown): SupportModuleTone {
   return value === "primary" || value === "secondary" ? value : "neutral";
+}
+
+function isMissingSupportModulesColumnError(error: { message?: string } | null) {
+  return Boolean(error?.message?.toLowerCase().includes("support_modules"));
 }
 
 function normalizeSupportGraphic(value: unknown): SupportModuleGraphic {

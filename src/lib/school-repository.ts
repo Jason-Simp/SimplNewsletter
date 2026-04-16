@@ -134,36 +134,41 @@ export async function saveSchool(profile: SchoolProfile) {
   }
 
   const secret = process.env.VECTOR_PROJECT_SECRET;
-  const { data, error } = await supabase
-    .from("schools")
-    .upsert({
-      id: profile.id.startsWith("demo-") ? undefined : profile.id,
-      name: profile.name,
-      tagline: profile.tagline,
-      logo_url: profile.logoUrl,
-      website_url: profile.websiteUrl,
-      contact_email: profile.contactEmail,
-      phone: profile.phone,
-      address: profile.address,
-      primary_color: profile.primaryColor,
-      secondary_color: profile.secondaryColor,
-      accent_color: profile.accentColor,
-      background_color: profile.backgroundColor,
-      text_color: profile.textColor,
-      publish_mode: profile.publishMode,
-      agent_id: profile.assistantReference,
-      agent_api: profile.integrationEndpoint,
-      webhook_url: profile.webhookUrl,
-      webhook_secret: profile.webhookSecret,
-      support_modules: profile.supportModules,
-      vector_provider: normalizeVectorProvider(profile.knowledgeProvider),
-      encrypted_project_code:
-        profile.encryptedKnowledgeRef && secret
-          ? encryptProjectCode(profile.encryptedKnowledgeRef, secret)
-          : profile.encryptedKnowledgeRef
-    })
-    .select("*")
-    .single();
+  const basePayload = {
+    id: profile.id.startsWith("demo-") ? undefined : profile.id,
+    name: profile.name,
+    tagline: profile.tagline,
+    logo_url: profile.logoUrl,
+    website_url: profile.websiteUrl,
+    contact_email: profile.contactEmail,
+    phone: profile.phone,
+    address: profile.address,
+    primary_color: profile.primaryColor,
+    secondary_color: profile.secondaryColor,
+    accent_color: profile.accentColor,
+    background_color: profile.backgroundColor,
+    text_color: profile.textColor,
+    publish_mode: profile.publishMode,
+    agent_id: profile.assistantReference,
+    agent_api: profile.integrationEndpoint,
+    webhook_url: profile.webhookUrl,
+    webhook_secret: profile.webhookSecret,
+    support_modules: profile.supportModules,
+    vector_provider: normalizeVectorProvider(profile.knowledgeProvider),
+    encrypted_project_code:
+      profile.encryptedKnowledgeRef && secret
+        ? encryptProjectCode(profile.encryptedKnowledgeRef, secret)
+        : profile.encryptedKnowledgeRef
+  };
+
+  let result = await supabase.from("schools").upsert(basePayload).select("*").single();
+
+  if (isMissingSupportModulesColumnError(result.error)) {
+    const { support_modules, ...fallbackPayload } = basePayload;
+    result = await supabase.from("schools").upsert(fallbackPayload).select("*").single();
+  }
+
+  const { data, error } = result;
 
   if (error || !data) {
     throw new Error(error?.message ?? "Unable to save school profile.");
@@ -236,6 +241,10 @@ function normalizeSupportModules(value: unknown): SupportModule[] {
 
 function normalizeSupportTone(value: unknown): SupportModuleTone {
   return value === "primary" || value === "secondary" ? value : "neutral";
+}
+
+function isMissingSupportModulesColumnError(error: { message?: string } | null) {
+  return Boolean(error?.message?.toLowerCase().includes("support_modules"));
 }
 
 function normalizeSupportGraphic(value: unknown): SupportModuleGraphic {
