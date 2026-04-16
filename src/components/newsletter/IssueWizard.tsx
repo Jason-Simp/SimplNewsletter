@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { authFetch } from "@/lib/api-client";
@@ -694,20 +694,16 @@ export function IssueWizard() {
     uploadedAssets
   ]);
 
-  useEffect(() => {
-    if (!initialLoadComplete.current) {
-      return;
-    }
+  const persistDraft = useCallback(
+    async (mode: "auto" | "manual" = "auto") => {
+      if (!shouldAutosaveDraft(document, quickNotes, uploadedAssets, lastGeneratedAt)) {
+        setSaveState("idle");
+        setSaveMessage(mode === "manual" ? "Nothing to save yet." : "Draft ready.");
+        return false;
+      }
 
-    if (!shouldAutosaveDraft(document, quickNotes, uploadedAssets, lastGeneratedAt)) {
-      setSaveState("idle");
-      setSaveMessage("Draft ready.");
-      return;
-    }
-
-    const timeoutId = window.setTimeout(async () => {
       setSaveState("saving");
-      setSaveMessage("Saving draft...");
+      setSaveMessage(mode === "manual" ? "Saving now..." : "Saving draft...");
 
       try {
         const response = await authFetch(supabase, "/api/newsletters", {
@@ -739,17 +735,33 @@ export function IssueWizard() {
         setSaveState("saved");
         setSaveMessage(
           payload.mode === "supabase"
-            ? "All changes saved."
+            ? mode === "manual"
+              ? "Draft saved."
+              : "All changes saved."
             : "Changes saved on this device."
         );
+
+        return true;
       } catch {
         setSaveState("error");
         setSaveMessage("We could not save your changes.");
+        return false;
       }
+    },
+    [cloneFromId, document, draftId, lastGeneratedAt, quickNotes, router, supabase, uploadedAssets]
+  );
+
+  useEffect(() => {
+    if (!initialLoadComplete.current) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(async () => {
+      await persistDraft("auto");
     }, 900);
 
     return () => window.clearTimeout(timeoutId);
-  }, [cloneFromId, document, draftId, lastGeneratedAt, quickNotes, router, supabase, uploadedAssets]);
+  }, [persistDraft]);
 
   const selectedWebsite = document.distributionOptions.some(
     (option) => option.channel === "web" && option.selected
@@ -848,17 +860,27 @@ export function IssueWizard() {
                 <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Current step</p>
                 <h2 className="mt-2 font-display text-3xl text-brand-navy">{activeStepConfig.title}</h2>
               </div>
-              <span
-                className={`rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] ${
-                  saveState === "error"
-                    ? "bg-red-100 text-red-700"
-                    : saveState === "saved"
-                      ? "bg-emerald-100 text-emerald-700"
-                      : "bg-brand-background text-brand-primary"
-                }`}
-              >
-                {saveMessage}
-              </span>
+              <div className="flex flex-wrap items-center gap-3">
+                <span
+                  className={`rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] ${
+                    saveState === "error"
+                      ? "bg-red-100 text-red-700"
+                      : saveState === "saved"
+                        ? "bg-emerald-100 text-emerald-700"
+                        : "bg-brand-background text-brand-primary"
+                  }`}
+                >
+                  {saveMessage}
+                </span>
+                <button
+                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-brand-text disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={saveState === "saving"}
+                  onClick={() => void persistDraft("manual")}
+                  type="button"
+                >
+                  {saveState === "saving" ? "Saving..." : "Save now"}
+                </button>
+              </div>
             </div>
 
             <div className="mt-4 rounded-[24px] bg-[#EAF2FB] p-4 text-sm leading-6 text-brand-muted">
