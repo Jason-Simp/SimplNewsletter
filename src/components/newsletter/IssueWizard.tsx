@@ -61,26 +61,10 @@ export function IssueWizard() {
   );
   const photoUploads = uploadedAssets.filter((asset) => asset.type.startsWith("image/")).length;
   const otherUploads = uploadedAssets.filter((asset) => !asset.type.startsWith("image/")).length;
-  const starterPrompts = [
-    {
-      label: "Weekly school update",
-      value:
-        "Write this week's school newsletter. Include the most important campus updates, key dates families need to know, and any reminders that need attention this week."
-    },
-    {
-      label: "Celebration and highlights",
-      value:
-        "Write a warm school newsletter focused on celebrations and highlights. Include student wins, staff recognition, upcoming events, and the most important dates families should remember."
-    },
-    {
-      label: "Operations and reminders",
-      value:
-        "Write a clear school newsletter focused on reminders and operational updates. Include schedule changes, deadlines, upcoming dates, action items for families, and any important campus notices."
-    }
-  ];
   const cloneFromId = searchParams.get("from");
   const draftId = searchParams.get("draft");
   const freshIssue = searchParams.get("fresh") === "1";
+  const canRestoreBuilderState = Boolean(draftId?.trim() || cloneFromId?.trim());
   const browserDraftKey = useMemo(
     () =>
       [
@@ -125,14 +109,6 @@ export function IssueWizard() {
 
   const goToStep = (stepId: string) => {
     setActiveStep(stepId);
-  };
-
-  const applyStarterPrompt = (value: string) => {
-    setQuickNotes(value);
-    setGenerationState("idle");
-    setGenerationPhase("idle");
-    setGenerationMessage("Fill in the form, then continue and the system will write the first draft for you.");
-    setLastGeneratedAt(null);
   };
 
   const updateQuickNotes = (value: string) => {
@@ -475,9 +451,7 @@ export function IssueWizard() {
           ? selectedDraft
           : selectedSource
             ? createDraftFromExistingNewsletter(selectedSource)
-            : !freshIssue && loadedDocuments.length > 0
-              ? loadedDocuments[0]
-              : createFreshDraft(nextSchool);
+            : createFreshDraft(nextSchool);
 
         if (!cancelled && nextDocument) {
           const mergedDocument = nextSchool
@@ -516,7 +490,7 @@ export function IssueWizard() {
               }
             : nextDocument;
 
-          const restoredState = readBuilderDraft(browserDraftKey);
+          const restoredState = canRestoreBuilderState ? readBuilderDraft(browserDraftKey) : null;
           const restoredDocument =
             restoredState?.document &&
             restoredState.document.workspace?.schoolId === mergedDocument.workspace.schoolId
@@ -585,7 +559,7 @@ export function IssueWizard() {
     return () => {
       cancelled = true;
     };
-  }, [browserDraftKey, cloneFromId, draftId, freshIssue, session?.user?.email, supabase]);
+  }, [browserDraftKey, canRestoreBuilderState, cloneFromId, draftId, freshIssue, session?.user?.email, supabase]);
 
   useEffect(() => {
     if (!initialLoadComplete.current || typeof window === "undefined") {
@@ -997,22 +971,6 @@ export function IssueWizard() {
                 <div className="rounded-[24px] bg-[#EAF2FB] p-4 text-sm leading-6 text-brand-muted">
                   Write this however you want. Plain sentences, rough notes, or bullet points are all fine.
                   The stronger the input, the better the first draft.
-                </div>
-
-                <div className="grid gap-3 md:grid-cols-3">
-                  {starterPrompts.map((starter) => (
-                    <button
-                      key={starter.label}
-                      className="rounded-[24px] border border-slate-200 bg-white p-4 text-left transition hover:bg-slate-50"
-                      onClick={() => applyStarterPrompt(starter.value)}
-                      type="button"
-                    >
-                      <div className="text-sm font-semibold text-brand-text">{starter.label}</div>
-                      <div className="mt-2 text-sm leading-6 text-brand-muted">
-                        Use this as a starting point, then adjust it if needed.
-                      </div>
-                    </button>
-                  ))}
                 </div>
 
                 <label className="grid gap-2">
