@@ -30,6 +30,7 @@ export function IssueWizard() {
   const [generationMessage, setGenerationMessage] = useState(
     "Fill in the form, then continue and the system will write the first draft for you."
   );
+  const [generationJobId, setGenerationJobId] = useState<string | null>(null);
   const [distributionState, setDistributionState] = useState<"idle" | "publishing" | "published" | "error">("idle");
   const [distributionMessage, setDistributionMessage] = useState(
     "Choose whether this newsletter should go to the school website feed, PDF export, or both."
@@ -135,9 +136,9 @@ export function IssueWizard() {
     setLastGeneratedAt(null);
   };
 
-  const showNotice = (message: string, tone: "success" | "error" | "info") => {
+  const showNotice = useCallback((message: string, tone: "success" | "error" | "info") => {
     setNotice({ message, tone });
-  };
+  }, []);
 
   const goToPreviousStep = () => {
     if (activeStepIndex > 0) {
@@ -146,14 +147,10 @@ export function IssueWizard() {
   };
 
   const createInstantNewsletter = async () => {
-    const generated = await generateInstantDraft();
-
-    if (generated) {
-      setActiveStep("review");
-    }
+    await generateInstantDraft();
   };
 
-  const applyGeneratedDraft = (generated: ContentGenerateResponse) => {
+  const applyGeneratedDraft = useCallback((generated: ContentGenerateResponse) => {
     const generatedSectionTypes = new Set(generated.sections?.map((item) => item.sectionType) ?? []);
     const fallbackTitle = getGeneratedTitle(generated, quickNotes);
     const fallbackIntro = getGeneratedIntro(generated, quickNotes);
@@ -280,7 +277,7 @@ export function IssueWizard() {
         };
       })
     }));
-  };
+  }, [quickNotes, uploadedAssets]);
 
   const rewriteSection = async (sectionType: "hero" | "top_story" | "principal_message") => {
     if (!hasSchoolWorkspace || !hasWritingAgentConnection || !quickNotes.trim()) {
@@ -402,10 +399,14 @@ export function IssueWizard() {
     }
 
     setGenerationState("generating");
-    setGenerationMessage("Writing your first draft...");
+    setGenerationMessage(
+      "Writing your first draft in the background... you can leave this screen and come back."
+    );
+    setGenerationJobId(null);
+    setLastGeneratedAt(null);
 
     try {
-      const response = await authFetch(supabase, "/api/agent/generate", {
+      const response = await authFetch(supabase, "/api/agent/generate/start", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -428,42 +429,39 @@ export function IssueWizard() {
       const payload = await response.json();
 
       if (!response.ok) {
-        throw new Error(payload?.message ?? "The assistant could not generate the draft.");
+        throw new Error(payload?.message ?? "The assistant could not start the draft.");
       }
 
-      if (payload?.data) {
-        applyGeneratedDraft(payload.data);
+      const nextJobId =
+        typeof payload?.data?.jobId === "string" && payload.data.jobId.trim()
+          ? payload.data.jobId.trim()
+          : "";
+
+      if (!nextJobId) {
+        throw new Error("The newsletter writing job did not start correctly.");
       }
 
-      setGenerationState("ready");
-      setGenerationMessage("Your first draft is ready. Review it and keep going.");
-      setLastGeneratedAt(new Date().toISOString());
+      setGenerationJobId(nextJobId);
       return true;
     } catch (error) {
       setGenerationState("error");
       setGenerationMessage(
         error instanceof Error ? error.message : "The draft could not be created. Please try again."
       );
+      setGenerationJobId(null);
       setLastGeneratedAt(null);
       return false;
     }
   };
 
   const retryDraftGeneration = async () => {
-    const generated = await generateInstantDraft();
-
-    if (generated && activeStep !== "review") {
-      setActiveStep("review");
-    }
+    await generateInstantDraft();
   };
 
   const goToNextStep = async () => {
     if (activeStep === "setup") {
-      const generated = await generateInstantDraft();
-
-      if (!generated) {
-        return;
-      }
+      await generateInstantDraft();
+      return;
     }
 
     if (activeStepIndex < stepList.length - 1) {
@@ -626,6 +624,20 @@ export function IssueWizard() {
             restoredState.document.workspace?.schoolId === mergedDocument.workspace.schoolId
               ? restoredState.document
               : null;
+          const restoredJobId = restoredState?.generationJobId ?? null;
+          const restoredGenerationState =
+            restoredState?.generationState === "generating" && !restoredJobId
+              ? "idle"
+              : restoredState?.generationState ?? "idle";
+          const defaultGenerationMessage = selectedDraft
+            ? "This draft is already in progress. Review it, update it, or ask the system for another pass."
+            : selectedSource
+              ? "This draft started from a previous issue. Keep what works, update the message, and rewrite when you're ready."
+              : "Fill in the form, then continue and the system will write the first draft for you.";
+          const restoredGenerationMessage =
+            restoredGenerationState === "idle" && !restoredJobId
+              ? defaultGenerationMessage
+              : restoredState?.generationMessage ?? defaultGenerationMessage;
 
           setDocument(restoredDocument ?? mergedDocument);
           setSourceIssueLabel(restoredState?.sourceIssueLabel ?? (selectedSource ? selectedSource.title : null));
@@ -639,15 +651,9 @@ export function IssueWizard() {
           );
           setUploadedAssets(restoredState?.uploadedAssets ?? []);
           setActiveStep(restoredState?.activeStep ?? "setup");
-          setGenerationState(restoredState?.generationState ?? "idle");
-          setGenerationMessage(
-            restoredState?.generationMessage ??
-              (selectedDraft
-                ? "This draft is already in progress. Review it, update it, or ask the system for another pass."
-                : selectedSource
-                  ? "This draft started from a previous issue. Keep what works, update the message, and rewrite when you're ready."
-                  : "Fill in the form, then continue and the system will write the first draft for you.")
-          );
+          setGenerationJobId(restoredJobId);
+          setGenerationState(restoredGenerationState);
+          setGenerationMessage(restoredGenerationMessage);
           setLastGeneratedAt(restoredState?.lastGeneratedAt ?? null);
           setSaveMessage("Draft loaded.");
         }
@@ -679,6 +685,7 @@ export function IssueWizard() {
       activeStep,
       generationState,
       generationMessage,
+      generationJobId,
       lastGeneratedAt,
       sourceIssueLabel
     });
@@ -686,6 +693,7 @@ export function IssueWizard() {
     activeStep,
     browserDraftKey,
     document,
+    generationJobId,
     generationMessage,
     generationState,
     lastGeneratedAt,
@@ -693,6 +701,99 @@ export function IssueWizard() {
     sourceIssueLabel,
     uploadedAssets
   ]);
+
+  useEffect(() => {
+    if (!generationJobId) {
+      return;
+    }
+
+    let cancelled = false;
+    let timeoutId: number | null = null;
+
+    const pollJob = async () => {
+      try {
+        const response = await authFetch(
+          supabase,
+          `/api/agent/generate/status/${encodeURIComponent(generationJobId)}`
+        );
+        const payload = await response.json();
+
+        if (!response.ok) {
+          throw new Error(payload?.message ?? "Unable to check the newsletter writing progress.");
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        const job = payload?.data as
+          | {
+              status?: "queued" | "running" | "completed" | "failed";
+              result?: ContentGenerateResponse;
+              error?: string | null;
+              completedAt?: string | null;
+            }
+          | undefined;
+
+        if (job?.status === "completed" && job.result) {
+          applyGeneratedDraft(job.result);
+          setGenerationState("ready");
+          setGenerationMessage("Your first draft is ready. Review it and keep going.");
+          setGenerationJobId(null);
+          setLastGeneratedAt(job.completedAt ?? new Date().toISOString());
+          showNotice("Your first draft is ready.", "success");
+
+          if (activeStep === "setup") {
+            setActiveStep("review");
+          }
+
+          return;
+        }
+
+        if (job?.status === "failed") {
+          const message = job.error || "The draft could not be created. Please try again.";
+          setGenerationState("error");
+          setGenerationMessage(message);
+          setGenerationJobId(null);
+          setLastGeneratedAt(null);
+          showNotice(message, "error");
+          return;
+        }
+
+        setGenerationState("generating");
+        setGenerationMessage(
+          job?.status === "queued"
+            ? "Getting the writing job ready... you can leave this screen and come back."
+            : "Writing your first draft in the background... you can leave this screen and come back."
+        );
+
+        timeoutId = window.setTimeout(() => {
+          void pollJob();
+        }, 2500);
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        const message =
+          error instanceof Error ? error.message : "Unable to check the newsletter writing progress.";
+        setGenerationState("error");
+        setGenerationMessage(message);
+        setGenerationJobId(null);
+        showNotice(message, "error");
+      }
+    };
+
+    void pollJob();
+
+    return () => {
+      cancelled = true;
+
+      if (timeoutId) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, [activeStep, applyGeneratedDraft, generationJobId, showNotice, supabase]);
 
   const persistDraft = useCallback(
     async (mode: "auto" | "manual" = "auto") => {
@@ -1003,7 +1104,13 @@ export function IssueWizard() {
                     ) : null}
                     <button
                       className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
-                      onClick={() => setGenerationState("idle")}
+                      onClick={() => {
+                        setGenerationJobId(null);
+                        setGenerationState("idle");
+                        setGenerationMessage(
+                          "Fill in the form, then continue and the system will write the first draft for you."
+                        );
+                      }}
                       type="button"
                     >
                       Clear message
@@ -1233,6 +1340,7 @@ type BuilderDraftSnapshot = {
   activeStep: string;
   generationState: "idle" | "generating" | "ready" | "error";
   generationMessage: string;
+  generationJobId: string | null;
   lastGeneratedAt: string | null;
   sourceIssueLabel: string | null;
 };
