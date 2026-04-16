@@ -244,7 +244,7 @@ export function selectImageAssignments(generated: ContentGenerateResponse, asset
     ],
     imageAssets,
     usedNames,
-    4
+    6
   );
 
   const galleryImages = imageAssets

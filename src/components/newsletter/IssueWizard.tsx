@@ -29,6 +29,9 @@ export function IssueWizard() {
   const [saveMessage, setSaveMessage] = useState("Draft ready.");
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [generationState, setGenerationState] = useState<"idle" | "generating" | "ready" | "error">("idle");
+  const [generationPhase, setGenerationPhase] = useState<
+    "idle" | "preparing" | "queued" | "running" | "reconnecting" | "ready" | "error"
+  >("idle");
   const [generationMessage, setGenerationMessage] = useState(
     "Fill in the form, then continue and the system will write the first draft for you."
   );
@@ -127,6 +130,7 @@ export function IssueWizard() {
   const applyStarterPrompt = (value: string) => {
     setQuickNotes(value);
     setGenerationState("idle");
+    setGenerationPhase("idle");
     setGenerationMessage("Fill in the form, then continue and the system will write the first draft for you.");
     setLastGeneratedAt(null);
   };
@@ -134,6 +138,7 @@ export function IssueWizard() {
   const updateQuickNotes = (value: string) => {
     setQuickNotes(value);
     setGenerationState("idle");
+    setGenerationPhase("idle");
     setGenerationMessage("Fill in the form, then continue and the system will write the first draft for you.");
     setLastGeneratedAt(null);
   };
@@ -165,6 +170,7 @@ export function IssueWizard() {
 
     setRewritingSection(sectionType);
     setGenerationState("generating");
+    setGenerationPhase("running");
     setGenerationMessage(`Rewriting the ${getSectionLabel(sectionType).toLowerCase()}...`);
 
     try {
@@ -242,6 +248,7 @@ export function IssueWizard() {
       }));
 
       setGenerationState("ready");
+      setGenerationPhase("ready");
       setGenerationMessage(`${getSectionLabel(sectionType)} updated. Review it and keep going.`);
       setLastGeneratedAt(new Date().toISOString());
       showNotice(`${getSectionLabel(sectionType)} rewritten.`, "success");
@@ -249,6 +256,7 @@ export function IssueWizard() {
       const message =
         error instanceof Error ? error.message : "The section could not be rewritten right now.";
       setGenerationState("error");
+      setGenerationPhase("error");
       setGenerationMessage(message);
       showNotice(message, "error");
     } finally {
@@ -278,9 +286,8 @@ export function IssueWizard() {
     }
 
     setGenerationState("generating");
-    setGenerationMessage(
-      "Writing your first draft in the background... you can leave this screen and come back."
-    );
+    setGenerationPhase("preparing");
+    setGenerationMessage("Saving your request and starting the writing job...");
     setGenerationJobId(null);
     setLastGeneratedAt(null);
 
@@ -329,9 +336,12 @@ export function IssueWizard() {
       }
 
       setGenerationJobId(nextJobId);
+      setGenerationPhase("queued");
+      setGenerationMessage("Your newsletter request is queued. The writing agent will start shortly.");
       return true;
     } catch (error) {
       setGenerationState("error");
+      setGenerationPhase("error");
       setGenerationMessage(
         error instanceof Error ? error.message : "The draft could not be created. Please try again."
       );
@@ -523,9 +533,18 @@ export function IssueWizard() {
               ? "This draft started from a previous issue. Keep what works, update the message, and rewrite when you're ready."
               : "Fill in the form, then continue and the system will write the first draft for you.";
           const restoredGenerationMessage =
-            restoredGenerationState === "idle" && !restoredJobId
-              ? defaultGenerationMessage
-              : restoredState?.generationMessage ?? defaultGenerationMessage;
+            restoredJobId
+              ? "Checking on your saved draft..."
+              : restoredGenerationState === "idle"
+                ? defaultGenerationMessage
+                : restoredState?.generationMessage ?? defaultGenerationMessage;
+          const restoredGenerationPhase = restoredJobId
+            ? "reconnecting"
+            : restoredGenerationState === "ready"
+              ? "ready"
+              : restoredGenerationState === "error"
+                ? "error"
+                : "idle";
           const nextActiveStep =
             restoredState?.activeStep && restoredState.activeStep !== "setup" && !hasReviewableDraftContent(restoredDocument ?? mergedDocument)
               ? "setup"
@@ -545,6 +564,7 @@ export function IssueWizard() {
           setActiveStep(nextActiveStep);
           setGenerationJobId(restoredJobId);
           setGenerationState(restoredGenerationState);
+          setGenerationPhase(restoredGenerationPhase);
           setGenerationMessage(restoredGenerationMessage);
           setLastGeneratedAt(restoredState?.lastGeneratedAt ?? null);
           setSaveMessage("Draft loaded.");
@@ -578,6 +598,7 @@ export function IssueWizard() {
       uploadedAssets,
       activeStep,
       generationState,
+      generationPhase,
       generationMessage,
       generationJobId,
       lastGeneratedAt,
@@ -589,6 +610,7 @@ export function IssueWizard() {
     document,
     generationJobId,
     generationMessage,
+    generationPhase,
     generationState,
     lastGeneratedAt,
     quickNotes,
@@ -637,6 +659,7 @@ export function IssueWizard() {
             applyGeneratedDraft(job.result);
           }
           setGenerationState("ready");
+          setGenerationPhase("ready");
           setGenerationMessage("Your first draft is ready. Review it and keep going.");
           setGenerationJobId(null);
           setLastGeneratedAt(job.completedAt ?? new Date().toISOString());
@@ -652,6 +675,7 @@ export function IssueWizard() {
         if (job?.status === "failed") {
           const message = job.error || "The draft could not be created. Please try again.";
           setGenerationState("error");
+          setGenerationPhase("error");
           setGenerationMessage(message);
           setGenerationJobId(null);
           setLastGeneratedAt(null);
@@ -660,10 +684,11 @@ export function IssueWizard() {
         }
 
         setGenerationState("generating");
+        setGenerationPhase(job?.status === "queued" ? "queued" : "running");
         setGenerationMessage(
           job?.status === "queued"
-            ? "Getting the writing job ready... you can leave this screen and come back."
-            : "Writing your first draft in the background... you can leave this screen and come back."
+            ? "Your request is in line. The writing agent has not started writing yet."
+            : "The writing agent is building your draft now. You can leave this screen and come back."
         );
 
         timeoutId = window.setTimeout(() => {
@@ -677,6 +702,7 @@ export function IssueWizard() {
         const message =
           error instanceof Error ? error.message : "Unable to check the newsletter writing progress.";
         setGenerationState("error");
+        setGenerationPhase("error");
         setGenerationMessage(message);
         setGenerationJobId(null);
         showNotice(message, "error");
@@ -1011,17 +1037,13 @@ export function IssueWizard() {
 
                 <MediaUploadPanel assets={uploadedAssets} document={document} onAssetsChange={setUploadedAssets} />
 
-                <div
-                  className={`rounded-[24px] p-4 text-sm leading-6 ${
-                    generationState === "error"
-                      ? "bg-red-50 text-red-700"
-                      : generationState === "ready"
-                        ? "bg-emerald-50 text-emerald-700"
-                        : "bg-[#EAF2FB] text-brand-muted"
-                  }`}
-                >
-                  {generationMessage}
-                </div>
+                {generationPhase === "idle" && generationState === "idle" ? (
+                  <div className="rounded-[24px] bg-[#EAF2FB] p-4 text-sm leading-6 text-brand-muted">
+                    {generationMessage}
+                  </div>
+                ) : (
+                  <GenerationProgressPanel generationMessage={generationMessage} generationPhase={generationPhase} />
+                )}
 
                 {generationState === "error" ? (
                   <div className="flex flex-wrap gap-3">
@@ -1047,6 +1069,7 @@ export function IssueWizard() {
                       onClick={() => {
                         setGenerationJobId(null);
                         setGenerationState("idle");
+                        setGenerationPhase("idle");
                         setGenerationMessage(
                           "Fill in the form, then continue and the system will write the first draft for you."
                         );
@@ -1399,6 +1422,7 @@ type BuilderDraftSnapshot = {
   uploadedAssets: UploadedAsset[];
   activeStep: string;
   generationState: "idle" | "generating" | "ready" | "error";
+  generationPhase?: "idle" | "preparing" | "queued" | "running" | "reconnecting" | "ready" | "error";
   generationMessage: string;
   generationJobId: string | null;
   lastGeneratedAt: string | null;
@@ -1644,6 +1668,106 @@ function PublishSummaryPanel({
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function GenerationProgressPanel({
+  generationPhase,
+  generationMessage
+}: {
+  generationPhase: "idle" | "preparing" | "queued" | "running" | "reconnecting" | "ready" | "error";
+  generationMessage: string;
+}) {
+  const steps = [
+    { id: "preparing", label: "Prepare" },
+    { id: "queued", label: "Queue" },
+    { id: "running", label: "Write" },
+    { id: "ready", label: "Ready" }
+  ] as const;
+
+  const currentIndex =
+    generationPhase === "error"
+      ? 2
+      : generationPhase === "ready"
+        ? 3
+        : generationPhase === "running"
+          ? 2
+          : generationPhase === "queued"
+            ? 1
+            : 0;
+
+  const progressWidth =
+    generationPhase === "ready"
+      ? "100%"
+      : generationPhase === "running"
+        ? "74%"
+        : generationPhase === "queued"
+          ? "42%"
+          : "18%";
+
+  return (
+    <div
+      className={`rounded-[24px] border p-4 ${
+        generationPhase === "error"
+          ? "border-red-200 bg-red-50"
+          : generationPhase === "ready"
+            ? "border-emerald-200 bg-emerald-50"
+            : "border-slate-200 bg-[#F7F9FC]"
+      }`}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="text-sm font-semibold text-brand-text">
+          {generationPhase === "reconnecting"
+            ? "Reconnecting to saved draft"
+            : generationPhase === "ready"
+              ? "Draft complete"
+              : generationPhase === "error"
+                ? "Draft issue"
+                : "Draft progress"}
+        </div>
+        <div className="text-xs font-bold uppercase tracking-[0.18em] text-brand-muted">
+          {generationPhase === "preparing"
+            ? "Preparing"
+            : generationPhase === "queued"
+              ? "Queued"
+              : generationPhase === "running"
+                ? "Writing"
+                : generationPhase === "reconnecting"
+                  ? "Checking"
+                  : generationPhase === "ready"
+                    ? "Ready"
+                    : "Needs attention"}
+        </div>
+      </div>
+      <p className="mt-3 text-sm leading-6 text-brand-muted">{generationMessage}</p>
+      <div className="mt-4 h-2 overflow-hidden rounded-full bg-white">
+        <div
+          className={`h-full rounded-full ${
+            generationPhase === "error"
+              ? "bg-red-400"
+              : generationPhase === "ready"
+                ? "bg-emerald-500"
+                : "bg-brand-primary"
+          }`}
+          style={{ width: progressWidth }}
+        />
+      </div>
+      <div className="mt-4 grid gap-2 sm:grid-cols-4">
+        {steps.map((step, index) => {
+          const active = index <= currentIndex && generationPhase !== "error";
+          return (
+            <div
+              key={step.id}
+              className={`rounded-2xl px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] ${
+                active ? "bg-white text-brand-primary" : "bg-white/60 text-brand-muted"
+              }`}
+            >
+              {step.label}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

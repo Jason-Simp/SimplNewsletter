@@ -115,7 +115,8 @@ export function NewsletterPreview({
     hasCalendar: Boolean(calendar?.content.items.length),
     hasPrincipal: Boolean(principal?.content.quote)
   });
-  const bannerModuleCount = supportStories.length <= 1 ? Math.min(2, supportModules.length) : supportStories.length <= 2 ? Math.min(1, supportModules.length) : 0;
+  const bannerModuleCount =
+    supportStories.length === 0 ? Math.min(2, supportModules.length) : !topStory && supportStories.length === 1 ? 1 : 0;
   const bannerModules = supportModules.slice(0, bannerModuleCount);
   const inlineSupportModules = supportModules.slice(bannerModuleCount);
   const leadStoryEmphasis = getLeadStoryEmphasis({
@@ -224,7 +225,7 @@ export function NewsletterPreview({
         />
 
         {bannerModules.length > 0 ? <SupportBannerRow modules={bannerModules} /> : null}
-        {galleryImages.length > 0 ? <PhotoStrip images={galleryImages} organizationName={organization.name} /> : null}
+        {galleryImages.length >= 3 ? <PhotoStrip images={galleryImages} organizationName={organization.name} /> : null}
 
         <div className="px-6 py-8 lg:px-8">
           {layout === "story_heavy" ? (
@@ -1356,22 +1357,22 @@ function getDesiredSupportModuleCount({
   schoolDefinedCount: number;
 }) {
   if (schoolDefinedCount > 0) {
-    return Math.min(schoolDefinedCount, supportCount <= 1 ? 3 : supportCount <= 3 ? 2 : 1);
+    return Math.min(schoolDefinedCount, supportCount === 0 ? 2 : supportCount <= 2 ? 1 : 0);
   }
 
   if (layout === "announcement") {
-    return supportCount <= 1 ? 3 : 2;
+    return supportCount === 0 ? 2 : 1;
   }
 
   if (layout === "story_heavy") {
-    return supportCount >= 4 ? 1 : 2;
+    return supportCount >= 4 ? 0 : 1;
   }
 
   if (utilityWeight >= 2) {
     return supportCount <= 2 ? 1 : 0;
   }
 
-  return supportCount <= 2 ? 2 : 1;
+  return supportCount === 0 ? 2 : supportCount <= 2 ? 1 : 0;
 }
 
 function getLeadStoryEmphasis({
