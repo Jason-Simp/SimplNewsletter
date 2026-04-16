@@ -23,6 +23,9 @@ export function NewsletterPreview({
 }: Props) {
   const { organization } = document;
   const showEditorChrome = chrome === "editor";
+  const primaryTextOnColor = getReadableTextColor(organization.colors.primary);
+  const secondaryTextOnColor = getReadableTextColor(organization.colors.secondary);
+
   const hero = getSection<{
     eyebrow: string;
     headline: string;
@@ -36,10 +39,9 @@ export function NewsletterPreview({
     document.sections,
     "top_story"
   );
-  const news = getSection<{ items: { id: string; headline: string; summary: string; tag?: string; image?: string }[] }>(
-    document.sections,
-    "news_grid"
-  );
+  const news = getSection<{
+    items: { id: string; headline: string; summary: string; tag?: string; image?: string }[];
+  }>(document.sections, "news_grid");
   const split = getSection<{
     academics: { headline: string; summary: string; meta: string };
     athletics: { headline: string; summary: string; meta: string };
@@ -48,10 +50,9 @@ export function NewsletterPreview({
     document.sections,
     "student_spotlight"
   );
-  const events = getSection<{ items: { id: string; date: string; title: string; summary: string; image?: string }[] }>(
-    document.sections,
-    "arts_events"
-  );
+  const events = getSection<{
+    items: { id: string; date: string; title: string; summary: string; image?: string }[];
+  }>(document.sections, "arts_events");
   const clubs = getSection<{ items: string[] }>(document.sections, "clubs_and_organizations");
   const calendar = getSection<{ items: { date: string; detail: string }[] }>(
     document.sections,
@@ -66,6 +67,8 @@ export function NewsletterPreview({
     document.sections,
     "quick_links"
   );
+
+  const showSpotlight = Boolean(spotlight) && !isDuplicateSpotlight(spotlight, topStory, news);
 
   return (
     <section className="rounded-editorial border border-slate-200 bg-white p-4 shadow-editorial lg:p-6">
@@ -84,9 +87,7 @@ export function NewsletterPreview({
               <button
                 key={nextChannel}
                 className={`rounded-full px-4 py-2 text-sm font-semibold uppercase tracking-[0.12em] ${
-                  channel === nextChannel
-                    ? "bg-brand-primary text-white"
-                    : "bg-slate-100 text-slate-700"
+                  channel === nextChannel ? "bg-brand-primary text-white" : "bg-slate-100 text-slate-700"
                 }`}
                 onClick={() => onChannelChange(nextChannel)}
                 type="button"
@@ -152,44 +153,62 @@ export function NewsletterPreview({
 
         {hero ? (
           <>
-            <section
-              className="grid gap-6 px-6 py-8 lg:grid-cols-[minmax(0,1.3fr)_minmax(300px,0.7fr)] lg:px-8"
-              style={{
-                background: `linear-gradient(135deg, ${organization.colors.primary}F0, ${organization.colors.secondary}D0)`
-              }}
-            >
-              <div className="rounded-[26px] bg-black/15 p-6 text-white backdrop-blur">
-                <div className="text-xs font-bold uppercase tracking-[0.3em] text-white/75">
-                  {hero.content.eyebrow}
+            <section className="border-b border-black/5 bg-white px-6 py-8 lg:px-8">
+              <div className="grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(300px,0.65fr)]">
+                <div className="grid gap-5">
+                  <div
+                    className="inline-flex w-fit rounded-full px-4 py-2 text-[11px] font-bold uppercase tracking-[0.28em]"
+                    style={{
+                      backgroundColor: `${organization.colors.secondary}14`,
+                      color: organization.colors.secondary
+                    }}
+                  >
+                    {hero.content.eyebrow}
+                  </div>
+                  <div className="max-w-4xl">
+                    <h1 className="font-display text-4xl leading-[0.96] text-brand-navy lg:text-[4.5rem]">
+                      {hero.content.headline}
+                    </h1>
+                    <p className="mt-5 max-w-3xl text-lg leading-8 text-brand-muted">{hero.content.body}</p>
+                  </div>
                 </div>
-                <h1 className="mt-4 max-w-4xl font-display text-4xl leading-[0.96] lg:text-6xl">
-                  {hero.content.headline}
-                </h1>
-                <p className="mt-5 max-w-3xl text-base leading-7 text-white/92">{hero.content.body}</p>
-              </div>
-              <div className="grid gap-4">
-                {hero.content.heroImage ? (
-                  <div className="rounded-[26px] border border-white/25 bg-white/10 p-4">
-                    <ImageFrame
-                      alt={hero.content.headline}
-                      className="rounded-[20px] border border-white/20 bg-white/90 p-2"
-                      imageClassName="max-h-[380px]"
-                      src={hero.content.heroImage}
-                    />
-                  </div>
-                ) : null}
-                {hero.content.stats.length > 0 ? (
-                  <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-1">
-                    {hero.content.stats.map((stat) => (
-                      <div key={stat.label} className="rounded-[24px] bg-white/92 p-5 text-brand-text">
-                        <div className="text-3xl font-bold" style={{ color: organization.colors.primary }}>
-                          {stat.value}
-                        </div>
-                        <div className="mt-1 text-sm text-brand-muted">{stat.label}</div>
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
+                <div className="grid gap-4">
+                  {hero.content.heroImage ? (
+                    <div className="rounded-[26px] border border-slate-200 bg-[#F7F9FC] p-4 shadow-sm">
+                      <ImageFrame
+                        alt={hero.content.headline}
+                        className="rounded-[20px] bg-white p-2"
+                        imageClassName="max-h-[360px]"
+                        src={hero.content.heroImage}
+                      />
+                    </div>
+                  ) : null}
+                  {hero.content.stats.length > 0 ? (
+                    <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-1">
+                      {hero.content.stats.map((stat, index) => {
+                        const useSecondary = index % 2 === 1;
+                        const backgroundColor = useSecondary
+                          ? organization.colors.secondary
+                          : organization.colors.primary;
+                        const readableText = useSecondary ? secondaryTextOnColor : primaryTextOnColor;
+
+                        return (
+                          <div
+                            key={stat.label}
+                            className="rounded-[24px] p-5"
+                            style={{
+                              backgroundColor,
+                              color: readableText
+                            }}
+                          >
+                            <div className="text-3xl font-bold">{stat.value}</div>
+                            <div className="mt-1 text-sm opacity-85">{stat.label}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </div>
               </div>
             </section>
 
@@ -214,20 +233,12 @@ export function NewsletterPreview({
           </>
         ) : null}
 
-        <div className={`grid gap-6 px-6 py-8 lg:px-8 ${channel === "email" ? "" : "xl:grid-cols-[minmax(0,1.65fr)_minmax(320px,0.75fr)]"}`}>
+        <div
+          className={`grid gap-6 px-6 py-8 lg:px-8 ${
+            channel === "email" ? "" : "xl:grid-cols-[minmax(0,1.65fr)_minmax(320px,0.75fr)]"
+          }`}
+        >
           <main className="grid gap-6">
-            {principal ? (
-              <section className="rounded-[28px] bg-white p-6 shadow-sm">
-                <div className="text-xs font-bold uppercase tracking-[0.3em]" style={{ color: organization.colors.secondary }}>
-                  Leadership
-                </div>
-                <blockquote className="mt-4 border-l-4 pl-5 font-display text-2xl leading-tight">
-                  {principal.content.quote}
-                </blockquote>
-                <div className="mt-4 text-sm text-brand-muted">{principal.content.author}, Principal</div>
-              </section>
-            ) : null}
-
             {topStory ? (
               <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm lg:grid lg:grid-cols-[minmax(220px,0.82fr)_minmax(0,1.18fr)]">
                 <ImageFrame
@@ -252,6 +263,18 @@ export function NewsletterPreview({
                     </a>
                   ) : null}
                 </div>
+              </section>
+            ) : null}
+
+            {principal ? (
+              <section className="rounded-[28px] bg-white p-6 shadow-sm">
+                <div className="text-xs font-bold uppercase tracking-[0.3em]" style={{ color: organization.colors.secondary }}>
+                  Leadership
+                </div>
+                <blockquote className="mt-4 border-l-4 pl-5 font-display text-2xl leading-tight">
+                  {principal.content.quote}
+                </blockquote>
+                <div className="mt-4 text-sm text-brand-muted">{principal.content.author}, Principal</div>
               </section>
             ) : null}
 
@@ -358,10 +381,13 @@ export function NewsletterPreview({
 
             {cta ? (
               <section className="grid gap-4 md:grid-cols-2">
-                <article className="rounded-[28px] p-6 text-white shadow-sm" style={{ backgroundColor: organization.colors.primary }}>
-                  <div className="text-xs font-bold uppercase tracking-[0.3em] text-white/80">Get involved</div>
+                <article
+                  className="rounded-[28px] p-6 shadow-sm"
+                  style={{ backgroundColor: organization.colors.primary, color: primaryTextOnColor }}
+                >
+                  <div className="text-xs font-bold uppercase tracking-[0.3em] opacity-80">Get involved</div>
                   <h3 className="mt-3 text-2xl font-semibold">{cta.content.volunteer.headline}</h3>
-                  <p className="mt-3 text-sm leading-6 text-white/90">{cta.content.volunteer.summary}</p>
+                  <p className="mt-3 text-sm leading-6 opacity-90">{cta.content.volunteer.summary}</p>
                 </article>
                 <article className="rounded-[28px] p-6 shadow-sm" style={{ backgroundColor: "#EAF2FB" }}>
                   <div className="text-xs font-bold uppercase tracking-[0.3em]" style={{ color: organization.colors.secondary }}>
@@ -383,7 +409,7 @@ export function NewsletterPreview({
 
           {channel === "email" ? null : (
             <aside className="grid gap-6">
-              {spotlight ? (
+              {showSpotlight && spotlight ? (
                 <section className="rounded-[28px] bg-white p-6 shadow-sm">
                   <div className="text-xs font-bold uppercase tracking-[0.3em]" style={{ color: organization.colors.secondary }}>
                     Student spotlight
@@ -486,4 +512,85 @@ function ImageFrame({
       />
     </div>
   );
+}
+
+function getReadableTextColor(hexColor: string) {
+  const normalized = hexColor.replace("#", "").trim();
+
+  if (normalized.length !== 6) {
+    return "#FFFFFF";
+  }
+
+  const red = Number.parseInt(normalized.slice(0, 2), 16);
+  const green = Number.parseInt(normalized.slice(2, 4), 16);
+  const blue = Number.parseInt(normalized.slice(4, 6), 16);
+  const luminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255;
+
+  return luminance > 0.62 ? "#142033" : "#FFFFFF";
+}
+
+function isDuplicateSpotlight(
+  spotlight: NewsletterSection<{ name: string; role: string; summary: string; image: string }> | undefined,
+  topStory:
+    | NewsletterSection<{ headline: string; summary: string; url: string; image: string }>
+    | undefined,
+  news:
+    | NewsletterSection<{
+        items: { id: string; headline: string; summary: string; tag?: string; image?: string }[];
+      }>
+    | undefined
+) {
+  if (!spotlight) {
+    return false;
+  }
+
+  const spotlightNeedle = normalizeForComparison(
+    `${spotlight.content.name} ${spotlight.content.role} ${spotlight.content.summary}`
+  );
+
+  if (topStory) {
+    const topStoryText = normalizeForComparison(
+      `${topStory.content.headline} ${topStory.content.summary}`
+    );
+    if (hasMeaningfulOverlap(spotlightNeedle, topStoryText)) {
+      return true;
+    }
+  }
+
+  if (!news) {
+    return false;
+  }
+
+  return news.content.items.some((item) =>
+    hasMeaningfulOverlap(
+      spotlightNeedle,
+      normalizeForComparison(`${item.headline} ${item.summary} ${item.tag ?? ""}`)
+    )
+  );
+}
+
+function hasMeaningfulOverlap(left: string, right: string) {
+  if (!left || !right) {
+    return false;
+  }
+
+  const leftTokens = new Set(left.split(/\s+/).filter((token) => token.length > 3));
+  const rightTokens = new Set(right.split(/\s+/).filter((token) => token.length > 3));
+  let overlap = 0;
+
+  for (const token of leftTokens) {
+    if (rightTokens.has(token)) {
+      overlap += 1;
+    }
+  }
+
+  return overlap >= 2;
+}
+
+function normalizeForComparison(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
