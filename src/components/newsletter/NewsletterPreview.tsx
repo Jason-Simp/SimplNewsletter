@@ -141,7 +141,7 @@ export function NewsletterPreview({
           channel === "email" ? "max-w-3xl" : ""
         }`}
         style={{
-          backgroundColor: organization.colors.background,
+          background: `linear-gradient(180deg, #ffffff 0%, ${organization.colors.background} 28%, #ffffff 100%)`,
           color: organization.colors.text
         }}
       >
@@ -315,7 +315,12 @@ function IssueMasthead({
   const secondaryTextOnColor = getReadableTextColor(secondaryColor);
 
   return (
-    <section className="border-b border-black/5 bg-white px-6 py-7 lg:px-8">
+    <section
+      className="border-b border-black/5 px-6 py-7 lg:px-8"
+      style={{
+        background: `radial-gradient(circle at top right, ${secondaryColor}18 0, transparent 26%), linear-gradient(180deg, #ffffff 0%, #f8fbff 100%)`
+      }}
+    >
       <div className={`grid gap-6 ${heroImage ? "lg:grid-cols-[minmax(0,1.35fr)_320px]" : ""}`}>
         <div className="grid gap-4">
           <div
@@ -332,7 +337,9 @@ function IssueMasthead({
             {title && title.trim() && normalizeForComparison(title) !== normalizeForComparison(headline) ? (
               <div className="mt-3 text-sm font-semibold uppercase tracking-[0.18em] text-brand-muted">{title}</div>
             ) : null}
-            <p className="mt-5 max-w-3xl text-lg leading-8 text-brand-muted">{body}</p>
+            <div className="mt-5 max-w-3xl rounded-[24px] border border-slate-200/80 bg-white/90 px-5 py-4 shadow-[0_12px_30px_rgba(15,39,69,0.06)] backdrop-blur">
+              <p className="text-lg leading-8 text-brand-muted">{body}</p>
+            </div>
           </div>
 
           {stats.length > 0 ? (
@@ -345,7 +352,7 @@ function IssueMasthead({
                 return (
                   <div
                     key={stat.label}
-                    className="rounded-[22px] px-5 py-4"
+                    className="rounded-[22px] border border-white/10 px-5 py-4 shadow-[0_16px_30px_rgba(15,39,69,0.08)]"
                     style={{ backgroundColor, color: readableText }}
                   >
                     <div className="text-2xl font-bold">{stat.value}</div>
@@ -361,7 +368,7 @@ function IssueMasthead({
           <ImageFrame
             alt={headline}
             aspectRatio="4 / 3"
-            className="rounded-[28px] border border-slate-200 bg-[#F7F9FC] p-4 shadow-sm"
+            className="rounded-[28px] border border-slate-200 bg-white/80 p-4 shadow-[0_18px_42px_rgba(15,39,69,0.08)]"
             imageClassName="rounded-[20px]"
             src={heroImage}
           />
@@ -613,8 +620,11 @@ function SectionShell({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">{eyebrow}</div>
+    <section className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_14px_36px_rgba(15,39,69,0.06)]">
+      <div className="flex items-center gap-3">
+        <div className="h-[2px] w-8 rounded-full bg-brand-secondary" />
+        <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">{eyebrow}</div>
+      </div>
       <h2 className="mt-2 font-display text-3xl text-brand-text">{title}</h2>
       {children}
     </section>
@@ -631,18 +641,18 @@ function LeadStoryCard({
   compact?: boolean;
 }) {
   return (
-    <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-sm">
+    <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-[0_18px_40px_rgba(15,39,69,0.08)]">
       <div className={`${compact ? "lg:grid-cols-[minmax(220px,0.8fr)_minmax(0,1.2fr)]" : "lg:grid-cols-[minmax(260px,0.9fr)_minmax(0,1.1fr)]"} grid gap-0`}>
         {story.image ? (
           <ImageFrame
             alt={story.headline}
             aspectRatio={compact ? "4 / 3" : "5 / 4"}
-            className="h-full rounded-none bg-[#F7F9FC] p-4"
+            className="h-full rounded-none bg-[linear-gradient(180deg,#f7f9fc_0%,#ffffff_100%)] p-4"
             imageClassName="rounded-[22px]"
             src={story.image}
           />
         ) : null}
-        <div className="p-6 lg:p-7">
+        <div className="bg-[linear-gradient(180deg,#ffffff_0%,#fbfdff_100%)] p-6 lg:p-7">
           <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-primary">{eyebrow}</div>
           <h2 className={`${compact ? "text-3xl" : "text-4xl"} mt-4 font-display leading-none text-brand-text`}>
             {story.headline}
@@ -650,7 +660,7 @@ function LeadStoryCard({
           <p className="mt-4 text-base leading-7 text-brand-muted">{story.summary}</p>
           {story.url ? (
             <a
-              className="mt-6 inline-flex rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold text-white"
+              className="mt-6 inline-flex rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(18,58,105,0.22)]"
               href={story.url}
             >
               Read the story
@@ -670,12 +680,12 @@ function StoryCard({
   compact?: boolean;
 }) {
   return (
-    <article className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
+    <article className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_12px_30px_rgba(15,39,69,0.06)]">
       {story.image ? (
         <ImageFrame
           alt={story.title}
           aspectRatio={compact ? "4 / 3" : "16 / 10"}
-          className="rounded-none bg-[#F7F9FC] p-3"
+          className="rounded-none bg-[linear-gradient(180deg,#f7f9fc_0%,#ffffff_100%)] p-3"
           imageClassName="rounded-[18px]"
           src={story.image}
         />
@@ -701,7 +711,7 @@ function SpotlightCard({
   compact?: boolean;
 }) {
   return (
-    <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_14px_34px_rgba(15,39,69,0.06)]">
       <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Student spotlight</div>
       {spotlight.image ? (
         <ImageFrame
@@ -727,7 +737,12 @@ function LeadershipCard({
   accentColor: string;
 }) {
   return (
-    <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+    <section
+      className="rounded-[30px] border border-slate-200 p-6 shadow-[0_14px_34px_rgba(15,39,69,0.06)]"
+      style={{
+        background: `linear-gradient(180deg, #ffffff 0%, ${accentColor}0d 100%)`
+      }}
+    >
       <div className="text-xs font-bold uppercase tracking-[0.3em]" style={{ color: accentColor }}>
         Leadership note
       </div>
@@ -745,11 +760,15 @@ function QuickLinksCard({ links }: { links: QuickLinksContent["items"] }) {
   }
 
   return (
-    <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_14px_34px_rgba(15,39,69,0.06)]">
       <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-primary">Quick links</div>
-      <div className="mt-4 grid gap-3">
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
         {links.map((item) => (
-          <a key={item.id} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold" href={item.url}>
+          <a
+            key={item.id}
+            className="rounded-2xl border border-slate-200 bg-[#f8fbff] px-4 py-3 text-sm font-semibold transition-colors hover:bg-white"
+            href={item.url}
+          >
             {item.label}
           </a>
         ))}
@@ -770,15 +789,18 @@ function CalendarCard({
   }
 
   return (
-    <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_14px_34px_rgba(15,39,69,0.06)]">
       <div className="text-xs font-bold uppercase tracking-[0.3em]" style={{ color: secondaryColor }}>
         Calendar snapshot
       </div>
       <div className="mt-4 grid gap-3">
         {items.map((item) => (
-          <div key={item.date + item.detail} className="rounded-2xl bg-brand-background px-4 py-3">
-            <div className="text-sm font-semibold text-brand-text">{item.date}</div>
-            <div className="mt-1 text-sm leading-6 text-brand-muted">{item.detail}</div>
+          <div
+            key={item.date + item.detail}
+            className="grid grid-cols-[88px_minmax(0,1fr)] gap-4 rounded-2xl bg-brand-background px-4 py-3"
+          >
+            <div className="rounded-xl bg-white px-3 py-2 text-sm font-semibold text-brand-text shadow-sm">{item.date}</div>
+            <div className="text-sm leading-6 text-brand-muted">{item.detail}</div>
           </div>
         ))}
       </div>
@@ -798,7 +820,7 @@ function ClubsCard({
   }
 
   return (
-    <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_14px_34px_rgba(15,39,69,0.06)]">
       <div className="text-xs font-bold uppercase tracking-[0.3em]" style={{ color: primaryColor }}>
         Student life
       </div>
@@ -830,7 +852,7 @@ function CtaBand({
   return (
     <section className="grid gap-4 md:grid-cols-2">
       <article
-        className="rounded-[28px] p-6 shadow-sm"
+        className="rounded-[30px] p-6 shadow-[0_16px_34px_rgba(18,58,105,0.18)]"
         style={{ backgroundColor: primaryColor, color: primaryTextOnColor }}
       >
         <div className="text-xs font-bold uppercase tracking-[0.3em] opacity-80">Get involved</div>
@@ -838,8 +860,11 @@ function CtaBand({
         <p className="mt-3 text-sm leading-6 opacity-90">{cta.volunteer.summary}</p>
       </article>
       <article
-        className="rounded-[28px] p-6 shadow-sm"
-        style={{ backgroundColor: `${secondaryColor}14`, color: secondaryTextOnColor === "#FFFFFF" ? "#142033" : "#142033" }}
+        className="rounded-[30px] p-6 shadow-[0_14px_30px_rgba(15,39,69,0.06)]"
+        style={{
+          background: `linear-gradient(180deg, ${secondaryColor}12 0%, #ffffff 100%)`,
+          color: secondaryTextOnColor === "#FFFFFF" ? "#142033" : "#142033"
+        }}
       >
         <div className="text-xs font-bold uppercase tracking-[0.3em]" style={{ color: secondaryColor }}>
           Support
@@ -853,7 +878,12 @@ function CtaBand({
 
 function QuoteCard({ quote }: { quote: QuoteContent }) {
   return (
-    <section className="rounded-[28px] border border-slate-200 bg-white px-8 py-10 text-center shadow-sm">
+    <section
+      className="rounded-[30px] border border-slate-200 px-8 py-10 text-center shadow-[0_14px_34px_rgba(15,39,69,0.06)]"
+      style={{
+        background: "linear-gradient(180deg, #ffffff 0%, #f8fbff 100%)"
+      }}
+    >
       <p className="font-display text-3xl leading-tight text-brand-text">{quote.quote}</p>
       <div className="mt-4 text-sm text-brand-muted">{quote.attribution}</div>
     </section>
@@ -915,7 +945,18 @@ function SupportModuleCard({
       : "text-brand-muted";
 
   return (
-    <article className={`rounded-[26px] border p-6 shadow-sm ${toneClasses}`}>
+    <article className={`relative overflow-hidden rounded-[28px] border p-6 shadow-[0_14px_34px_rgba(15,39,69,0.08)] ${toneClasses}`}>
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-20 opacity-80"
+        style={{
+          background:
+            module.tone === "primary"
+              ? "linear-gradient(180deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0) 100%)"
+              : module.tone === "secondary"
+                ? "linear-gradient(180deg, rgba(134,32,26,0.08) 0%, rgba(134,32,26,0) 100%)"
+                : "linear-gradient(180deg, rgba(18,58,105,0.05) 0%, rgba(18,58,105,0) 100%)"
+        }}
+      />
       <div className={`text-xs font-bold uppercase tracking-[0.28em] ${eyebrowTone}`}>{module.eyebrow}</div>
       <h3 className={`${compact ? "text-xl" : "text-2xl"} mt-3 font-semibold leading-tight`}>{module.title}</h3>
       <p className={`mt-3 text-sm leading-6 ${bodyTone}`}>{module.body}</p>
@@ -943,7 +984,12 @@ function PhotoStrip({
   organizationName: string;
 }) {
   return (
-    <section className="border-b border-black/5 bg-white px-6 py-5 lg:px-8">
+    <section
+      className="border-b border-black/5 px-6 py-5 lg:px-8"
+      style={{
+        background: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)"
+      }}
+    >
       <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Campus photos</div>
       <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {images.map((imageUrl, index) => (
