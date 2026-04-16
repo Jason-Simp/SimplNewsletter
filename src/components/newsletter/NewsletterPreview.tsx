@@ -53,6 +53,16 @@ type StoryCardData = {
   url?: string;
 };
 
+type SupportModule = {
+  id: string;
+  eyebrow: string;
+  title: string;
+  body: string;
+  actionLabel?: string;
+  actionHref?: string;
+  tone: "primary" | "secondary" | "neutral";
+};
+
 const channels: Channel[] = ["web", "pdf"];
 
 function getSection<T>(sections: NewsletterSection[], type: NewsletterSection["type"]) {
@@ -94,6 +104,7 @@ export function NewsletterPreview({
 
   const galleryImages = Array.isArray(hero?.content.galleryImages) ? hero.content.galleryImages : [];
   const supportStories = buildSupportStories(news, split, events);
+  const supportModules = buildSupportModules(document);
   const layout = chooseIssueLayout({
     supportCount: supportStories.length,
     hasQuickLinks: Boolean(quickLinks?.content.items.length),
@@ -219,6 +230,7 @@ export function NewsletterPreview({
               showSpotlight={showSpotlight}
               spotlight={spotlight}
               supportStories={supportStories}
+              supportModules={supportModules}
               topStory={topStory}
             />
           ) : layout === "announcement" ? (
@@ -237,6 +249,7 @@ export function NewsletterPreview({
               showSpotlight={showSpotlight}
               spotlight={spotlight}
               supportStories={supportStories}
+              supportModules={supportModules}
               topStory={topStory}
             />
           ) : (
@@ -255,6 +268,7 @@ export function NewsletterPreview({
               showSpotlight={showSpotlight}
               spotlight={spotlight}
               supportStories={supportStories}
+              supportModules={supportModules}
               topStory={topStory}
             />
           )}
@@ -369,6 +383,7 @@ function IssueMasthead({
 function StoryHeavyLayout({
   topStory,
   supportStories,
+  supportModules,
   showSpotlight,
   spotlight,
   principal,
@@ -384,6 +399,7 @@ function StoryHeavyLayout({
 }: {
   topStory: NewsletterSection<TopStoryContent> | undefined;
   supportStories: StoryCardData[];
+  supportModules: SupportModule[];
   showSpotlight: boolean;
   spotlight: NewsletterSection<SpotlightContent> | undefined;
   principal: NewsletterSection<PrincipalContent> | undefined;
@@ -418,6 +434,7 @@ function StoryHeavyLayout({
           {principal ? <LeadershipCard principal={principal.content} accentColor={accentColor} /> : null}
           {quickLinks ? <QuickLinksCard links={quickLinks.content.items} /> : null}
           {calendar ? <CalendarCard items={calendar.content.items} secondaryColor={secondaryColor} /> : null}
+          <SupportModuleStack modules={supportModules.slice(0, 2)} />
         </div>
       </div>
 
@@ -432,6 +449,8 @@ function StoryHeavyLayout({
       ) : null}
 
       {quote ? <QuoteCard quote={quote.content} /> : null}
+
+      {supportModules.length > 2 ? <SupportModuleGrid modules={supportModules.slice(2, 4)} /> : null}
     </div>
   );
 }
@@ -439,6 +458,7 @@ function StoryHeavyLayout({
 function BalancedLayout({
   topStory,
   supportStories,
+  supportModules,
   showSpotlight,
   spotlight,
   principal,
@@ -455,6 +475,7 @@ function BalancedLayout({
 }: {
   topStory: NewsletterSection<TopStoryContent> | undefined;
   supportStories: StoryCardData[];
+  supportModules: SupportModule[];
   showSpotlight: boolean;
   spotlight: NewsletterSection<SpotlightContent> | undefined;
   principal: NewsletterSection<PrincipalContent> | undefined;
@@ -490,6 +511,7 @@ function BalancedLayout({
           {principal ? <LeadershipCard principal={principal.content} accentColor={accentColor} /> : null}
           {calendar ? <CalendarCard items={calendar.content.items} secondaryColor={secondaryColor} /> : null}
           {quickLinks ? <QuickLinksCard links={quickLinks.content.items} /> : null}
+          <SupportModuleStack modules={supportModules.slice(0, 1)} />
         </div>
       </div>
 
@@ -506,6 +528,8 @@ function BalancedLayout({
       ) : null}
 
       {quote ? <QuoteCard quote={quote.content} /> : null}
+
+      {supportModules.length > 1 ? <SupportModuleGrid modules={supportModules.slice(1, 4)} /> : null}
     </div>
   );
 }
@@ -513,6 +537,7 @@ function BalancedLayout({
 function AnnouncementLayout({
   topStory,
   supportStories,
+  supportModules,
   showSpotlight,
   spotlight,
   principal,
@@ -529,6 +554,7 @@ function AnnouncementLayout({
 }: {
   topStory: NewsletterSection<TopStoryContent> | undefined;
   supportStories: StoryCardData[];
+  supportModules: SupportModule[];
   showSpotlight: boolean;
   spotlight: NewsletterSection<SpotlightContent> | undefined;
   principal: NewsletterSection<PrincipalContent> | undefined;
@@ -565,6 +591,7 @@ function AnnouncementLayout({
           {quickLinks ? <QuickLinksCard links={quickLinks.content.items} /> : null}
           {principal ? <LeadershipCard principal={principal.content} accentColor={accentColor} /> : null}
           {showSpotlight && spotlight ? <SpotlightCard spotlight={spotlight.content} compact /> : null}
+          <SupportModuleStack modules={supportModules.slice(0, 2)} />
         </div>
       </div>
 
@@ -579,6 +606,8 @@ function AnnouncementLayout({
       ) : null}
 
       {quote ? <QuoteCard quote={quote.content} /> : null}
+
+      {supportModules.length > 2 ? <SupportModuleGrid modules={supportModules.slice(2, 4)} /> : null}
     </div>
   );
 }
@@ -840,6 +869,81 @@ function QuoteCard({ quote }: { quote: QuoteContent }) {
   );
 }
 
+function SupportModuleStack({ modules }: { modules: SupportModule[] }) {
+  if (!modules.length) {
+    return null;
+  }
+
+  return (
+    <div className="grid gap-4">
+      {modules.map((module) => (
+        <SupportModuleCard key={module.id} module={module} compact />
+      ))}
+    </div>
+  );
+}
+
+function SupportModuleGrid({ modules }: { modules: SupportModule[] }) {
+  if (!modules.length) {
+    return null;
+  }
+
+  return (
+    <section className="grid gap-4 md:grid-cols-2">
+      {modules.map((module) => (
+        <SupportModuleCard key={module.id} module={module} />
+      ))}
+    </section>
+  );
+}
+
+function SupportModuleCard({
+  module,
+  compact = false
+}: {
+  module: SupportModule;
+  compact?: boolean;
+}) {
+  const toneClasses =
+    module.tone === "primary"
+      ? "border-brand-primary/10 bg-brand-primary text-white"
+      : module.tone === "secondary"
+        ? "border-brand-secondary/10 bg-brand-secondary/10 text-brand-text"
+        : "border-slate-200 bg-white text-brand-text";
+
+  const eyebrowTone =
+    module.tone === "primary"
+      ? "text-white/80"
+      : module.tone === "secondary"
+        ? "text-brand-secondary"
+        : "text-brand-primary";
+
+  const bodyTone =
+    module.tone === "primary"
+      ? "text-white/90"
+      : "text-brand-muted";
+
+  return (
+    <article className={`rounded-[26px] border p-6 shadow-sm ${toneClasses}`}>
+      <div className={`text-xs font-bold uppercase tracking-[0.28em] ${eyebrowTone}`}>{module.eyebrow}</div>
+      <h3 className={`${compact ? "text-xl" : "text-2xl"} mt-3 font-semibold leading-tight`}>{module.title}</h3>
+      <p className={`mt-3 text-sm leading-6 ${bodyTone}`}>{module.body}</p>
+      {module.actionLabel && module.actionHref ? (
+        <a
+          className={`mt-5 inline-flex rounded-full px-4 py-2 text-sm font-semibold ${
+            module.tone === "primary"
+              ? "bg-white text-brand-primary"
+              : "border border-slate-200 bg-white text-brand-primary"
+          }`}
+          href={module.actionHref}
+        >
+          {module.actionLabel}
+        </a>
+      ) : null}
+    </article>
+  );
+}
+
 function PhotoStrip({
   images,
   organizationName
@@ -974,6 +1078,65 @@ function buildSupportStories(
   return [...newsStories, ...splitStories, ...eventStories].filter(
     (story) => story.title.trim() || story.summary.trim()
   );
+}
+
+function buildSupportModules(document: NewsletterDocument): SupportModule[] {
+  const { organization, issueDate, title } = document;
+  const modules: SupportModule[] = [];
+
+  if (organization.websiteUrl) {
+    modules.push({
+      id: "website",
+      eyebrow: "School website",
+      title: "Stay close to updates and resources",
+      body: `Visit ${organization.websiteUrl} for calendars, family resources, and school updates tied to this issue.`,
+      actionHref: organization.websiteUrl.startsWith("http")
+        ? organization.websiteUrl
+        : `https://${organization.websiteUrl}`,
+      actionLabel: "Visit website",
+      tone: "primary"
+    });
+  }
+
+  if (organization.contactEmail || organization.phone) {
+    modules.push({
+      id: "contact",
+      eyebrow: "Need help?",
+      title: "Questions about this week’s updates?",
+      body: [organization.contactEmail, organization.phone, organization.address].filter(Boolean).join(" • "),
+      actionHref: organization.contactEmail ? `mailto:${organization.contactEmail}` : undefined,
+      actionLabel: organization.contactEmail ? "Email the school" : undefined,
+      tone: "neutral"
+    });
+  }
+
+  modules.push({
+    id: "family-reminder",
+    eyebrow: "Family reminder",
+    title: "Keep this issue handy for the week ahead",
+    body: `This newsletter for ${issueDate} is meant to help families quickly track the biggest updates, reminders, and school moments without having to hunt for details later.`,
+    tone: "secondary"
+  });
+
+  if (organization.tagline) {
+    modules.push({
+      id: "identity",
+      eyebrow: "School identity",
+      title: organization.name,
+      body: organization.tagline,
+      tone: "neutral"
+    });
+  }
+
+  modules.push({
+    id: "issue-context",
+    eyebrow: "This issue",
+    title: title || `${organization.name} weekly update`,
+    body: "The Wire can use trusted school information to round out light issues with useful modules like contacts, reminders, and quick-reference school details.",
+    tone: "neutral"
+  });
+
+  return modules;
 }
 
 function getIssueHeading(document: NewsletterDocument) {
