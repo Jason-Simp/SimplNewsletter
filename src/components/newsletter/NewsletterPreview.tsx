@@ -1,5 +1,3 @@
-import type { ReactNode } from "react";
-
 import Image from "next/image";
 
 import type { Channel, NewsletterDocument, NewsletterSection } from "@/types/newsletter";
@@ -43,9 +41,6 @@ type CtaContent = {
 type QuoteContent = { quote: string; attribution: string };
 type QuickLinksContent = { items: { id: string; label: string; url: string }[] };
 
-type LayoutKind = "announcement" | "balanced" | "story_heavy";
-type LeadStoryEmphasis = "feature" | "standard" | "compact";
-
 type StoryCardData = {
   id: string;
   eyebrow?: string;
@@ -53,6 +48,11 @@ type StoryCardData = {
   summary: string;
   image?: string;
   url?: string;
+};
+
+type SupportBundle = {
+  bannerModules: SupportModule[];
+  inlineModules: SupportModule[];
 };
 
 const channels: Channel[] = ["web", "pdf"];
@@ -69,8 +69,6 @@ export function NewsletterPreview({
 }: Props) {
   const { organization } = document;
   const showEditorChrome = chrome === "editor";
-  const primaryTextOnColor = getReadableTextColor(organization.colors.primary);
-  const secondaryTextOnColor = getReadableTextColor(organization.colors.secondary);
 
   const hero = getSection<HeroContent>(document.sections, "hero");
   const principal = getSection<PrincipalContent>(document.sections, "principal_message");
@@ -85,7 +83,7 @@ export function NewsletterPreview({
   const quote = getSection<QuoteContent>(document.sections, "quote_or_mission");
   const quickLinks = getSection<QuickLinksContent>(document.sections, "quick_links");
 
-  const showSpotlight = Boolean(spotlight) && !isDuplicateSpotlight(spotlight, topStory, news);
+  const supportStories = buildSupportStories(news, split, events);
   const heroLooksLikeTopStory =
     hero && topStory
       ? hasMeaningfulOverlap(
@@ -94,38 +92,35 @@ export function NewsletterPreview({
         )
       : false;
 
-  const galleryImages = Array.isArray(hero?.content.galleryImages) ? hero.content.galleryImages : [];
-  const supportStories = buildSupportStories(news, split, events);
-  const utilityWeight = [Boolean(quickLinks?.content.items.length), Boolean(calendar?.content.items.length), Boolean(principal?.content.quote)].filter(Boolean).length;
-  const layout = chooseIssueLayout({
-    supportCount: supportStories.length,
-    hasQuickLinks: Boolean(quickLinks?.content.items.length),
-    hasCalendar: Boolean(calendar?.content.items.length),
-    hasSpotlight: showSpotlight,
-    hasGallery: galleryImages.length > 0,
-    hasPrincipal: Boolean(principal?.content.quote),
-    hasTopStory: Boolean(topStory)
-  });
-  const supportModules = selectSupportModules({
+  const leadStory = topStory
+    ? {
+        id: topStory.id,
+        eyebrow: "Top story",
+        title: topStory.content.headline,
+        summary: topStory.content.summary,
+        image: topStory.content.image,
+        url: topStory.content.url
+      }
+    : supportStories[0] ?? null;
+
+  const supportingStories = supportStories.filter((story) => story.id !== leadStory?.id);
+  const primarySupportingStories = supportingStories.slice(0, 4);
+  const overflowStories = supportingStories.slice(4);
+  const showSpotlight = Boolean(spotlight) && !isDuplicateSpotlight(spotlight, topStory, news);
+  const supportBundle = selectSupportModules({
     document,
-    layout,
-    supportCount: supportStories.length,
-    utilityWeight,
+    storyCount: (leadStory ? 1 : 0) + supportingStories.length,
     hasQuickLinks: Boolean(quickLinks?.content.items.length),
     hasCalendar: Boolean(calendar?.content.items.length),
     hasPrincipal: Boolean(principal?.content.quote)
   });
-  const bannerModuleCount =
-    supportStories.length === 0 ? Math.min(2, supportModules.length) : !topStory && supportStories.length === 1 ? 1 : 0;
-  const bannerModules = supportModules.slice(0, bannerModuleCount);
-  const inlineSupportModules = supportModules.slice(bannerModuleCount);
-  const leadStoryEmphasis = getLeadStoryEmphasis({
-    layout,
-    supportCount: supportStories.length,
-    utilityWeight,
-    hasHeroImage: Boolean(hero?.content.heroImage),
-    hasGallery: galleryImages.length > 0
-  });
+
+  const galleryImages = Array.isArray(hero?.content.galleryImages)
+    ? hero.content.galleryImages.filter((imageUrl) => imageUrl && imageUrl !== leadStory?.image)
+    : [];
+  const showHeroBanner = Boolean(hero?.content.heroImage) && hero?.content.heroImage !== leadStory?.image;
+  const issueHeading = getIssueHeading(document);
+  const issueIntro = document.intro || hero?.content.body || "";
 
   return (
     <section className="rounded-editorial border border-slate-200 bg-white p-4 shadow-editorial lg:p-6">
@@ -135,9 +130,8 @@ export function NewsletterPreview({
             <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Preview</p>
             <h2 className="font-display text-3xl text-brand-navy">{channel.toUpperCase()} preview</h2>
             <p className="mt-2 max-w-xl text-sm leading-6 text-brand-muted">
-              This is the live output for the selected channel. The page now chooses a fixed editorial layout
-              based on the actual issue so it reads more like a publication and less like a template trying to
-              fill every slot.
+              This version uses one simple editorial grid so the page can grow or shrink cleanly without forcing
+              images or repeating content.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -157,16 +151,8 @@ export function NewsletterPreview({
         </div>
       ) : null}
 
-      <div
-        className={`overflow-hidden rounded-[30px] border border-slate-200 ${
-          channel === "email" ? "max-w-3xl" : ""
-        }`}
-        style={{
-          background: `linear-gradient(180deg, #ffffff 0%, ${organization.colors.background} 28%, #ffffff 100%)`,
-          color: organization.colors.text
-        }}
-      >
-        <header className="border-b border-black/5 bg-white px-6 py-5 lg:px-8">
+      <div className="overflow-hidden rounded-[30px] border border-slate-200 bg-white">
+        <header className="border-b border-slate-200 bg-white px-6 py-5 lg:px-8">
           <div className="flex flex-wrap items-start justify-between gap-5">
             <div className="flex items-center gap-4">
               <div className="flex min-h-[72px] min-w-[112px] items-center justify-center overflow-hidden rounded-[22px] border border-slate-200 bg-white px-4 py-3 shadow-sm">
@@ -189,112 +175,141 @@ export function NewsletterPreview({
                 <div className="mt-2 text-sm text-brand-muted">{organization.tagline}</div>
               </div>
             </div>
-            <div className="grid gap-2 rounded-[22px] border border-slate-200 bg-[#F7F9FC] px-4 py-3 text-right">
-              <div className="text-[11px] font-bold uppercase tracking-[0.24em] text-brand-secondary">
-                Issue date
-              </div>
-              <div className="text-sm font-semibold text-brand-text">{document.issueDate}</div>
+
+            <div className="rounded-[22px] border border-slate-200 bg-[#F7F9FC] px-4 py-3 text-right">
+              <div className="text-[11px] font-bold uppercase tracking-[0.24em] text-brand-secondary">Issue date</div>
+              <div className="mt-2 text-sm font-semibold text-brand-text">{document.issueDate}</div>
             </div>
           </div>
+
           <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4 text-xs font-semibold uppercase tracking-[0.18em] text-brand-muted">
-            <span>{organization.contactEmail}</span>
-            <span className="text-slate-300">•</span>
-            <span>{organization.phone}</span>
+            {organization.contactEmail ? <span>{organization.contactEmail}</span> : null}
+            {organization.contactEmail && organization.phone ? <span className="text-slate-300">•</span> : null}
+            {organization.phone ? <span>{organization.phone}</span> : null}
             {organization.websiteUrl ? (
               <>
-                <span className="text-slate-300">•</span>
+                {(organization.contactEmail || organization.phone) ? <span className="text-slate-300">•</span> : null}
                 <span>{organization.websiteUrl}</span>
               </>
             ) : null}
           </div>
         </header>
 
-        <IssueMasthead
-          body={document.intro || hero?.content.body || ""}
-          eyebrow={hero?.content.eyebrow || organization.name}
-          headline={
-            heroLooksLikeTopStory
-              ? getIssueHeading(document)
-              : hero?.content.headline || topStory?.content.headline || getIssueHeading(document)
-          }
-          heroImage={!heroLooksLikeTopStory ? hero?.content.heroImage : undefined}
-          primaryColor={organization.colors.primary}
-          secondaryColor={organization.colors.secondary}
-          stats={hero?.content.stats ?? []}
-          title={document.title}
-        />
+        <section className="border-b border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] px-6 py-7 lg:px-8">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px] lg:items-start">
+            <div>
+              <div
+                className="inline-flex w-fit rounded-full px-4 py-2 text-[11px] font-bold uppercase tracking-[0.28em]"
+                style={{ backgroundColor: `${organization.colors.secondary}12`, color: organization.colors.secondary }}
+              >
+                {hero?.content.eyebrow || organization.name}
+              </div>
+              <h1 className="mt-4 max-w-4xl font-display text-4xl leading-[1.02] text-brand-navy lg:text-[3.25rem]">
+                {heroLooksLikeTopStory ? issueHeading : hero?.content.headline || issueHeading}
+              </h1>
+              {issueIntro ? <p className="mt-4 max-w-3xl text-lg leading-8 text-brand-muted">{issueIntro}</p> : null}
+            </div>
 
-        {bannerModules.length > 0 ? <SupportBannerRow modules={bannerModules} /> : null}
-        {galleryImages.length >= 3 ? <PhotoStrip images={galleryImages} organizationName={organization.name} /> : null}
+            {hero?.content.stats?.length ? (
+              <div className="grid gap-3">
+                {hero.content.stats.slice(0, 3).map((stat, index) => (
+                  <div
+                    key={stat.label}
+                    className="rounded-[20px] px-4 py-4"
+                    style={{
+                      backgroundColor: index % 2 === 0 ? organization.colors.primary : `${organization.colors.secondary}14`
+                    }}
+                  >
+                    <div
+                      className="text-2xl font-bold"
+                      style={{
+                        color: index % 2 === 0 ? getReadableTextColor(organization.colors.primary) : organization.colors.text
+                      }}
+                    >
+                      {stat.value}
+                    </div>
+                    <div
+                      className="mt-1 text-sm"
+                      style={{
+                        color: index % 2 === 0 ? getReadableTextColor(organization.colors.primary) : organization.colors.muted
+                      }}
+                    >
+                      {stat.label}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </section>
+
+        {showHeroBanner ? (
+          <section className="border-b border-slate-200 px-6 py-6 lg:px-8">
+            <ImageFrame
+              alt={hero?.content.headline || issueHeading}
+              aspectRatio="16 / 6"
+              className="rounded-[24px] bg-[#F7F9FC]"
+              imageClassName="rounded-[24px]"
+              src={hero?.content.heroImage}
+            />
+          </section>
+        ) : null}
+
+        {supportBundle.bannerModules.length ? (
+          <section className="border-b border-slate-200 px-6 py-5 lg:px-8">
+            <div className="grid gap-4">
+              {supportBundle.bannerModules.map((module) => (
+                <SupportBannerCard key={module.id} module={module} />
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         <div className="px-6 py-8 lg:px-8">
-          {layout === "story_heavy" ? (
-            <StoryHeavyLayout
-              accentColor={organization.colors.secondary}
-              calendar={calendar}
-              cta={cta}
-              primaryColor={organization.colors.primary}
-              principal={principal}
-              primaryTextOnColor={primaryTextOnColor}
-              quickLinks={quickLinks}
-              quote={quote}
-              secondaryColor={organization.colors.secondary}
-              secondaryTextOnColor={secondaryTextOnColor}
-              showSpotlight={showSpotlight}
-              spotlight={spotlight}
-              supportStories={supportStories}
-              supportModules={inlineSupportModules}
-              topStory={topStory}
-              leadStoryEmphasis={leadStoryEmphasis}
-            />
-          ) : layout === "announcement" ? (
-            <AnnouncementLayout
-              accentColor={organization.colors.secondary}
-              calendar={calendar}
-              clubs={clubs}
-              cta={cta}
-              principal={principal}
-              primaryColor={organization.colors.primary}
-              primaryTextOnColor={primaryTextOnColor}
-              quickLinks={quickLinks}
-              quote={quote}
-              secondaryColor={organization.colors.secondary}
-              secondaryTextOnColor={secondaryTextOnColor}
-              showSpotlight={showSpotlight}
-              spotlight={spotlight}
-              supportStories={supportStories}
-              supportModules={inlineSupportModules}
-              topStory={topStory}
-              leadStoryEmphasis={leadStoryEmphasis}
-            />
-          ) : (
-            <BalancedLayout
-              accentColor={organization.colors.secondary}
-              calendar={calendar}
-              clubs={clubs}
-              cta={cta}
-              principal={principal}
-              primaryColor={organization.colors.primary}
-              primaryTextOnColor={primaryTextOnColor}
-              quickLinks={quickLinks}
-              quote={quote}
-              secondaryColor={organization.colors.secondary}
-              secondaryTextOnColor={secondaryTextOnColor}
-              showSpotlight={showSpotlight}
-              spotlight={spotlight}
-              supportStories={supportStories}
-              supportModules={inlineSupportModules}
-              topStory={topStory}
-              leadStoryEmphasis={leadStoryEmphasis}
-            />
-          )}
+          <div className="grid gap-8 xl:grid-cols-[minmax(0,1.5fr)_320px]">
+            <div className="grid gap-8">
+              {leadStory ? <LeadStoryCard story={leadStory} /> : null}
+
+              {primarySupportingStories.length ? (
+                <section className="grid gap-4 sm:grid-cols-2">
+                  {primarySupportingStories.map((story) => (
+                    <StoryCard key={story.id} story={story} />
+                  ))}
+                </section>
+              ) : null}
+
+              {overflowStories.length ? (
+                <PlainUpdatesSection stories={overflowStories} />
+              ) : null}
+
+              {clubs?.content.items.length ? <ClubsCard items={clubs.content.items} /> : null}
+              {cta ? <CtaBand cta={cta.content} /> : null}
+              {quote ? <QuoteCard quote={quote.content} /> : null}
+            </div>
+
+            <aside className="grid gap-5">
+              {showSpotlight && spotlight ? <SpotlightCard spotlight={spotlight.content} /> : null}
+              {principal ? <LeadershipCard principal={principal.content} /> : null}
+              {quickLinks?.content.items.length ? <QuickLinksCard links={quickLinks.content.items} /> : null}
+              {calendar?.content.items.length ? <CalendarCard items={calendar.content.items} /> : null}
+              {supportBundle.inlineModules.map((module) => (
+                <SupportModuleCard key={module.id} module={module} />
+              ))}
+            </aside>
+          </div>
+
+          {galleryImages.length >= 2 ? (
+            <div className="mt-10">
+              <PhotoStrip images={galleryImages.slice(0, 4)} organizationName={organization.name} />
+            </div>
+          ) : null}
         </div>
 
-        <footer className="bg-[#111827] px-6 py-8 text-white lg:px-8">
-          <div className="grid gap-8 md:grid-cols-2">
+        <footer className="border-t border-slate-200 bg-[#0F2745] px-6 py-8 text-white lg:px-8">
+          <div className="grid gap-8 md:grid-cols-[minmax(0,1fr)_320px]">
             <div>
               <h4 className="text-lg font-semibold">{organization.name}</h4>
-              <p className="mt-3 text-sm leading-6 text-slate-300">
+              <p className="mt-3 text-sm leading-6 text-white/80">
                 {organization.address}
                 <br />
                 {organization.phone}
@@ -302,12 +317,12 @@ export function NewsletterPreview({
                 {organization.contactEmail}
               </p>
             </div>
-            <div>
-              <h4 className="text-lg font-semibold">Stay connected</h4>
-              <p className="mt-3 text-sm leading-6 text-slate-300">
+            <div className="rounded-[22px] bg-white/10 px-5 py-4">
+              <div className="text-xs font-bold uppercase tracking-[0.24em] text-white/70">Stay connected</div>
+              <p className="mt-3 text-sm leading-6 text-white/85">
                 {organization.websiteUrl
-                  ? `Visit ${organization.websiteUrl} for school updates, archive access, and additional family resources.`
-                  : "Check the school archive and district channels for future updates and family resources."}
+                  ? `Find more updates, resources, and archive access at ${organization.websiteUrl}.`
+                  : "Watch the school archive and district channels for the next issue and family resources."}
               </p>
             </div>
           </div>
@@ -317,407 +332,31 @@ export function NewsletterPreview({
   );
 }
 
-function SupportBannerRow({ modules }: { modules: SupportModule[] }) {
-  if (!modules.length) {
-    return null;
-  }
-
+function LeadStoryCard({ story }: { story: StoryCardData }) {
   return (
-    <section className="border-b border-black/5 bg-[linear-gradient(180deg,#ffffff_0%,#f9fbff_100%)] px-6 py-5 lg:px-8">
-      <div className={`grid gap-4 ${modules.length > 1 ? "xl:grid-cols-2" : ""}`}>
-        {modules.map((module) => (
-          <SupportBannerCard key={module.id} module={module} />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function IssueMasthead({
-  eyebrow,
-  headline,
-  body,
-  stats,
-  heroImage,
-  primaryColor,
-  secondaryColor,
-  title
-}: {
-  eyebrow: string;
-  headline: string;
-  body: string;
-  stats: { label: string; value: string }[];
-  heroImage?: string;
-  primaryColor: string;
-  secondaryColor: string;
-  title: string;
-}) {
-  const primaryTextOnColor = getReadableTextColor(primaryColor);
-  const secondaryTextOnColor = getReadableTextColor(secondaryColor);
-
-  return (
-    <section
-      className="border-b border-black/5 px-6 py-7 lg:px-8"
-      style={{
-        background: `radial-gradient(circle at top right, ${secondaryColor}18 0, transparent 26%), linear-gradient(180deg, #ffffff 0%, #f8fbff 100%)`
-      }}
-    >
-      <div className={`grid gap-6 ${heroImage ? "lg:grid-cols-[minmax(0,1.35fr)_320px]" : ""}`}>
-        <div className="grid gap-4">
-          <div
-            className="inline-flex w-fit rounded-full px-4 py-2 text-[11px] font-bold uppercase tracking-[0.28em]"
-            style={{
-              backgroundColor: `${secondaryColor}14`,
-              color: secondaryColor
-            }}
-          >
-            {eyebrow}
-          </div>
-          <div className="max-w-4xl">
-            <h1 className="font-display text-4xl leading-[0.98] text-brand-navy lg:text-[4rem]">{headline}</h1>
-            {title && title.trim() && normalizeForComparison(title) !== normalizeForComparison(headline) ? (
-              <div className="mt-3 text-sm font-semibold uppercase tracking-[0.18em] text-brand-muted">{title}</div>
-            ) : null}
-            <div className="mt-5 max-w-3xl rounded-[24px] border border-slate-200/80 bg-white/90 px-5 py-4 shadow-[0_12px_30px_rgba(15,39,69,0.06)] backdrop-blur">
-              <p className="text-lg leading-8 text-brand-muted">{body}</p>
-            </div>
-          </div>
-
-          {stats.length > 0 ? (
-            <div className="mt-2 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {stats.map((stat, index) => {
-                const useSecondary = index % 2 === 1;
-                const backgroundColor = useSecondary ? secondaryColor : primaryColor;
-                const readableText = useSecondary ? secondaryTextOnColor : primaryTextOnColor;
-
-                return (
-                  <div
-                    key={stat.label}
-                    className="rounded-[22px] border border-white/10 px-5 py-4 shadow-[0_16px_30px_rgba(15,39,69,0.08)]"
-                    style={{ backgroundColor, color: readableText }}
-                  >
-                    <div className="text-2xl font-bold">{stat.value}</div>
-                    <div className="mt-1 text-sm opacity-85">{stat.label}</div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : null}
-        </div>
-
-        {heroImage ? (
-          <ImageFrame
-            alt={headline}
-            aspectRatio="4 / 3"
-            className="rounded-[28px] border border-slate-200 bg-white/80 p-4 shadow-[0_18px_42px_rgba(15,39,69,0.08)]"
-            imageClassName="rounded-[20px]"
-            src={heroImage}
-          />
-        ) : null}
-      </div>
-    </section>
-  );
-}
-
-function StoryHeavyLayout({
-  topStory,
-  supportStories,
-  supportModules,
-  showSpotlight,
-  spotlight,
-  principal,
-  quickLinks,
-  calendar,
-  cta,
-  quote,
-  primaryColor,
-  secondaryColor,
-  primaryTextOnColor,
-  secondaryTextOnColor,
-  accentColor,
-  leadStoryEmphasis
-}: {
-  topStory: NewsletterSection<TopStoryContent> | undefined;
-  supportStories: StoryCardData[];
-  supportModules: SupportModule[];
-  showSpotlight: boolean;
-  spotlight: NewsletterSection<SpotlightContent> | undefined;
-  principal: NewsletterSection<PrincipalContent> | undefined;
-  quickLinks: NewsletterSection<QuickLinksContent> | undefined;
-  calendar: NewsletterSection<CalendarContent> | undefined;
-  cta: NewsletterSection<CtaContent> | undefined;
-  quote: NewsletterSection<QuoteContent> | undefined;
-  primaryColor: string;
-  secondaryColor: string;
-  primaryTextOnColor: string;
-  secondaryTextOnColor: string;
-  accentColor: string;
-  leadStoryEmphasis: LeadStoryEmphasis;
-}) {
-  return (
-    <div className="grid gap-6">
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_340px]">
-        <div className="grid gap-6">
-          {topStory ? <LeadStoryCard emphasis={leadStoryEmphasis} story={topStory.content} eyebrow="Top story" /> : null}
-          {supportStories.length > 0 ? (
-            <SectionShell eyebrow="Campus stories" title="What families should know">
-              <div className={`mt-5 grid gap-4 ${supportStories.length >= 4 ? "md:grid-cols-2" : ""}`}>
-                {supportStories.slice(0, 6).map((story) => (
-                  <StoryCard compact={supportStories.length >= 5} key={story.id} story={story} />
-                ))}
-              </div>
-            </SectionShell>
-          ) : null}
-        </div>
-
-        <div className="grid gap-6">
-          {showSpotlight && spotlight ? <SpotlightCard spotlight={spotlight.content} /> : null}
-          {principal ? <LeadershipCard principal={principal.content} accentColor={accentColor} /> : null}
-          {quickLinks ? <QuickLinksCard links={quickLinks.content.items} /> : null}
-          {calendar ? <CalendarCard items={calendar.content.items} secondaryColor={secondaryColor} /> : null}
-          <SupportModuleStack modules={supportModules.slice(0, 2)} />
-        </div>
-      </div>
-
-      {cta ? (
-        <CtaBand
-          cta={cta.content}
-          primaryColor={primaryColor}
-          primaryTextOnColor={primaryTextOnColor}
-          secondaryColor={secondaryColor}
-          secondaryTextOnColor={secondaryTextOnColor}
-        />
-      ) : null}
-
-      {quote ? <QuoteCard quote={quote.content} /> : null}
-
-      {supportModules.length > 2 ? <SupportModuleGrid modules={supportModules.slice(2, 4)} /> : null}
-    </div>
-  );
-}
-
-function BalancedLayout({
-  topStory,
-  supportStories,
-  supportModules,
-  showSpotlight,
-  spotlight,
-  principal,
-  quickLinks,
-  calendar,
-  clubs,
-  cta,
-  quote,
-  primaryColor,
-  secondaryColor,
-  primaryTextOnColor,
-  secondaryTextOnColor,
-  accentColor,
-  leadStoryEmphasis
-}: {
-  topStory: NewsletterSection<TopStoryContent> | undefined;
-  supportStories: StoryCardData[];
-  supportModules: SupportModule[];
-  showSpotlight: boolean;
-  spotlight: NewsletterSection<SpotlightContent> | undefined;
-  principal: NewsletterSection<PrincipalContent> | undefined;
-  quickLinks: NewsletterSection<QuickLinksContent> | undefined;
-  calendar: NewsletterSection<CalendarContent> | undefined;
-  clubs: NewsletterSection<ClubsContent> | undefined;
-  cta: NewsletterSection<CtaContent> | undefined;
-  quote: NewsletterSection<QuoteContent> | undefined;
-  primaryColor: string;
-  secondaryColor: string;
-  primaryTextOnColor: string;
-  secondaryTextOnColor: string;
-  accentColor: string;
-  leadStoryEmphasis: LeadStoryEmphasis;
-}) {
-  return (
-    <div className="grid gap-6">
-      <div className={`grid gap-6 ${supportStories.length <= 1 ? "xl:grid-cols-[minmax(0,1.45fr)_320px]" : "xl:grid-cols-[minmax(0,1.3fr)_minmax(300px,0.7fr)]"}`}>
-        <div className="grid gap-6">
-          {topStory ? <LeadStoryCard emphasis={leadStoryEmphasis} story={topStory.content} eyebrow="Lead story" /> : null}
-          {supportStories.length > 0 ? (
-            <SectionShell eyebrow="More to know" title="Additional updates">
-              <div className={`mt-5 grid gap-4 ${supportStories.length >= 3 ? "md:grid-cols-2" : ""}`}>
-                {supportStories.slice(0, 4).map((story) => (
-                  <StoryCard compact={supportStories.length >= 4} key={story.id} story={story} />
-                ))}
-              </div>
-            </SectionShell>
-          ) : null}
-        </div>
-
-        <div className="grid gap-6">
-          {showSpotlight && spotlight ? <SpotlightCard spotlight={spotlight.content} /> : null}
-          {principal ? <LeadershipCard principal={principal.content} accentColor={accentColor} /> : null}
-          {calendar ? <CalendarCard items={calendar.content.items} secondaryColor={secondaryColor} /> : null}
-          {quickLinks ? <QuickLinksCard links={quickLinks.content.items} /> : null}
-          <SupportModuleStack modules={supportModules.slice(0, 1)} />
-        </div>
-      </div>
-
-      {clubs?.content.items.length ? <ClubsCard items={clubs.content.items} primaryColor={primaryColor} /> : null}
-
-      {cta ? (
-        <CtaBand
-          cta={cta.content}
-          primaryColor={primaryColor}
-          primaryTextOnColor={primaryTextOnColor}
-          secondaryColor={secondaryColor}
-          secondaryTextOnColor={secondaryTextOnColor}
-        />
-      ) : null}
-
-      {quote ? <QuoteCard quote={quote.content} /> : null}
-
-      {supportModules.length > 1 ? <SupportModuleGrid modules={supportModules.slice(1, 4)} /> : null}
-    </div>
-  );
-}
-
-function AnnouncementLayout({
-  topStory,
-  supportStories,
-  supportModules,
-  showSpotlight,
-  spotlight,
-  principal,
-  quickLinks,
-  calendar,
-  clubs,
-  cta,
-  quote,
-  primaryColor,
-  secondaryColor,
-  primaryTextOnColor,
-  secondaryTextOnColor,
-  accentColor,
-  leadStoryEmphasis
-}: {
-  topStory: NewsletterSection<TopStoryContent> | undefined;
-  supportStories: StoryCardData[];
-  supportModules: SupportModule[];
-  showSpotlight: boolean;
-  spotlight: NewsletterSection<SpotlightContent> | undefined;
-  principal: NewsletterSection<PrincipalContent> | undefined;
-  quickLinks: NewsletterSection<QuickLinksContent> | undefined;
-  calendar: NewsletterSection<CalendarContent> | undefined;
-  clubs: NewsletterSection<ClubsContent> | undefined;
-  cta: NewsletterSection<CtaContent> | undefined;
-  quote: NewsletterSection<QuoteContent> | undefined;
-  primaryColor: string;
-  secondaryColor: string;
-  primaryTextOnColor: string;
-  secondaryTextOnColor: string;
-  accentColor: string;
-  leadStoryEmphasis: LeadStoryEmphasis;
-}) {
-  return (
-    <div className="grid gap-6">
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_320px]">
-        <div className="grid gap-6">
-          {topStory ? <LeadStoryCard compact emphasis={leadStoryEmphasis} story={topStory.content} eyebrow="Main update" /> : null}
-          {supportStories.length > 0 ? (
-            <SectionShell eyebrow="Quick read" title="Supporting updates">
-              <div className="mt-5 grid gap-4">
-                {supportStories.slice(0, 3).map((story) => (
-                  <StoryCard key={story.id} story={story} compact />
-                ))}
-              </div>
-            </SectionShell>
-          ) : null}
-          {clubs?.content.items.length ? <ClubsCard items={clubs.content.items} primaryColor={primaryColor} /> : null}
-        </div>
-
-        <div className="grid gap-6">
-          {calendar ? <CalendarCard items={calendar.content.items} secondaryColor={secondaryColor} /> : null}
-          {quickLinks ? <QuickLinksCard links={quickLinks.content.items} /> : null}
-          {principal ? <LeadershipCard principal={principal.content} accentColor={accentColor} /> : null}
-          {showSpotlight && spotlight ? <SpotlightCard spotlight={spotlight.content} compact /> : null}
-          <SupportModuleStack modules={supportModules.slice(0, 2)} />
-        </div>
-      </div>
-
-      {cta ? (
-        <CtaBand
-          cta={cta.content}
-          primaryColor={primaryColor}
-          primaryTextOnColor={primaryTextOnColor}
-          secondaryColor={secondaryColor}
-          secondaryTextOnColor={secondaryTextOnColor}
-        />
-      ) : null}
-
-      {quote ? <QuoteCard quote={quote.content} /> : null}
-
-      {supportModules.length > 2 ? <SupportModuleGrid modules={supportModules.slice(2, 4)} /> : null}
-    </div>
-  );
-}
-
-function SectionShell({
-  eyebrow,
-  title,
-  children
-}: {
-  eyebrow: string;
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_14px_36px_rgba(15,39,69,0.06)]">
-      <div className="flex items-center gap-3">
-        <div className="h-[2px] w-8 rounded-full bg-brand-secondary" />
-        <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">{eyebrow}</div>
-      </div>
-      <h2 className="mt-2 font-display text-3xl text-brand-text">{title}</h2>
-      {children}
-    </section>
-  );
-}
-
-function LeadStoryCard({
-  story,
-  eyebrow,
-  compact = false,
-  emphasis = "standard"
-}: {
-  story: TopStoryContent;
-  eyebrow: string;
-  compact?: boolean;
-  emphasis?: LeadStoryEmphasis;
-}) {
-  const featured = emphasis === "feature";
-  const resolvedCompact = compact || emphasis === "compact";
-
-  return (
-    <section className={`overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-[0_18px_40px_rgba(15,39,69,0.08)] ${featured ? "ring-1 ring-brand-primary/10" : ""}`}>
-      <div className={`${resolvedCompact ? "lg:grid-cols-[minmax(220px,0.8fr)_minmax(0,1.2fr)]" : featured ? "lg:grid-cols-[minmax(320px,1.05fr)_minmax(0,1.15fr)]" : "lg:grid-cols-[minmax(260px,0.9fr)_minmax(0,1.1fr)]"} grid gap-0`}>
+    <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_16px_34px_rgba(15,39,69,0.08)]">
+      <div className={`grid ${story.image ? "lg:grid-cols-[minmax(260px,0.95fr)_minmax(0,1.05fr)]" : ""}`}>
         {story.image ? (
           <ImageFrame
-            alt={story.headline}
-            aspectRatio={resolvedCompact ? "4 / 3" : featured ? "1 / 1" : "5 / 4"}
-            className="h-full rounded-none bg-[linear-gradient(180deg,#f7f9fc_0%,#ffffff_100%)] p-4"
-            imageClassName="rounded-[22px]"
+            alt={story.title}
+            aspectRatio="4 / 3"
+            className="bg-[#F7F9FC]"
+            imageClassName="h-full"
             src={story.image}
           />
         ) : null}
-        <div className={`bg-[linear-gradient(180deg,#ffffff_0%,#fbfdff_100%)] ${featured ? "p-7 lg:p-9" : "p-6 lg:p-7"}`}>
-          <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-primary">{eyebrow}</div>
-          <h2 className={`${resolvedCompact ? "text-3xl" : featured ? "text-[3.25rem]" : "text-4xl"} mt-4 font-display leading-[0.96] text-brand-text`}>
-            {story.headline}
-          </h2>
-          <p className={`mt-4 ${featured ? "text-lg leading-8" : "text-base leading-7"} text-brand-muted`}>
-            {story.summary}
-          </p>
+        <div className="p-6 lg:p-7">
+          <div className="text-xs font-bold uppercase tracking-[0.28em] text-brand-secondary">
+            {story.eyebrow || "Lead story"}
+          </div>
+          <h2 className="mt-3 font-display text-4xl leading-[1.02] text-brand-text">{story.title}</h2>
+          <p className="mt-4 text-base leading-7 text-brand-muted">{story.summary}</p>
           {story.url ? (
             <a
-              className="mt-6 inline-flex rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(18,58,105,0.22)]"
+              className="mt-6 inline-flex rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold text-white"
               href={story.url}
             >
-              Read the story
+              Read more
             </a>
           ) : null}
         </div>
@@ -726,21 +365,15 @@ function LeadStoryCard({
   );
 }
 
-function StoryCard({
-  story,
-  compact = false
-}: {
-  story: StoryCardData;
-  compact?: boolean;
-}) {
+function StoryCard({ story }: { story: StoryCardData }) {
   return (
-    <article className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_12px_30px_rgba(15,39,69,0.06)]">
+    <article className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_12px_28px_rgba(15,39,69,0.06)]">
       {story.image ? (
         <ImageFrame
           alt={story.title}
-          aspectRatio={compact ? "4 / 3" : "16 / 10"}
-          className="rounded-none bg-[linear-gradient(180deg,#f7f9fc_0%,#ffffff_100%)] p-3"
-          imageClassName="rounded-[18px]"
+          aspectRatio="4 / 3"
+          className="bg-[#F7F9FC]"
+          imageClassName="h-full"
           src={story.image}
         />
       ) : null}
@@ -748,30 +381,41 @@ function StoryCard({
         {story.eyebrow ? (
           <div className="text-xs font-bold uppercase tracking-[0.24em] text-brand-secondary">{story.eyebrow}</div>
         ) : null}
-        <h3 className={`${compact ? "text-xl" : "text-2xl"} mt-3 font-semibold leading-tight text-brand-text`}>
-          {story.title}
-        </h3>
-        <p className={`${compact ? "line-clamp-4" : ""} mt-3 text-sm leading-6 text-brand-muted`}>{story.summary}</p>
+        <h3 className="mt-3 text-2xl font-semibold leading-tight text-brand-text">{story.title}</h3>
+        <p className="mt-3 text-sm leading-6 text-brand-muted">{story.summary}</p>
       </div>
     </article>
   );
 }
 
-function SpotlightCard({
-  spotlight,
-  compact = false
-}: {
-  spotlight: SpotlightContent;
-  compact?: boolean;
-}) {
+function PlainUpdatesSection({ stories }: { stories: StoryCardData[] }) {
   return (
-    <section className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_14px_34px_rgba(15,39,69,0.06)]">
-      <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Student spotlight</div>
+    <section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_12px_28px_rgba(15,39,69,0.06)]">
+      <div className="text-xs font-bold uppercase tracking-[0.28em] text-brand-secondary">More updates</div>
+      <div className="mt-4 grid gap-4">
+        {stories.map((story) => (
+          <article key={story.id} className="border-t border-slate-200 pt-4 first:border-t-0 first:pt-0">
+            {story.eyebrow ? (
+              <div className="text-xs font-bold uppercase tracking-[0.2em] text-brand-secondary">{story.eyebrow}</div>
+            ) : null}
+            <h3 className="mt-2 text-xl font-semibold text-brand-text">{story.title}</h3>
+            <p className="mt-2 text-sm leading-6 text-brand-muted">{story.summary}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function SpotlightCard({ spotlight }: { spotlight: SpotlightContent }) {
+  return (
+    <section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_12px_28px_rgba(15,39,69,0.06)]">
+      <div className="text-xs font-bold uppercase tracking-[0.28em] text-brand-secondary">Student spotlight</div>
       {spotlight.image ? (
         <ImageFrame
           alt={spotlight.name}
-          aspectRatio={compact ? "4 / 3" : "5 / 4"}
-          className="mt-4 rounded-[22px] bg-[#F7F9FC] p-3"
+          aspectRatio="4 / 3"
+          className="mt-4 rounded-[18px] bg-[#F7F9FC]"
           imageClassName="rounded-[18px]"
           src={spotlight.image}
         />
@@ -783,24 +427,11 @@ function SpotlightCard({
   );
 }
 
-function LeadershipCard({
-  principal,
-  accentColor
-}: {
-  principal: PrincipalContent;
-  accentColor: string;
-}) {
+function LeadershipCard({ principal }: { principal: PrincipalContent }) {
   return (
-    <section
-      className="rounded-[30px] border border-slate-200 p-6 shadow-[0_14px_34px_rgba(15,39,69,0.06)]"
-      style={{
-        background: `linear-gradient(180deg, #ffffff 0%, ${accentColor}0d 100%)`
-      }}
-    >
-      <div className="text-xs font-bold uppercase tracking-[0.3em]" style={{ color: accentColor }}>
-        Leadership note
-      </div>
-      <blockquote className="mt-4 border-l-4 pl-5 font-display text-2xl leading-tight text-brand-text">
+    <section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_12px_28px_rgba(15,39,69,0.06)]">
+      <div className="text-xs font-bold uppercase tracking-[0.28em] text-brand-secondary">Leadership note</div>
+      <blockquote className="mt-4 border-l-4 border-brand-primary pl-4 text-base leading-7 text-brand-text">
         {principal.quote}
       </blockquote>
       <div className="mt-4 text-sm text-brand-muted">{principal.author}, Principal</div>
@@ -809,18 +440,14 @@ function LeadershipCard({
 }
 
 function QuickLinksCard({ links }: { links: QuickLinksContent["items"] }) {
-  if (!links.length) {
-    return null;
-  }
-
   return (
-    <section className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_14px_34px_rgba(15,39,69,0.06)]">
-      <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-primary">Quick links</div>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+    <section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_12px_28px_rgba(15,39,69,0.06)]">
+      <div className="text-xs font-bold uppercase tracking-[0.28em] text-brand-secondary">Quick links</div>
+      <div className="mt-4 grid gap-3">
         {links.map((item) => (
           <a
             key={item.id}
-            className="rounded-2xl border border-slate-200 bg-[#f8fbff] px-4 py-3 text-sm font-semibold transition-colors hover:bg-white"
+            className="rounded-2xl border border-slate-200 bg-[#F7F9FC] px-4 py-3 text-sm font-semibold text-brand-text transition-colors hover:bg-white"
             href={item.url}
           >
             {item.label}
@@ -831,27 +458,15 @@ function QuickLinksCard({ links }: { links: QuickLinksContent["items"] }) {
   );
 }
 
-function CalendarCard({
-  items,
-  secondaryColor
-}: {
-  items: CalendarContent["items"];
-  secondaryColor: string;
-}) {
-  if (!items.length) {
-    return null;
-  }
-
+function CalendarCard({ items }: { items: CalendarContent["items"] }) {
   return (
-    <section className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_14px_34px_rgba(15,39,69,0.06)]">
-      <div className="text-xs font-bold uppercase tracking-[0.3em]" style={{ color: secondaryColor }}>
-        Calendar snapshot
-      </div>
+    <section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_12px_28px_rgba(15,39,69,0.06)]">
+      <div className="text-xs font-bold uppercase tracking-[0.28em] text-brand-secondary">Calendar snapshot</div>
       <div className="mt-4 grid gap-3">
         {items.map((item) => (
           <div
-            key={item.date + item.detail}
-            className="grid grid-cols-[88px_minmax(0,1fr)] gap-4 rounded-2xl bg-brand-background px-4 py-3"
+            key={`${item.date}-${item.detail}`}
+            className="grid grid-cols-[88px_minmax(0,1fr)] gap-4 rounded-2xl bg-[#F7F9FC] px-4 py-3"
           >
             <div className="rounded-xl bg-white px-3 py-2 text-sm font-semibold text-brand-text shadow-sm">{item.date}</div>
             <div className="text-sm leading-6 text-brand-muted">{item.detail}</div>
@@ -862,26 +477,14 @@ function CalendarCard({
   );
 }
 
-function ClubsCard({
-  items,
-  primaryColor
-}: {
-  items: ClubsContent["items"];
-  primaryColor: string;
-}) {
-  if (!items.length) {
-    return null;
-  }
-
+function ClubsCard({ items }: { items: ClubsContent["items"] }) {
   return (
-    <section className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_14px_34px_rgba(15,39,69,0.06)]">
-      <div className="text-xs font-bold uppercase tracking-[0.3em]" style={{ color: primaryColor }}>
-        Student life
-      </div>
+    <section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_12px_28px_rgba(15,39,69,0.06)]">
+      <div className="text-xs font-bold uppercase tracking-[0.28em] text-brand-secondary">Student life</div>
       <h2 className="mt-2 font-display text-3xl text-brand-text">Clubs and organizations</h2>
       <ul className="mt-5 grid gap-3 text-sm leading-6 text-brand-muted">
         {items.map((item) => (
-          <li key={item} className="rounded-2xl bg-brand-background px-4 py-3">
+          <li key={item} className="rounded-2xl bg-[#F7F9FC] px-4 py-3">
             {item}
           </li>
         ))}
@@ -890,39 +493,16 @@ function ClubsCard({
   );
 }
 
-function CtaBand({
-  cta,
-  primaryColor,
-  secondaryColor,
-  primaryTextOnColor,
-  secondaryTextOnColor
-}: {
-  cta: CtaContent;
-  primaryColor: string;
-  secondaryColor: string;
-  primaryTextOnColor: string;
-  secondaryTextOnColor: string;
-}) {
+function CtaBand({ cta }: { cta: CtaContent }) {
   return (
-    <section className="grid gap-4 md:grid-cols-2">
-      <article
-        className="rounded-[30px] p-6 shadow-[0_16px_34px_rgba(18,58,105,0.18)]"
-        style={{ backgroundColor: primaryColor, color: primaryTextOnColor }}
-      >
-        <div className="text-xs font-bold uppercase tracking-[0.3em] opacity-80">Get involved</div>
+    <section className="grid gap-4 lg:grid-cols-2">
+      <article className="rounded-[24px] bg-brand-primary px-6 py-6 text-white shadow-[0_16px_32px_rgba(18,58,105,0.2)]">
+        <div className="text-xs font-bold uppercase tracking-[0.28em] text-white/80">Get involved</div>
         <h3 className="mt-3 text-2xl font-semibold">{cta.volunteer.headline}</h3>
-        <p className="mt-3 text-sm leading-6 opacity-90">{cta.volunteer.summary}</p>
+        <p className="mt-3 text-sm leading-6 text-white/90">{cta.volunteer.summary}</p>
       </article>
-      <article
-        className="rounded-[30px] p-6 shadow-[0_14px_30px_rgba(15,39,69,0.06)]"
-        style={{
-          background: `linear-gradient(180deg, ${secondaryColor}12 0%, #ffffff 100%)`,
-          color: secondaryTextOnColor === "#FFFFFF" ? "#142033" : "#142033"
-        }}
-      >
-        <div className="text-xs font-bold uppercase tracking-[0.3em]" style={{ color: secondaryColor }}>
-          Support
-        </div>
+      <article className="rounded-[24px] border border-slate-200 bg-white px-6 py-6 shadow-[0_12px_28px_rgba(15,39,69,0.06)]">
+        <div className="text-xs font-bold uppercase tracking-[0.28em] text-brand-secondary">Support</div>
         <h3 className="mt-3 text-2xl font-semibold text-brand-text">{cta.support.headline}</h3>
         <p className="mt-3 text-sm leading-6 text-brand-muted">{cta.support.summary}</p>
       </article>
@@ -932,92 +512,33 @@ function CtaBand({
 
 function QuoteCard({ quote }: { quote: QuoteContent }) {
   return (
-    <section
-      className="rounded-[30px] border border-slate-200 px-8 py-10 text-center shadow-[0_14px_34px_rgba(15,39,69,0.06)]"
-      style={{
-        background: "linear-gradient(180deg, #ffffff 0%, #f8fbff 100%)"
-      }}
-    >
+    <section className="rounded-[24px] border border-slate-200 bg-white px-8 py-8 text-center shadow-[0_12px_28px_rgba(15,39,69,0.06)]">
       <p className="font-display text-3xl leading-tight text-brand-text">{quote.quote}</p>
       <div className="mt-4 text-sm text-brand-muted">{quote.attribution}</div>
     </section>
   );
 }
 
-function SupportModuleStack({ modules }: { modules: SupportModule[] }) {
-  if (!modules.length) {
-    return null;
-  }
-
-  return (
-    <div className="grid gap-4">
-      {modules.map((module) => (
-        <SupportModuleCard key={module.id} module={module} compact />
-      ))}
-    </div>
-  );
-}
-
-function SupportModuleGrid({ modules }: { modules: SupportModule[] }) {
-  if (!modules.length) {
-    return null;
-  }
-
-  return (
-    <section className="grid gap-4 md:grid-cols-2">
-      {modules.map((module) => (
-        <SupportModuleCard key={module.id} module={module} />
-      ))}
-    </section>
-  );
-}
-
-function SupportModuleCard({
-  module,
-  compact = false
-}: {
-  module: SupportModule;
-  compact?: boolean;
-}) {
+function SupportModuleCard({ module }: { module: SupportModule }) {
   const toneClasses =
     module.tone === "primary"
       ? "border-brand-primary/10 bg-brand-primary text-white"
       : module.tone === "secondary"
         ? "border-brand-secondary/10 bg-brand-secondary/10 text-brand-text"
         : "border-slate-200 bg-white text-brand-text";
-
   const eyebrowTone =
     module.tone === "primary"
       ? "text-white/80"
       : module.tone === "secondary"
         ? "text-brand-secondary"
         : "text-brand-primary";
-
-  const bodyTone =
-    module.tone === "primary"
-      ? "text-white/90"
-      : "text-brand-muted";
+  const bodyTone = module.tone === "primary" ? "text-white/90" : "text-brand-muted";
 
   return (
-    <article className={`relative overflow-hidden rounded-[28px] border p-6 shadow-[0_14px_34px_rgba(15,39,69,0.08)] ${toneClasses}`}>
-      <div
-        className="pointer-events-none absolute inset-x-0 top-0 h-20 opacity-80"
-        style={{
-          background:
-            module.tone === "primary"
-              ? "linear-gradient(180deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0) 100%)"
-              : module.tone === "secondary"
-                ? "linear-gradient(180deg, rgba(134,32,26,0.08) 0%, rgba(134,32,26,0) 100%)"
-                : "linear-gradient(180deg, rgba(18,58,105,0.05) 0%, rgba(18,58,105,0) 100%)"
-        }}
-      />
-      {module.graphic && module.graphic !== "none" ? (
-        <div className="relative mb-4">
-          {renderSupportGraphic(module.graphic, module.tone)}
-        </div>
-      ) : null}
+    <article className={`overflow-hidden rounded-[24px] border p-5 shadow-[0_12px_28px_rgba(15,39,69,0.06)] ${toneClasses}`}>
+      {module.graphic && module.graphic !== "none" ? <div className="mb-4">{renderSupportGraphic(module.graphic, module.tone)}</div> : null}
       <div className={`text-xs font-bold uppercase tracking-[0.28em] ${eyebrowTone}`}>{module.eyebrow}</div>
-      <h3 className={`${compact ? "text-xl" : "text-2xl"} mt-3 font-semibold leading-tight`}>{module.title}</h3>
+      <h3 className="mt-3 text-xl font-semibold leading-tight">{module.title}</h3>
       <p className={`mt-3 text-sm leading-6 ${bodyTone}`}>{module.body}</p>
       {module.actionLabel && module.actionHref ? (
         <a
@@ -1047,7 +568,7 @@ function SupportBannerCard({ module }: { module: SupportModule }) {
   const bodyClass = primary ? "text-white/90" : "text-brand-muted";
 
   return (
-    <article className={`relative overflow-hidden rounded-[30px] border p-6 shadow-[0_16px_36px_rgba(15,39,69,0.08)] ${surfaceClass}`}>
+    <article className={`overflow-hidden rounded-[24px] border p-5 shadow-[0_12px_28px_rgba(15,39,69,0.08)] ${surfaceClass}`}>
       <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
         <div>
           <div className={`text-xs font-bold uppercase tracking-[0.28em] ${eyebrowClass}`}>{module.eyebrow}</div>
@@ -1064,9 +585,7 @@ function SupportBannerCard({ module }: { module: SupportModule }) {
             </a>
           ) : null}
         </div>
-        <div className="md:justify-self-end">
-          {renderSupportGraphic(module.graphic ?? "none", module.tone)}
-        </div>
+        <div className="md:justify-self-end">{renderSupportGraphic(module.graphic ?? "none", module.tone)}</div>
       </div>
     </article>
   );
@@ -1080,21 +599,16 @@ function PhotoStrip({
   organizationName: string;
 }) {
   return (
-    <section
-      className="border-b border-black/5 px-6 py-5 lg:px-8"
-      style={{
-        background: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)"
-      }}
-    >
-      <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Campus photos</div>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <section>
+      <div className="text-xs font-bold uppercase tracking-[0.28em] text-brand-secondary">More from around campus</div>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {images.map((imageUrl, index) => (
           <ImageFrame
             key={`${imageUrl}-${index}`}
             alt={`${organizationName} newsletter photo ${index + 1}`}
             aspectRatio="4 / 3"
-            className="rounded-[24px] border border-slate-200 bg-[#F7F9FC] p-2"
-            imageClassName="rounded-[18px]"
+            className="rounded-[20px] border border-slate-200 bg-[#F7F9FC]"
+            imageClassName="rounded-[20px]"
             src={imageUrl}
           />
         ))}
@@ -1124,48 +638,10 @@ function ImageFrame({
     <div className={`w-full overflow-hidden ${className ?? ""}`}>
       <div style={{ aspectRatio }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          alt={alt}
-          className={`block h-full w-full object-contain ${imageClassName ?? ""}`}
-          src={src}
-        />
+        <img alt={alt} className={`block h-full w-full object-cover ${imageClassName ?? ""}`} src={src} />
       </div>
     </div>
   );
-}
-
-function chooseIssueLayout({
-  supportCount,
-  hasQuickLinks,
-  hasCalendar,
-  hasSpotlight,
-  hasGallery,
-  hasPrincipal,
-  hasTopStory
-}: {
-  supportCount: number;
-  hasQuickLinks: boolean;
-  hasCalendar: boolean;
-  hasSpotlight: boolean;
-  hasGallery: boolean;
-  hasPrincipal: boolean;
-  hasTopStory: boolean;
-}): LayoutKind {
-  const utilityWeight = [hasQuickLinks, hasCalendar, hasPrincipal].filter(Boolean).length;
-
-  if (supportCount >= 5 || (supportCount >= 4 && hasGallery)) {
-    return "story_heavy";
-  }
-
-  if (hasTopStory && supportCount <= 2 && utilityWeight >= 1 && !hasSpotlight) {
-    return "announcement";
-  }
-
-  if (supportCount <= 3 && utilityWeight >= 2) {
-    return "announcement";
-  }
-
-  return "balanced";
 }
 
 function buildSupportStories(
@@ -1213,7 +689,7 @@ function buildSupportStories(
   );
 }
 
-function buildSupportModules(document: NewsletterDocument): SupportModule[] {
+function buildSupportModules(document: NewsletterDocument) {
   const { organization } = document;
   const modules: SupportModule[] = [
     ...(organization.supportModules ?? []).filter((module) => module.title.trim() || module.body.trim())
@@ -1224,7 +700,7 @@ function buildSupportModules(document: NewsletterDocument): SupportModule[] {
       id: "website",
       eyebrow: "Family resources",
       title: "Visit the school website for calendars, forms, and updates",
-      body: `Keep ${organization.websiteUrl} close for school news, family resources, and important follow-up details connected to this issue.`,
+      body: `Keep ${organization.websiteUrl} close for school news, family resources, and important follow-up details.`,
       actionHref: organization.websiteUrl.startsWith("http")
         ? organization.websiteUrl
         : `https://${organization.websiteUrl}`,
@@ -1258,44 +734,45 @@ function buildSupportModules(document: NewsletterDocument): SupportModule[] {
     });
   }
 
-  return modules;
+  return dedupeSupportModules(modules);
 }
 
 function selectSupportModules({
   document,
-  layout,
-  supportCount,
-  utilityWeight,
+  storyCount,
   hasQuickLinks,
   hasCalendar,
   hasPrincipal
 }: {
   document: NewsletterDocument;
-  layout: LayoutKind;
-  supportCount: number;
-  utilityWeight: number;
+  storyCount: number;
   hasQuickLinks: boolean;
   hasCalendar: boolean;
   hasPrincipal: boolean;
-}) {
-  const schoolDefinedCount = (document.organization.supportModules ?? []).filter(
-    (module) => module.title.trim() || module.body.trim()
-  ).length;
-  const candidateModules = dedupeSupportModules(buildSupportModules(document)).filter((module) =>
+}): SupportBundle {
+  const modules = buildSupportModules(document).filter((module) =>
     shouldUseSupportModule(module, {
       hasQuickLinks,
       hasCalendar,
       hasPrincipal
     })
   );
-  const desiredModuleCount = getDesiredSupportModuleCount({
-    layout,
-    supportCount,
-    utilityWeight,
-    schoolDefinedCount
-  });
 
-  return candidateModules.slice(0, desiredModuleCount);
+  if (storyCount >= 4) {
+    return { bannerModules: [], inlineModules: [] };
+  }
+
+  if (storyCount <= 1) {
+    return {
+      bannerModules: modules.slice(0, 1),
+      inlineModules: modules.slice(1, 2)
+    };
+  }
+
+  return {
+    bannerModules: [],
+    inlineModules: modules.slice(0, 1)
+  };
 }
 
 function shouldUseSupportModule(
@@ -1316,73 +793,15 @@ function shouldUseSupportModule(
     return false;
   }
 
-  if (hasPrincipal && (needle.includes("family reminder") || needle.includes("this issue"))) {
+  if (hasCalendar && needle.includes("calendar")) {
     return false;
   }
 
-  if (hasCalendar && needle.includes("week ahead")) {
-    return false;
-  }
-
-  if (needle.includes("this issue at a glance") || needle.includes("keep this issue handy")) {
+  if (hasPrincipal && needle.includes("identity")) {
     return false;
   }
 
   return true;
-}
-
-function getDesiredSupportModuleCount({
-  layout,
-  supportCount,
-  utilityWeight,
-  schoolDefinedCount
-}: {
-  layout: LayoutKind;
-  supportCount: number;
-  utilityWeight: number;
-  schoolDefinedCount: number;
-}) {
-  if (schoolDefinedCount > 0) {
-    return Math.min(schoolDefinedCount, supportCount === 0 ? 2 : supportCount <= 2 ? 1 : 0);
-  }
-
-  if (layout === "announcement") {
-    return supportCount === 0 ? 1 : 0;
-  }
-
-  if (layout === "story_heavy") {
-    return supportCount >= 4 ? 0 : 1;
-  }
-
-  if (utilityWeight >= 2) {
-    return 0;
-  }
-
-  return supportCount === 0 ? 1 : 0;
-}
-
-function getLeadStoryEmphasis({
-  layout,
-  supportCount,
-  utilityWeight,
-  hasHeroImage,
-  hasGallery
-}: {
-  layout: LayoutKind;
-  supportCount: number;
-  utilityWeight: number;
-  hasHeroImage: boolean;
-  hasGallery: boolean;
-}): LeadStoryEmphasis {
-  if (layout === "announcement" || (supportCount <= 1 && !hasGallery)) {
-    return hasHeroImage || utilityWeight <= 1 ? "feature" : "standard";
-  }
-
-  if (layout === "story_heavy" || supportCount >= 4) {
-    return "compact";
-  }
-
-  return "standard";
 }
 
 function dedupeSupportModules(modules: SupportModule[]) {
@@ -1463,7 +882,11 @@ function renderSupportGraphic(graphic: SupportModuleGraphic, tone: SupportModule
     return (
       <div className={`relative h-12 overflow-hidden rounded-2xl border ${surfaceTone}`}>
         <div className={`absolute inset-y-0 left-0 w-16 ${mutedTone}`} />
-        <div className={`absolute inset-y-0 left-5 flex items-center text-xs font-bold uppercase tracking-[0.24em] ${isPrimary ? "text-brand-primary" : "text-white"}`}>
+        <div
+          className={`absolute inset-y-0 left-5 flex items-center text-xs font-bold uppercase tracking-[0.24em] ${
+            isPrimary ? "text-brand-primary" : "text-white"
+          }`}
+        >
           Important
         </div>
       </div>
@@ -1497,9 +920,7 @@ function isDuplicateSpotlight(
   );
 
   if (topStory) {
-    const topStoryText = normalizeForComparison(
-      `${topStory.content.headline} ${topStory.content.summary}`
-    );
+    const topStoryText = normalizeForComparison(`${topStory.content.headline} ${topStory.content.summary}`);
     if (hasMeaningfulOverlap(spotlightNeedle, topStoryText)) {
       return true;
     }
