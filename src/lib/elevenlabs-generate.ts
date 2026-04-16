@@ -76,6 +76,7 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
     let resolved = false;
     let promptSent = false;
     let packageCorrectionSent = false;
+    let agentResponseCount = 0;
     const collectedResponses: string[] = [];
     const timeoutMs = Math.max(serverConfig.integrationTimeoutMs, 90000);
     const maxDurationMs = Math.max(serverConfig.integrationMaxDurationMs, timeoutMs, 180000);
@@ -182,12 +183,13 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
 
         if (message.type === "agent_response" && message.agent_response_event?.agent_response) {
           resetTimeout();
+          agentResponseCount += 1;
           const responseText = message.agent_response_event.agent_response;
           collectedResponses.push(responseText);
           const combinedResponse = collectedResponses.join("\n\n");
-          const packageIssue = getPackageIssue(combinedResponse);
+          const packageStatus = getPackageStatus(combinedResponse);
 
-          if (!packageIssue) {
+          if (packageStatus === "ready") {
             finish(() => {
               socket.close();
               resolve(combinedResponse);
@@ -195,12 +197,24 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
             return;
           }
 
-          if (!packageCorrectionSent) {
+          const shouldCorrect =
+            !packageCorrectionSent &&
+            packageStatus === "invalid" &&
+            shouldSendPackageCorrection({
+              combinedResponse,
+              agentResponseCount
+            });
+
+          if (shouldCorrect) {
             packageCorrectionSent = true;
             socket.send(
               JSON.stringify({
                 type: "user_message",
-                text: buildPackageCorrectionMessage(prompt, packageIssue, combinedResponse)
+                text: buildPackageCorrectionMessage(
+                  prompt,
+                  "The reply did not yet contain the required completed newsletter JSON package.",
+                  combinedResponse
+                )
               })
             );
           }
@@ -408,18 +422,22 @@ function parseGeneratedNewsletter(rawResponse: string): ContentGenerateResponse 
   }
 }
 
-function getPackageIssue(rawResponse: string) {
+function getPackageStatus(rawResponse: string): "ready" | "pending" | "invalid" {
   const extractedJson = extractJsonBlock(rawResponse);
 
   if (!extractedJson) {
-    return "No valid JSON package was returned.";
+    if (looksLikePartialJson(rawResponse) || looksLikeStreamingDraft(rawResponse)) {
+      return "pending";
+    }
+
+    return "invalid";
   }
 
   try {
     JSON.parse(extractedJson);
-    return null;
+    return "ready";
   } catch {
-    return "The reply included JSON-like content, but it was not valid JSON.";
+    return looksLikePartialJson(rawResponse) ? "pending" : "invalid";
   }
 }
 
@@ -437,6 +455,74 @@ function extractJsonBlock(raw: string) {
   }
 
   return null;
+}
+
+function looksLikePartialJson(raw: string) {
+  const trimmed = raw.trim();
+
+  if (!trimmed) {
+    return false;
+  }
+
+  const hasOpeningFence = trimmed.includes("```json");
+  const hasClosingFence = trimmed.includes("```", trimmed.indexOf("```json") + 7);
+  const firstBrace = trimmed.indexOf("{");
+  const lastBrace = trimmed.lastIndexOf("}");
+
+  if (hasOpeningFence && !hasClosingFence) {
+    return true;
+  }
+
+  if (firstBrace >= 0 && lastBrace < firstBrace) {
+    return true;
+  }
+
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    const candidate = trimmed.slice(firstBrace, lastBrace + 1);
+
+    try {
+      JSON.parse(candidate);
+      return false;
+    } catch {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function looksLikeStreamingDraft(raw: string) {
+  const normalized = raw.trim();
+
+  if (!normalized) {
+    return false;
+  }
+
+  return normalized.length < 500;
+}
+
+function shouldSendPackageCorrection({
+  combinedResponse,
+  agentResponseCount
+}: {
+  combinedResponse: string;
+  agentResponseCount: number;
+}) {
+  const normalized = combinedResponse.trim();
+
+  if (!normalized) {
+    return false;
+  }
+
+  if (looksLikePartialJson(normalized)) {
+    return false;
+  }
+
+  if (agentResponseCount < 3 && normalized.length < 700) {
+    return false;
+  }
+
+  return true;
 }
 
 function buildResponsePreview(raw: string) {
