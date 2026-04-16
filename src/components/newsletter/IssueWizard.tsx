@@ -74,6 +74,12 @@ export function IssueWizard() {
     [cloneFromId, document.workspace.schoolId, draftId, session?.user?.id]
   );
 
+  useEffect(() => {
+    if (!draftId?.trim() && !cloneFromId?.trim() && !freshIssue) {
+      router.replace("/builder?fresh=1");
+    }
+  }, [cloneFromId, draftId, freshIssue, router]);
+
   const updateDocumentField = (field: keyof Pick<NewsletterDocument, "title" | "intro" | "issueDate">, value: string) => {
     setDocument((current) => ({
       ...current,

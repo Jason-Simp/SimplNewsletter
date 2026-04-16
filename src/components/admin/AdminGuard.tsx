@@ -96,7 +96,7 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
     { href: "/admin/schools", label: isCompanyAdmin(member) ? "Schools" : "School Profile" },
     { href: "/admin/members", label: "Members" },
     ...(canManageCodes(member) ? [{ href: "/admin/codes", label: "Codes" }] : []),
-    { href: "/builder", label: "Builder" }
+    { href: "/builder?fresh=1", label: "Builder" }
   ];
 
   if (session && supabase && !member) {

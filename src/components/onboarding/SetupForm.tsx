@@ -126,7 +126,7 @@ export function SetupForm() {
           </button>
           <button
             className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
-            onClick={() => router.push("/builder")}
+            onClick={() => router.push("/builder?fresh=1")}
             type="button"
           >
             Open builder
