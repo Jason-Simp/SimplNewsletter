@@ -27,6 +27,7 @@ export function IssueWizard() {
   const [document, setDocument] = useState(sampleNewsletter);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [saveMessage, setSaveMessage] = useState("Draft ready.");
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [generationState, setGenerationState] = useState<"idle" | "generating" | "ready" | "error">("idle");
   const [generationMessage, setGenerationMessage] = useState(
     "Fill in the form, then continue and the system will write the first draft for you."
@@ -543,10 +544,12 @@ export function IssueWizard() {
           setGenerationMessage(restoredGenerationMessage);
           setLastGeneratedAt(restoredState?.lastGeneratedAt ?? null);
           setSaveMessage("Draft loaded.");
+          setLastSavedAt(null);
         }
       } catch {
         if (!cancelled) {
           setSaveMessage("Starting with a new draft.");
+          setLastSavedAt(null);
         }
       } finally {
         initialLoadComplete.current = true;
@@ -733,6 +736,7 @@ export function IssueWizard() {
               : "All changes saved."
             : "Changes saved on this device."
         );
+        setLastSavedAt(new Date().toISOString());
 
         return {
           saved: true,
@@ -757,6 +761,28 @@ export function IssueWizard() {
     }, 900);
 
     return () => window.clearTimeout(timeoutId);
+  }, [persistDraft]);
+
+  useEffect(() => {
+    if (!initialLoadComplete.current) {
+      return;
+    }
+
+    const browserDocument = window.document;
+
+    const flushDraft = () => {
+      if (browserDocument.visibilityState === "hidden") {
+        void persistDraft("auto");
+      }
+    };
+
+    window.addEventListener("pagehide", flushDraft);
+    browserDocument.addEventListener("visibilitychange", flushDraft);
+
+    return () => {
+      window.removeEventListener("pagehide", flushDraft);
+      browserDocument.removeEventListener("visibilitychange", flushDraft);
+    };
   }, [persistDraft]);
 
   const selectedWebsite = document.distributionOptions.some(
@@ -868,6 +894,15 @@ export function IssueWizard() {
                 >
                   {saveMessage}
                 </span>
+                {lastSavedAt ? (
+                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-brand-muted">
+                    Saved {formatStatusTime(lastSavedAt)}
+                  </span>
+                ) : (
+                  <span className="text-xs font-medium uppercase tracking-[0.12em] text-brand-muted">
+                    Autosaves in the background
+                  </span>
+                )}
                 <button
                   className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-brand-text disabled:cursor-not-allowed disabled:opacity-40"
                   disabled={saveState === "saving"}
@@ -1826,6 +1861,19 @@ function shouldAutosaveDraft(
     }
 
     return true;
+  });
+}
+
+function formatStatusTime(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "recently";
+  }
+
+  return date.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit"
   });
 }
 

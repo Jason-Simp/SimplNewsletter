@@ -95,7 +95,7 @@ export function NewsletterPreview({
 
   const galleryImages = Array.isArray(hero?.content.galleryImages) ? hero.content.galleryImages : [];
   const supportStories = buildSupportStories(news, split, events);
-  const supportModules = buildSupportModules(document);
+  const utilityWeight = [Boolean(quickLinks?.content.items.length), Boolean(calendar?.content.items.length), Boolean(principal?.content.quote)].filter(Boolean).length;
   const layout = chooseIssueLayout({
     supportCount: supportStories.length,
     hasQuickLinks: Boolean(quickLinks?.content.items.length),
@@ -104,6 +104,15 @@ export function NewsletterPreview({
     hasGallery: galleryImages.length > 0,
     hasPrincipal: Boolean(principal?.content.quote),
     hasTopStory: Boolean(topStory)
+  });
+  const supportModules = selectSupportModules({
+    document,
+    layout,
+    supportCount: supportStories.length,
+    utilityWeight,
+    hasQuickLinks: Boolean(quickLinks?.content.items.length),
+    hasCalendar: Boolean(calendar?.content.items.length),
+    hasPrincipal: Boolean(principal?.content.quote)
   });
 
   return (
@@ -1176,6 +1185,113 @@ function buildSupportModules(document: NewsletterDocument): SupportModule[] {
   });
 
   return modules;
+}
+
+function selectSupportModules({
+  document,
+  layout,
+  supportCount,
+  utilityWeight,
+  hasQuickLinks,
+  hasCalendar,
+  hasPrincipal
+}: {
+  document: NewsletterDocument;
+  layout: LayoutKind;
+  supportCount: number;
+  utilityWeight: number;
+  hasQuickLinks: boolean;
+  hasCalendar: boolean;
+  hasPrincipal: boolean;
+}) {
+  const schoolDefinedCount = (document.organization.supportModules ?? []).filter(
+    (module) => module.title.trim() || module.body.trim()
+  ).length;
+  const candidateModules = dedupeSupportModules(buildSupportModules(document)).filter((module) =>
+    shouldUseSupportModule(module, {
+      hasQuickLinks,
+      hasCalendar,
+      hasPrincipal
+    })
+  );
+  const desiredModuleCount = getDesiredSupportModuleCount({
+    layout,
+    supportCount,
+    utilityWeight,
+    schoolDefinedCount
+  });
+
+  return candidateModules.slice(0, desiredModuleCount);
+}
+
+function shouldUseSupportModule(
+  module: SupportModule,
+  {
+    hasQuickLinks,
+    hasCalendar,
+    hasPrincipal
+  }: {
+    hasQuickLinks: boolean;
+    hasCalendar: boolean;
+    hasPrincipal: boolean;
+  }
+) {
+  const needle = normalizeForComparison(`${module.eyebrow} ${module.title} ${module.body}`);
+
+  if (hasQuickLinks && needle.includes("website")) {
+    return false;
+  }
+
+  if (hasPrincipal && (needle.includes("family reminder") || needle.includes("this issue"))) {
+    return false;
+  }
+
+  if (hasCalendar && needle.includes("week ahead")) {
+    return false;
+  }
+
+  return true;
+}
+
+function getDesiredSupportModuleCount({
+  layout,
+  supportCount,
+  utilityWeight,
+  schoolDefinedCount
+}: {
+  layout: LayoutKind;
+  supportCount: number;
+  utilityWeight: number;
+  schoolDefinedCount: number;
+}) {
+  if (schoolDefinedCount > 0) {
+    return Math.min(schoolDefinedCount, supportCount <= 2 ? 3 : 2);
+  }
+
+  if (layout === "announcement") {
+    return supportCount <= 1 ? 2 : 1;
+  }
+
+  if (layout === "story_heavy") {
+    return supportCount >= 5 ? 1 : 2;
+  }
+
+  return utilityWeight >= 2 ? 1 : supportCount <= 2 ? 2 : 1;
+}
+
+function dedupeSupportModules(modules: SupportModule[]) {
+  const seen = new Set<string>();
+
+  return modules.filter((module) => {
+    const key = normalizeForComparison(`${module.eyebrow} ${module.title}`);
+
+    if (!key || seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
 }
 
 function getIssueHeading(document: NewsletterDocument) {

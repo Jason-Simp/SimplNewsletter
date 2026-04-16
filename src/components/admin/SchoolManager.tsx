@@ -37,6 +37,45 @@ const emptySchool: SchoolProfile = {
   supportModules: []
 };
 
+const supportModulePresets: Array<{
+  label: string;
+  module: Omit<SupportModule, "id">;
+}> = [
+  {
+    label: "Family reminder",
+    module: {
+      eyebrow: "Family reminder",
+      title: "Keep this week’s essentials close by",
+      body: "Use this space for the evergreen reminder families should keep in mind week after week.",
+      actionLabel: "",
+      actionHref: "",
+      tone: "secondary"
+    }
+  },
+  {
+    label: "Office contact",
+    module: {
+      eyebrow: "Need help?",
+      title: "Questions about this week’s updates?",
+      body: "Add the best school contact details here so families know exactly where to go next.",
+      actionLabel: "Email the school",
+      actionHref: "",
+      tone: "neutral"
+    }
+  },
+  {
+    label: "School website",
+    module: {
+      eyebrow: "School website",
+      title: "Find calendars, forms, and updates",
+      body: "Use this card when you want a steady link back to the school website or family resources.",
+      actionLabel: "Visit website",
+      actionHref: "",
+      tone: "primary"
+    }
+  }
+];
+
 export function SchoolManager() {
   const { session, supabase } = useAuthSession();
   const [schools, setSchools] = useState<SchoolProfile[]>([]);
@@ -127,23 +166,31 @@ export function SchoolManager() {
   };
 
   const addSupportModule = () => {
-    const nextId =
-      typeof window !== "undefined" && window.crypto?.randomUUID
-        ? window.crypto.randomUUID()
-        : `support-module-${Date.now()}`;
-
     setForm((current) => ({
       ...current,
       supportModules: [
         ...current.supportModules,
         {
-          id: nextId,
+          id: createSupportModuleId(),
           eyebrow: "",
           title: "",
           body: "",
           actionLabel: "",
           actionHref: "",
           tone: "neutral"
+        }
+      ]
+    }));
+  };
+
+  const addSupportModuleFromPreset = (preset: Omit<SupportModule, "id">) => {
+    setForm((current) => ({
+      ...current,
+      supportModules: [
+        ...current.supportModules,
+        {
+          ...preset,
+          id: createSupportModuleId()
         }
       ]
     }));
@@ -300,6 +347,7 @@ export function SchoolManager() {
       },
       body: JSON.stringify({
         ...form,
+        supportModules: normalizeSupportModulesForSave(form.supportModules),
         generationProvider: "elevenlabs",
         knowledgeProvider: "none",
         syncProvider: "elevenlabs"
@@ -784,6 +832,22 @@ export function SchoolManager() {
           </div>
 
           <div className="mt-4 grid gap-4">
+            <div className="rounded-2xl bg-brand-background px-4 py-4 text-sm leading-6 text-brand-muted">
+              Use support modules for evergreen utility content like reminders, office contact details, and
+              family resources. In practice, 2 to 4 strong modules are usually enough.
+            </div>
+            <div className="flex flex-wrap gap-3">
+              {supportModulePresets.map((preset) => (
+                <button
+                  key={preset.label}
+                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-brand-text transition hover:bg-slate-50"
+                  onClick={() => addSupportModuleFromPreset(preset.module)}
+                  type="button"
+                >
+                  Add {preset.label}
+                </button>
+              ))}
+            </div>
             {form.supportModules.length > 0 ? (
               form.supportModules.map((module, index) => (
                 <div key={module.id} className="rounded-[24px] border border-slate-200 bg-[#F7F9FC] p-4">
@@ -983,6 +1047,30 @@ function Input({
       <input className="rounded-2xl border border-slate-200 px-4 py-3" onChange={(event) => onChange(event.target.value)} value={value} />
     </label>
   );
+}
+
+function createSupportModuleId() {
+  return typeof window !== "undefined" && window.crypto?.randomUUID
+    ? window.crypto.randomUUID()
+    : `support-module-${Date.now()}`;
+}
+
+function normalizeSupportModulesForSave(modules: SupportModule[]) {
+  return modules
+    .map((module) => {
+      const actionLabel = module.actionLabel?.trim() ?? "";
+      const actionHref = module.actionHref?.trim() ?? "";
+
+      return {
+        ...module,
+        eyebrow: module.eyebrow.trim(),
+        title: module.title.trim(),
+        body: module.body.trim(),
+        actionLabel: actionLabel && actionHref ? actionLabel : "",
+        actionHref: actionLabel && actionHref ? actionHref : ""
+      };
+    })
+    .filter((module) => module.title || module.body || module.eyebrow);
 }
 
 function ReadOnlyField({
