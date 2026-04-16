@@ -4,7 +4,7 @@ import { defaultDistributionOptions, mediaConstraints } from "@/lib/product-conf
 import { sampleNewsletter } from "@/lib/sample-data";
 import { getServiceSupabase } from "@/lib/supabase/server";
 import type { DistributionChannel, NewsletterDocument, NewsletterSection } from "@/types/newsletter";
-import type { SupportModule, SupportModuleTone } from "@/types/support-module";
+import type { SupportModule, SupportModuleGraphic, SupportModuleTone } from "@/types/support-module";
 
 function normalizeVectorProvider(value: NewsletterDocument["workspace"]["knowledgeProvider"]) {
   return value === "supabase" || value === "openai" ? value : "none";
@@ -363,7 +363,8 @@ function normalizeSupportModules(value: unknown): SupportModule[] {
         body,
         actionLabel: typeof record.actionLabel === "string" ? record.actionLabel.trim() : "",
         actionHref: typeof record.actionHref === "string" ? record.actionHref.trim() : "",
-        tone: normalizeSupportTone(record.tone)
+        tone: normalizeSupportTone(record.tone),
+        graphic: normalizeSupportGraphic(record.graphic)
       } satisfies SupportModule;
     })
     .filter(Boolean) as SupportModule[];
@@ -371,6 +372,15 @@ function normalizeSupportModules(value: unknown): SupportModule[] {
 
 function normalizeSupportTone(value: unknown): SupportModuleTone {
   return value === "primary" || value === "secondary" ? value : "neutral";
+}
+
+function normalizeSupportGraphic(value: unknown): SupportModuleGraphic {
+  return value === "spark" ||
+    value === "calendar" ||
+    value === "contact" ||
+    value === "announcement"
+    ? value
+    : "none";
 }
 
 export async function deleteNewsletter(newsletterId: string, schoolId?: string) {

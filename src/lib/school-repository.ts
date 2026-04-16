@@ -2,7 +2,7 @@ import { schoolAmplifiedBrand } from "@/lib/brand";
 import { decryptProjectCode, encryptProjectCode } from "@/lib/crypto";
 import { getServiceSupabase } from "@/lib/supabase/server";
 import type { SchoolProfile } from "@/types/school";
-import type { SupportModule, SupportModuleTone } from "@/types/support-module";
+import type { SupportModule, SupportModuleGraphic, SupportModuleTone } from "@/types/support-module";
 
 function normalizeVectorProvider(value: SchoolProfile["knowledgeProvider"]) {
   return value === "supabase" || value === "openai" ? value : "none";
@@ -227,7 +227,8 @@ function normalizeSupportModules(value: unknown): SupportModule[] {
         body,
         actionLabel: typeof record.actionLabel === "string" ? record.actionLabel.trim() : "",
         actionHref: typeof record.actionHref === "string" ? record.actionHref.trim() : "",
-        tone
+        tone,
+        graphic: normalizeSupportGraphic(record.graphic)
       } satisfies SupportModule;
     })
     .filter(Boolean) as SupportModule[];
@@ -235,4 +236,13 @@ function normalizeSupportModules(value: unknown): SupportModule[] {
 
 function normalizeSupportTone(value: unknown): SupportModuleTone {
   return value === "primary" || value === "secondary" ? value : "neutral";
+}
+
+function normalizeSupportGraphic(value: unknown): SupportModuleGraphic {
+  return value === "spark" ||
+    value === "calendar" ||
+    value === "contact" ||
+    value === "announcement"
+    ? value
+    : "none";
 }

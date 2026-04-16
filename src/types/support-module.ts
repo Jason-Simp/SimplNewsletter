@@ -1,4 +1,5 @@
 export type SupportModuleTone = "primary" | "secondary" | "neutral";
+export type SupportModuleGraphic = "none" | "spark" | "calendar" | "contact" | "announcement";
 
 export type SupportModule = {
   id: string;
@@ -8,4 +9,5 @@ export type SupportModule = {
   actionLabel?: string;
   actionHref?: string;
   tone: SupportModuleTone;
+  graphic?: SupportModuleGraphic;
 };

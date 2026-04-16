@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import Image from "next/image";
 
 import type { Channel, NewsletterDocument, NewsletterSection } from "@/types/newsletter";
-import type { SupportModule } from "@/types/support-module";
+import type { SupportModule, SupportModuleGraphic, SupportModuleTone } from "@/types/support-module";
 
 type Props = {
   document: NewsletterDocument;
@@ -966,6 +966,11 @@ function SupportModuleCard({
                 : "linear-gradient(180deg, rgba(18,58,105,0.05) 0%, rgba(18,58,105,0) 100%)"
         }}
       />
+      {module.graphic && module.graphic !== "none" ? (
+        <div className="relative mb-4">
+          {renderSupportGraphic(module.graphic, module.tone)}
+        </div>
+      ) : null}
       <div className={`text-xs font-bold uppercase tracking-[0.28em] ${eyebrowTone}`}>{module.eyebrow}</div>
       <h3 className={`${compact ? "text-xl" : "text-2xl"} mt-3 font-semibold leading-tight`}>{module.title}</h3>
       <p className={`mt-3 text-sm leading-6 ${bodyTone}`}>{module.body}</p>
@@ -1142,7 +1147,8 @@ function buildSupportModules(document: NewsletterDocument): SupportModule[] {
         ? organization.websiteUrl
         : `https://${organization.websiteUrl}`,
       actionLabel: "Visit website",
-      tone: "primary"
+      tone: "primary",
+      graphic: "spark"
     });
   }
 
@@ -1154,7 +1160,8 @@ function buildSupportModules(document: NewsletterDocument): SupportModule[] {
       body: [organization.contactEmail, organization.phone, organization.address].filter(Boolean).join(" • "),
       actionHref: organization.contactEmail ? `mailto:${organization.contactEmail}` : undefined,
       actionLabel: organization.contactEmail ? "Email the school" : undefined,
-      tone: "neutral"
+      tone: "neutral",
+      graphic: "contact"
     });
   }
 
@@ -1163,7 +1170,8 @@ function buildSupportModules(document: NewsletterDocument): SupportModule[] {
     eyebrow: "Family reminder",
     title: "Keep this issue handy for the week ahead",
     body: `This newsletter for ${issueDate} is meant to help families quickly track the biggest updates, reminders, and school moments without having to hunt for details later.`,
-    tone: "secondary"
+    tone: "secondary",
+    graphic: "announcement"
   });
 
   if (organization.tagline) {
@@ -1172,7 +1180,8 @@ function buildSupportModules(document: NewsletterDocument): SupportModule[] {
       eyebrow: "School identity",
       title: organization.name,
       body: organization.tagline,
-      tone: "neutral"
+      tone: "neutral",
+      graphic: "spark"
     });
   }
 
@@ -1181,7 +1190,8 @@ function buildSupportModules(document: NewsletterDocument): SupportModule[] {
     eyebrow: "This issue",
     title: title || `${organization.name} weekly update`,
     body: "The Wire can use trusted school information to round out light issues with useful modules like contacts, reminders, and quick-reference school details.",
-    tone: "neutral"
+    tone: "neutral",
+    graphic: "calendar"
   });
 
   return modules;
@@ -1323,6 +1333,58 @@ function getReadableTextColor(hexColor: string) {
   const luminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255;
 
   return luminance > 0.62 ? "#142033" : "#FFFFFF";
+}
+
+function renderSupportGraphic(graphic: SupportModuleGraphic, tone: SupportModuleTone) {
+  const isPrimary = tone === "primary";
+  const textTone = isPrimary ? "text-white/90" : "text-brand-primary";
+  const mutedTone = isPrimary ? "bg-white/70" : "bg-brand-secondary/70";
+  const surfaceTone = isPrimary ? "bg-white/15 border-white/15" : "bg-white border-slate-200";
+
+  if (graphic === "calendar") {
+    return (
+      <div className={`inline-flex items-center gap-3 rounded-2xl border px-4 py-3 ${surfaceTone}`}>
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/90 text-sm font-bold text-brand-primary">
+          15
+        </div>
+        <div className={`text-xs font-bold uppercase tracking-[0.24em] ${textTone}`}>Weekly dates</div>
+      </div>
+    );
+  }
+
+  if (graphic === "contact") {
+    return (
+      <div className="flex items-center gap-3">
+        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-lg text-brand-primary">
+          @
+        </div>
+        <div className={`text-xs font-bold uppercase tracking-[0.24em] ${textTone}`}>Contact card</div>
+      </div>
+    );
+  }
+
+  if (graphic === "announcement") {
+    return (
+      <div className={`relative h-12 overflow-hidden rounded-2xl border ${surfaceTone}`}>
+        <div className={`absolute inset-y-0 left-0 w-16 ${mutedTone}`} />
+        <div className={`absolute inset-y-0 left-5 flex items-center text-xs font-bold uppercase tracking-[0.24em] ${isPrimary ? "text-brand-primary" : "text-white"}`}>
+          Important
+        </div>
+      </div>
+    );
+  }
+
+  if (graphic === "spark") {
+    return (
+      <div className="flex items-center gap-2">
+        <div className={`h-3 w-3 rounded-full ${mutedTone}`} />
+        <div className={`h-3 w-3 rounded-full opacity-80 ${isPrimary ? "bg-white/85" : "bg-brand-primary"}`} />
+        <div className={`h-3 w-3 rounded-full opacity-60 ${mutedTone}`} />
+      </div>
+    );
+  }
+
+  return null;
 }
 
 function isDuplicateSpotlight(

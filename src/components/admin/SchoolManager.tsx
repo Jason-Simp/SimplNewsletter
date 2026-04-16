@@ -9,7 +9,7 @@ import { extractPaletteFromImage } from "@/lib/color-extraction";
 import { useAuthSession } from "@/lib/auth-client";
 import type { SchoolProfile } from "@/types/school";
 import type { MemberRecord } from "@/types/member";
-import type { SupportModule, SupportModuleTone } from "@/types/support-module";
+import type { SupportModule, SupportModuleGraphic, SupportModuleTone } from "@/types/support-module";
 
 const emptySchool: SchoolProfile = {
   id: "demo-new-school",
@@ -49,7 +49,8 @@ const supportModulePresets: Array<{
       body: "Use this space for the evergreen reminder families should keep in mind week after week.",
       actionLabel: "",
       actionHref: "",
-      tone: "secondary"
+      tone: "secondary",
+      graphic: "announcement"
     }
   },
   {
@@ -60,7 +61,8 @@ const supportModulePresets: Array<{
       body: "Add the best school contact details here so families know exactly where to go next.",
       actionLabel: "Email the school",
       actionHref: "",
-      tone: "neutral"
+      tone: "neutral",
+      graphic: "contact"
     }
   },
   {
@@ -71,7 +73,8 @@ const supportModulePresets: Array<{
       body: "Use this card when you want a steady link back to the school website or family resources.",
       actionLabel: "Visit website",
       actionHref: "",
-      tone: "primary"
+      tone: "primary",
+      graphic: "spark"
     }
   }
 ];
@@ -944,6 +947,22 @@ export function SchoolManager() {
                         <option value="secondary">Secondary</option>
                       </select>
                     </label>
+                    <label className="grid gap-2 text-sm font-medium text-brand-text">
+                      Graphic
+                      <select
+                        className="rounded-2xl border border-slate-200 px-4 py-3 text-brand-text outline-none focus:border-brand-primary"
+                        onChange={(event) =>
+                          updateSupportModule(module.id, "graphic", event.target.value as SupportModuleGraphic)
+                        }
+                        value={module.graphic ?? "none"}
+                      >
+                        <option value="none">None</option>
+                        <option value="spark">Spark</option>
+                        <option value="calendar">Calendar</option>
+                        <option value="contact">Contact</option>
+                        <option value="announcement">Announcement</option>
+                      </select>
+                    </label>
                     <Input
                       help="Main headline for this support card."
                       label="Title"
@@ -1139,7 +1158,8 @@ function normalizeSupportModulesForSave(modules: SupportModule[]) {
         title: module.title.trim(),
         body: module.body.trim(),
         actionLabel: actionLabel && actionHref ? actionLabel : "",
-        actionHref: actionLabel && actionHref ? actionHref : ""
+        actionHref: actionLabel && actionHref ? actionHref : "",
+        graphic: normalizeSupportGraphic(module.graphic)
       };
     })
     .filter((module) => module.title || module.body || module.eyebrow);
@@ -1203,6 +1223,9 @@ function SupportModulePreviewCard({
         }}
       />
       <div className="relative">
+        {module.graphic && module.graphic !== "none" ? (
+          <div className="mb-4">{renderSupportGraphic(module.graphic, module.tone, primaryColor, secondaryColor)}</div>
+        ) : null}
         <div className="text-xs font-bold uppercase tracking-[0.28em]" style={{ color: toneStyles.eyebrowColor }}>
           {module.eyebrow || "Support module"}
         </div>
@@ -1237,6 +1260,74 @@ function getReadableTextColor(hexColor: string) {
   const luminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255;
 
   return luminance > 0.62 ? "#142033" : "#FFFFFF";
+}
+
+function normalizeSupportGraphic(value: string | undefined): SupportModuleGraphic {
+  return value === "spark" ||
+    value === "calendar" ||
+    value === "contact" ||
+    value === "announcement"
+    ? value
+    : "none";
+}
+
+function renderSupportGraphic(
+  graphic: SupportModuleGraphic,
+  tone: SupportModuleTone,
+  primaryColor: string,
+  secondaryColor: string
+) {
+  const foreground = tone === "primary" ? "rgba(255,255,255,0.9)" : primaryColor;
+  const accent = tone === "secondary" ? secondaryColor : `${secondaryColor}CC`;
+
+  if (graphic === "calendar") {
+    return (
+      <div className="inline-flex items-center gap-3 rounded-2xl border border-white/15 bg-white/20 px-4 py-3">
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/85 text-sm font-bold" style={{ color: primaryColor }}>
+          15
+        </div>
+        <div className="text-xs font-bold uppercase tracking-[0.24em]" style={{ color: foreground }}>
+          Weekly dates
+        </div>
+      </div>
+    );
+  }
+
+  if (graphic === "contact") {
+    return (
+      <div className="flex items-center gap-3">
+        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/85 text-lg" style={{ color: primaryColor }}>
+          @
+        </div>
+        <div className="text-xs font-bold uppercase tracking-[0.24em]" style={{ color: foreground }}>
+          Contact card
+        </div>
+      </div>
+    );
+  }
+
+  if (graphic === "announcement") {
+    return (
+      <div className="relative h-12 overflow-hidden rounded-2xl border border-white/15">
+        <div className="absolute inset-0" style={{ background: `linear-gradient(90deg, ${accent} 0%, ${primaryColor} 100%)` }} />
+        <div className="absolute inset-y-0 left-4 flex items-center text-xs font-bold uppercase tracking-[0.24em] text-white">
+          Important
+        </div>
+      </div>
+    );
+  }
+
+  if (graphic === "spark") {
+    return (
+      <div className="flex items-center gap-2">
+        <div className="h-3 w-3 rounded-full" style={{ backgroundColor: accent }} />
+        <div className="h-3 w-3 rounded-full opacity-80" style={{ backgroundColor: primaryColor }} />
+        <div className="h-3 w-3 rounded-full opacity-60" style={{ backgroundColor: accent }} />
+      </div>
+    );
+  }
+
+  return null;
 }
 
 function ReadOnlyField({
