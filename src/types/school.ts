@@ -1,4 +1,5 @@
 import type { IntegrationProvider } from "@/types/newsletter";
+import type { SupportModule } from "@/types/support-module";
 
 export type SchoolProfile = {
   id: string;
@@ -23,4 +24,5 @@ export type SchoolProfile = {
   encryptedKnowledgeRef: string;
   webhookUrl: string;
   webhookSecret: string;
+  supportModules: SupportModule[];
 };

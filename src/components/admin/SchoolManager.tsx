@@ -9,6 +9,7 @@ import { extractPaletteFromImage } from "@/lib/color-extraction";
 import { useAuthSession } from "@/lib/auth-client";
 import type { SchoolProfile } from "@/types/school";
 import type { MemberRecord } from "@/types/member";
+import type { SupportModule, SupportModuleTone } from "@/types/support-module";
 
 const emptySchool: SchoolProfile = {
   id: "demo-new-school",
@@ -32,7 +33,8 @@ const emptySchool: SchoolProfile = {
   integrationEndpoint: "",
   encryptedKnowledgeRef: "",
   webhookUrl: "",
-  webhookSecret: ""
+  webhookSecret: "",
+  supportModules: []
 };
 
 export function SchoolManager() {
@@ -108,6 +110,49 @@ export function SchoolManager() {
     setForm((current) => ({
       ...current,
       [field]: value
+    }));
+  };
+
+  const updateSupportModule = (
+    moduleId: string,
+    field: keyof SupportModule,
+    value: string
+  ) => {
+    setForm((current) => ({
+      ...current,
+      supportModules: current.supportModules.map((module) =>
+        module.id === moduleId ? { ...module, [field]: value } : module
+      )
+    }));
+  };
+
+  const addSupportModule = () => {
+    const nextId =
+      typeof window !== "undefined" && window.crypto?.randomUUID
+        ? window.crypto.randomUUID()
+        : `support-module-${Date.now()}`;
+
+    setForm((current) => ({
+      ...current,
+      supportModules: [
+        ...current.supportModules,
+        {
+          id: nextId,
+          eyebrow: "",
+          title: "",
+          body: "",
+          actionLabel: "",
+          actionHref: "",
+          tone: "neutral"
+        }
+      ]
+    }));
+  };
+
+  const removeSupportModule = (moduleId: string) => {
+    setForm((current) => ({
+      ...current,
+      supportModules: current.supportModules.filter((module) => module.id !== moduleId)
     }));
   };
 
@@ -719,6 +764,98 @@ export function SchoolManager() {
           <ColorField label="Secondary" value={form.secondaryColor} onChange={(value) => updateField("secondaryColor", value)} />
           <ColorField label="Accent" value={form.accentColor} onChange={(value) => updateField("accentColor", value)} />
           <ColorField label="Background" value={form.backgroundColor} onChange={(value) => updateField("backgroundColor", value)} />
+        </div>
+
+        <div className="mt-6 rounded-[24px] border border-slate-200 p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Support modules</div>
+              <div className="mt-2 text-sm leading-6 text-brand-muted">
+                These are reusable utility cards the newsletter can place when an issue is light. Add, edit, or remove them here so the system never locks you into filler you do not want.
+              </div>
+            </div>
+            <button
+              className="rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white"
+              onClick={addSupportModule}
+              type="button"
+            >
+              Add support module
+            </button>
+          </div>
+
+          <div className="mt-4 grid gap-4">
+            {form.supportModules.length > 0 ? (
+              form.supportModules.map((module, index) => (
+                <div key={module.id} className="rounded-[24px] border border-slate-200 bg-[#F7F9FC] p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="font-semibold text-brand-text">Support module {index + 1}</div>
+                    <button
+                      className="rounded-full border border-red-200 bg-white px-4 py-2 text-sm font-semibold uppercase tracking-[0.12em] text-red-700"
+                      onClick={() => removeSupportModule(module.id)}
+                      type="button"
+                    >
+                      Remove
+                    </button>
+                  </div>
+
+                  <div className="mt-4 grid gap-4 md:grid-cols-2">
+                    <Input
+                      help="Short label above the card."
+                      label="Eyebrow"
+                      value={module.eyebrow}
+                      onChange={(value) => updateSupportModule(module.id, "eyebrow", value)}
+                    />
+                    <label className="grid gap-2 text-sm font-medium text-brand-text">
+                      Tone
+                      <select
+                        className="rounded-2xl border border-slate-200 px-4 py-3 text-brand-text outline-none focus:border-brand-primary"
+                        onChange={(event) =>
+                          updateSupportModule(module.id, "tone", event.target.value as SupportModuleTone)
+                        }
+                        value={module.tone}
+                      >
+                        <option value="neutral">Neutral</option>
+                        <option value="primary">Primary</option>
+                        <option value="secondary">Secondary</option>
+                      </select>
+                    </label>
+                    <Input
+                      help="Main headline for this support card."
+                      label="Title"
+                      value={module.title}
+                      onChange={(value) => updateSupportModule(module.id, "title", value)}
+                    />
+                    <Input
+                      help="Optional button label, like Visit website or Contact office."
+                      label="Action label"
+                      value={module.actionLabel ?? ""}
+                      onChange={(value) => updateSupportModule(module.id, "actionLabel", value)}
+                    />
+                    <Input
+                      help="Optional action link."
+                      label="Action link"
+                      value={module.actionHref ?? ""}
+                      onChange={(value) => updateSupportModule(module.id, "actionHref", value)}
+                    />
+                  </div>
+
+                  <label className="mt-4 grid gap-2 text-sm font-medium text-brand-text">
+                    Body
+                    <textarea
+                      className="min-h-[120px] rounded-2xl border border-slate-200 px-4 py-3 text-brand-text outline-none focus:border-brand-primary"
+                      onChange={(event) => updateSupportModule(module.id, "body", event.target.value)}
+                      placeholder="Write the evergreen information this school may want to use when a newsletter needs extra support content."
+                      value={module.body}
+                    />
+                  </label>
+                </div>
+              ))
+            ) : (
+              <div className="rounded-2xl bg-brand-background px-4 py-4 text-sm text-brand-muted">
+                No custom support modules yet. The system will use its default school information cards unless you add your own here.
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="mt-6">

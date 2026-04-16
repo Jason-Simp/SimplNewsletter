@@ -32,7 +32,8 @@ export const sampleNewsletter: NewsletterDocument = {
     logoUrl: schoolAmplifiedBrand.logoUrl,
     colors: {
       ...defaultSchoolTheme
-    }
+    },
+    supportModules: []
   },
   workspace: {
     schoolId: "demo-school-1",

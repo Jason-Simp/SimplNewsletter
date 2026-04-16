@@ -1,3 +1,5 @@
+import type { SupportModule } from "@/types/support-module";
+
 export type Channel = "web" | "email" | "pdf" | "html" | "blog";
 
 export type DistributionChannel = Channel | "webhook";
@@ -78,6 +80,7 @@ export type OrganizationBrand = {
     text: string;
     muted: string;
   };
+  supportModules?: SupportModule[];
 };
 
 export type MediaConstraint = {

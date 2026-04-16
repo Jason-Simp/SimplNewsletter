@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import Image from "next/image";
 
 import type { Channel, NewsletterDocument, NewsletterSection } from "@/types/newsletter";
+import type { SupportModule } from "@/types/support-module";
 
 type Props = {
   document: NewsletterDocument;
@@ -51,16 +52,6 @@ type StoryCardData = {
   summary: string;
   image?: string;
   url?: string;
-};
-
-type SupportModule = {
-  id: string;
-  eyebrow: string;
-  title: string;
-  body: string;
-  actionLabel?: string;
-  actionHref?: string;
-  tone: "primary" | "secondary" | "neutral";
 };
 
 const channels: Channel[] = ["web", "pdf"];
@@ -1082,7 +1073,9 @@ function buildSupportStories(
 
 function buildSupportModules(document: NewsletterDocument): SupportModule[] {
   const { organization, issueDate, title } = document;
-  const modules: SupportModule[] = [];
+  const modules: SupportModule[] = [
+    ...(organization.supportModules ?? []).filter((module) => module.title.trim() || module.body.trim())
+  ];
 
   if (organization.websiteUrl) {
     modules.push({

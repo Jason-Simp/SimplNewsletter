@@ -2,6 +2,7 @@ import { schoolAmplifiedBrand } from "@/lib/brand";
 import { decryptProjectCode, encryptProjectCode } from "@/lib/crypto";
 import { getServiceSupabase } from "@/lib/supabase/server";
 import type { SchoolProfile } from "@/types/school";
+import type { SupportModule, SupportModuleTone } from "@/types/support-module";
 
 function normalizeVectorProvider(value: SchoolProfile["knowledgeProvider"]) {
   return value === "supabase" || value === "openai" ? value : "none";
@@ -30,7 +31,8 @@ const fallbackSchools: SchoolProfile[] = [
     integrationEndpoint: "",
     encryptedKnowledgeRef: "enc_proj_riverside_demo_001",
     webhookUrl: "",
-    webhookSecret: ""
+    webhookSecret: "",
+    supportModules: []
   }
 ];
 
@@ -74,7 +76,8 @@ export async function listSchools() {
         ? decryptProjectCode(school.encrypted_project_code, secret)
         : school.encrypted_project_code ?? "",
     webhookUrl: school.webhook_url ?? "",
-    webhookSecret: school.webhook_secret ?? ""
+    webhookSecret: school.webhook_secret ?? "",
+    supportModules: normalizeSupportModules(school.support_modules)
   })) as SchoolProfile[];
 }
 
@@ -118,7 +121,8 @@ export async function getSchoolById(schoolId: string) {
         ? decryptProjectCode(data.encrypted_project_code, secret)
         : data.encrypted_project_code ?? "",
     webhookUrl: data.webhook_url ?? "",
-    webhookSecret: data.webhook_secret ?? ""
+    webhookSecret: data.webhook_secret ?? "",
+    supportModules: normalizeSupportModules(data.support_modules)
   } satisfies SchoolProfile;
 }
 
@@ -151,6 +155,7 @@ export async function saveSchool(profile: SchoolProfile) {
       agent_api: profile.integrationEndpoint,
       webhook_url: profile.webhookUrl,
       webhook_secret: profile.webhookSecret,
+      support_modules: profile.supportModules,
       vector_provider: normalizeVectorProvider(profile.knowledgeProvider),
       encrypted_project_code:
         profile.encryptedKnowledgeRef && secret
@@ -186,6 +191,48 @@ export async function saveSchool(profile: SchoolProfile) {
     integrationEndpoint: data.agent_api ?? "",
     encryptedKnowledgeRef: profile.encryptedKnowledgeRef,
     webhookUrl: data.webhook_url ?? "",
-    webhookSecret: data.webhook_secret ?? ""
+    webhookSecret: data.webhook_secret ?? "",
+    supportModules: normalizeSupportModules(data.support_modules)
   } satisfies SchoolProfile;
+}
+
+function normalizeSupportModules(value: unknown): SupportModule[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item, index) => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+
+      const record = item as Record<string, unknown>;
+      const title = typeof record.title === "string" ? record.title.trim() : "";
+      const body = typeof record.body === "string" ? record.body.trim() : "";
+
+      if (!title && !body) {
+        return null;
+      }
+
+      const tone = normalizeSupportTone(record.tone);
+
+      return {
+        id:
+          typeof record.id === "string" && record.id.trim()
+            ? record.id.trim()
+            : `support-module-${index + 1}`,
+        eyebrow: typeof record.eyebrow === "string" ? record.eyebrow.trim() : "",
+        title,
+        body,
+        actionLabel: typeof record.actionLabel === "string" ? record.actionLabel.trim() : "",
+        actionHref: typeof record.actionHref === "string" ? record.actionHref.trim() : "",
+        tone
+      } satisfies SupportModule;
+    })
+    .filter(Boolean) as SupportModule[];
+}
+
+function normalizeSupportTone(value: unknown): SupportModuleTone {
+  return value === "primary" || value === "secondary" ? value : "neutral";
 }

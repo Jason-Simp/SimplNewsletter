@@ -271,7 +271,8 @@ export async function bootstrapSchoolAdmin(input: {
         integrationEndpoint: "",
         encryptedKnowledgeRef: "",
         webhookUrl: "",
-        webhookSecret: ""
+        webhookSecret: "",
+        supportModules: []
       } satisfies SchoolProfile,
       member: {
         id: "demo-member-bootstrap",

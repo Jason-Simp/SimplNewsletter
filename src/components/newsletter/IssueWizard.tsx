@@ -481,6 +481,7 @@ export function IssueWizard() {
                   phone: nextSchool.phone,
                   address: nextSchool.address,
                   logoUrl: nextSchool.logoUrl,
+                  supportModules: nextSchool.supportModules,
                   colors: {
                     ...nextDocument.organization.colors,
                     primary: nextSchool.primaryColor,
@@ -1715,6 +1716,7 @@ function createFreshDraft(school: SchoolProfile | null): NewsletterDocument {
           phone: school.phone,
           address: school.address,
           logoUrl: school.logoUrl,
+          supportModules: school.supportModules,
           colors: {
             ...base.organization.colors,
             primary: school.primaryColor,

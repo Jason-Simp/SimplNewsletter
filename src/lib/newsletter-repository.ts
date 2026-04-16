@@ -4,6 +4,7 @@ import { defaultDistributionOptions, mediaConstraints } from "@/lib/product-conf
 import { sampleNewsletter } from "@/lib/sample-data";
 import { getServiceSupabase } from "@/lib/supabase/server";
 import type { DistributionChannel, NewsletterDocument, NewsletterSection } from "@/types/newsletter";
+import type { SupportModule, SupportModuleTone } from "@/types/support-module";
 
 function normalizeVectorProvider(value: NewsletterDocument["workspace"]["knowledgeProvider"]) {
   return value === "supabase" || value === "openai" ? value : "none";
@@ -32,6 +33,7 @@ type SchoolRow = {
   users_managed_by_school: boolean;
   vector_provider: "supabase" | "openai" | "none";
   encrypted_project_code: string | null;
+  support_modules?: unknown;
 };
 
 type NewsletterRow = {
@@ -98,7 +100,8 @@ function toDocument(
         surface: school.surface_color,
         text: school.text_color,
         muted: school.muted_text_color
-      }
+      },
+      supportModules: normalizeSupportModules(school.support_modules)
     },
     workspace: {
       schoolId: school.id,
@@ -233,7 +236,8 @@ export async function saveNewsletter(
     encrypted_project_code:
       document.workspace.encryptedKnowledgeRef && secret
         ? encryptProjectCode(document.workspace.encryptedKnowledgeRef, secret)
-        : document.workspace.encryptedKnowledgeRef
+        : document.workspace.encryptedKnowledgeRef,
+    support_modules: document.organization.supportModules ?? []
   };
 
   const { data: school, error: schoolError } = await supabase
@@ -328,6 +332,45 @@ export async function saveNewsletter(
       publishedAt: newsletterPayload.published_at
     }
   };
+}
+
+function normalizeSupportModules(value: unknown): SupportModule[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item, index) => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+
+      const record = item as Record<string, unknown>;
+      const title = typeof record.title === "string" ? record.title.trim() : "";
+      const body = typeof record.body === "string" ? record.body.trim() : "";
+
+      if (!title && !body) {
+        return null;
+      }
+
+      return {
+        id:
+          typeof record.id === "string" && record.id.trim()
+            ? record.id.trim()
+            : `support-module-${index + 1}`,
+        eyebrow: typeof record.eyebrow === "string" ? record.eyebrow.trim() : "",
+        title,
+        body,
+        actionLabel: typeof record.actionLabel === "string" ? record.actionLabel.trim() : "",
+        actionHref: typeof record.actionHref === "string" ? record.actionHref.trim() : "",
+        tone: normalizeSupportTone(record.tone)
+      } satisfies SupportModule;
+    })
+    .filter(Boolean) as SupportModule[];
+}
+
+function normalizeSupportTone(value: unknown): SupportModuleTone {
+  return value === "primary" || value === "secondary" ? value : "neutral";
 }
 
 export async function deleteNewsletter(newsletterId: string, schoolId?: string) {
