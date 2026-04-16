@@ -1214,7 +1214,7 @@ function buildSupportStories(
 }
 
 function buildSupportModules(document: NewsletterDocument): SupportModule[] {
-  const { organization, issueDate, title } = document;
+  const { organization } = document;
   const modules: SupportModule[] = [
     ...(organization.supportModules ?? []).filter((module) => module.title.trim() || module.body.trim())
   ];
@@ -1247,15 +1247,6 @@ function buildSupportModules(document: NewsletterDocument): SupportModule[] {
     });
   }
 
-  modules.push({
-    id: "family-reminder",
-    eyebrow: "Family reminder",
-    title: "Keep this issue handy for the week ahead",
-    body: `Use this issue as your quick reference for the week of ${issueDate} so reminders, celebrations, and next steps stay easy to find.`,
-    tone: "secondary",
-    graphic: "announcement"
-  });
-
   if (organization.tagline) {
     modules.push({
       id: "identity",
@@ -1266,15 +1257,6 @@ function buildSupportModules(document: NewsletterDocument): SupportModule[] {
       graphic: "spark"
     });
   }
-
-  modules.push({
-    id: "issue-context",
-    eyebrow: "This issue at a glance",
-    title: title || `${organization.name} weekly update`,
-    body: `This issue is designed to help families scan the biggest updates quickly, from important reminders to student moments worth celebrating.`,
-    tone: "neutral",
-    graphic: "calendar"
-  });
 
   return modules;
 }
@@ -1342,6 +1324,10 @@ function shouldUseSupportModule(
     return false;
   }
 
+  if (needle.includes("this issue at a glance") || needle.includes("keep this issue handy")) {
+    return false;
+  }
+
   return true;
 }
 
@@ -1361,7 +1347,7 @@ function getDesiredSupportModuleCount({
   }
 
   if (layout === "announcement") {
-    return supportCount === 0 ? 2 : 1;
+    return supportCount === 0 ? 1 : 0;
   }
 
   if (layout === "story_heavy") {
@@ -1369,10 +1355,10 @@ function getDesiredSupportModuleCount({
   }
 
   if (utilityWeight >= 2) {
-    return supportCount <= 2 ? 1 : 0;
+    return 0;
   }
 
-  return supportCount === 0 ? 2 : supportCount <= 2 ? 1 : 0;
+  return supportCount === 0 ? 1 : 0;
 }
 
 function getLeadStoryEmphasis({
