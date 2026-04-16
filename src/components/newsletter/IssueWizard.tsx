@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { authFetch } from "@/lib/api-client";
 import { useAuthSession } from "@/lib/auth-client";
+import { applyGeneratedDraftToDocument, selectImageAssignments } from "@/lib/generated-newsletter-draft";
 import { buildSteps, sampleNewsletter } from "@/lib/sample-data";
 import { getNewsletterPdfPath, getNewsletterWebPath, getSchoolArchivePath } from "@/lib/public-links";
 import type { ContentGenerateResponse } from "@/types/integration";
@@ -151,132 +152,9 @@ export function IssueWizard() {
   };
 
   const applyGeneratedDraft = useCallback((generated: ContentGenerateResponse) => {
-    const generatedSectionTypes = new Set(generated.sections?.map((item) => item.sectionType) ?? []);
-    const fallbackTitle = getGeneratedTitle(generated, quickNotes);
-    const fallbackIntro = getGeneratedIntro(generated, quickNotes);
-    const imageAssignments = selectImageAssignments(generated, uploadedAssets);
-
-    setDocument((current) => ({
-      ...current,
-      title: fallbackTitle,
-      intro: fallbackIntro,
-      sections: current.sections.map((section) => {
-        const nextSection = generated.sections?.find((item) => item.sectionType === section.type);
-
-        if (section.type === "hero") {
-          const heroContent = (nextSection?.content ?? {}) as Record<string, unknown>;
-          const nextHeroHeadline =
-            typeof heroContent.headline === "string" && heroContent.headline.trim()
-              ? heroContent.headline.trim()
-              : nextSection?.title && nextSection.title.trim().toLowerCase() !== "hero"
-                ? nextSection.title.trim()
-                : fallbackTitle;
-          const nextHeroBody =
-            typeof heroContent.body === "string" && heroContent.body.trim()
-              ? heroContent.body
-              : typeof heroContent.summary === "string" && heroContent.summary.trim()
-                ? heroContent.summary
-                : fallbackIntro;
-
-          return {
-            ...section,
-            enabled: true,
-            content: {
-              ...section.content,
-              eyebrow:
-                typeof heroContent.eyebrow === "string" && heroContent.eyebrow.trim()
-                  ? heroContent.eyebrow
-                  : current.organization.name,
-              headline: nextHeroHeadline,
-              body: nextHeroBody,
-              heroImage:
-                typeof heroContent.heroImage === "string"
-                  ? heroContent.heroImage
-                  : imageAssignments.heroImage || (section.content as { heroImage?: string }).heroImage,
-              galleryImages:
-                imageAssignments.galleryImages.length > 0
-                  ? imageAssignments.galleryImages
-                  : Array.isArray((section.content as { galleryImages?: string[] }).galleryImages)
-                    ? (section.content as { galleryImages: string[] }).galleryImages
-                    : [],
-              stats: Array.isArray(heroContent.stats) ? heroContent.stats : []
-            }
-          };
-        }
-
-        if (section.type === "top_story" && !nextSection) {
-          return {
-            ...section,
-            enabled: true,
-            content: {
-              ...section.content,
-              headline: fallbackTitle,
-              summary:
-                typeof generated.raw === "string" && generated.raw.trim()
-                  ? generated.raw.trim()
-                  : fallbackIntro,
-              url: "#",
-              image: imageAssignments.topStoryImage || (section.content as { image?: string }).image
-            }
-          };
-        }
-
-        if (!nextSection) {
-          return section;
-        }
-
-        return {
-          ...section,
-          title: nextSection.title || section.title,
-          enabled: true,
-          content: {
-            ...section.content,
-            ...nextSection.content,
-            ...(section.type === "top_story" && imageAssignments.topStoryImage
-              ? { image: imageAssignments.topStoryImage }
-              : {}),
-            ...(section.type === "news_grid" && Array.isArray((nextSection.content as { items?: Array<Record<string, unknown>> }).items)
-              ? {
-                  items: ((nextSection.content as { items?: Array<Record<string, unknown>> }).items ?? []).map(
-                    (item, index) => ({
-                      ...item,
-                      image:
-                        typeof item.image === "string" && item.image
-                          ? item.image
-                          : imageAssignments.newsItemImages[index] || ""
-                    })
-                  )
-                }
-              : {}),
-            ...(section.type === "arts_events" && Array.isArray((nextSection.content as { items?: Array<Record<string, unknown>> }).items)
-              ? {
-                  items: ((nextSection.content as { items?: Array<Record<string, unknown>> }).items ?? []).map(
-                    (item, index) => ({
-                      ...item,
-                      image:
-                        typeof item.image === "string" && item.image
-                          ? item.image
-                          : imageAssignments.eventItemImages[index] || ""
-                    })
-                  )
-                }
-              : {}),
-            ...(section.type === "student_spotlight" && imageAssignments.spotlightImage
-              ? { image: imageAssignments.spotlightImage }
-              : {})
-          }
-        };
-      }).map((section) => {
-        if (["hero", "footer"].includes(section.type)) {
-          return section;
-        }
-
-        return {
-          ...section,
-          enabled: generatedSectionTypes.has(section.type)
-        };
-      })
-    }));
+    setDocument((current) =>
+      applyGeneratedDraftToDocument(current, generated, quickNotes, uploadedAssets)
+    );
   }, [quickNotes, uploadedAssets]);
 
   const rewriteSection = async (sectionType: "hero" | "top_story" | "principal_message") => {
@@ -406,23 +284,31 @@ export function IssueWizard() {
     setLastGeneratedAt(null);
 
     try {
+      const persistedDraft = await persistDraft("manual");
+      const draftDocument = persistedDraft.document ?? document;
+
       const response = await authFetch(supabase, "/api/agent/generate/start", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          schoolId: document.workspace.schoolId,
-          schoolName: document.organization.name,
-          generationProvider: document.workspace.generationProvider,
-          knowledgeProvider: document.workspace.knowledgeProvider,
-          assistantReference: document.workspace.assistantReference,
-          integrationEndpoint: document.workspace.integrationEndpoint,
-          encryptedKnowledgeRef: document.workspace.encryptedKnowledgeRef,
-          imageHints: uploadedAssets.map((asset) => asset.name),
+          draftDocument,
+          quickNotes,
           uploadedAssets,
-          prompt: `Write a school newsletter from the provided request. Decide which newsletter sections are needed, write those sections, and return a clean finished draft in the school's tone.\n\nWhat the newsletter should be about:\n${quickNotes}`,
-          notes: quickNotes
+          payload: {
+            schoolId: draftDocument.workspace.schoolId,
+            schoolName: draftDocument.organization.name,
+            generationProvider: draftDocument.workspace.generationProvider,
+            knowledgeProvider: draftDocument.workspace.knowledgeProvider,
+            assistantReference: draftDocument.workspace.assistantReference,
+            integrationEndpoint: draftDocument.workspace.integrationEndpoint,
+            encryptedKnowledgeRef: draftDocument.workspace.encryptedKnowledgeRef,
+            imageHints: uploadedAssets.map((asset) => asset.name),
+            uploadedAssets,
+            prompt: `Write a school newsletter from the provided request. Decide which newsletter sections are needed, write those sections, and return a clean finished draft in the school's tone.\n\nWhat the newsletter should be about:\n${quickNotes}`,
+            notes: quickNotes
+          }
         })
       });
 
@@ -730,13 +616,18 @@ export function IssueWizard() {
           | {
               status?: "queued" | "running" | "completed" | "failed";
               result?: ContentGenerateResponse;
+              persistedDocument?: NewsletterDocument | null;
               error?: string | null;
               completedAt?: string | null;
             }
           | undefined;
 
-        if (job?.status === "completed" && job.result) {
-          applyGeneratedDraft(job.result);
+        if (job?.status === "completed" && (job.persistedDocument || job.result)) {
+          if (job.persistedDocument) {
+            setDocument(job.persistedDocument);
+          } else if (job.result) {
+            applyGeneratedDraft(job.result);
+          }
           setGenerationState("ready");
           setGenerationMessage("Your first draft is ready. Review it and keep going.");
           setGenerationJobId(null);
@@ -800,7 +691,7 @@ export function IssueWizard() {
       if (!shouldAutosaveDraft(document, quickNotes, uploadedAssets, lastGeneratedAt)) {
         setSaveState("idle");
         setSaveMessage(mode === "manual" ? "Nothing to save yet." : "Draft ready.");
-        return false;
+        return { saved: false, document: null as NewsletterDocument | null };
       }
 
       setSaveState("saving");
@@ -842,11 +733,14 @@ export function IssueWizard() {
             : "Changes saved on this device."
         );
 
-        return true;
+        return {
+          saved: true,
+          document: (payload?.data as NewsletterDocument | null) ?? null
+        };
       } catch {
         setSaveState("error");
         setSaveMessage("We could not save your changes.");
-        return false;
+        return { saved: false, document: null as NewsletterDocument | null };
       }
     },
     [cloneFromId, document, draftId, lastGeneratedAt, quickNotes, router, supabase, uploadedAssets]
@@ -1385,39 +1279,6 @@ function getStepInstruction(stepId: string) {
     default:
       return "Complete this step, then move to the next one.";
   }
-}
-
-function getGeneratedTitle(generated: ContentGenerateResponse, quickNotes: string) {
-  const title = generated.title?.trim();
-
-  if (title && title.toLowerCase() !== "generated newsletter draft") {
-    return title;
-  }
-
-  const firstSentence = quickNotes
-    .split(/[.!?]/)
-    .map((part) => part.trim())
-    .find(Boolean);
-
-  if (!firstSentence) {
-    return "School newsletter";
-  }
-
-  return firstSentence.length > 90 ? `${firstSentence.slice(0, 87).trim()}...` : firstSentence;
-}
-
-function getGeneratedIntro(generated: ContentGenerateResponse, quickNotes: string) {
-  const intro = generated.intro?.trim();
-
-  if (intro && intro.toLowerCase() !== "generated newsletter draft") {
-    return intro;
-  }
-
-  if (typeof generated.raw === "string" && generated.raw.trim()) {
-    return generated.raw.trim();
-  }
-
-  return quickNotes.trim();
 }
 
 function SetupReadinessPanel({
@@ -2014,225 +1875,3 @@ function buildSectionRewriteNotes({
     "Keep the tone clear, credible, and useful. Improve specificity and readability without inventing facts."
   ].join("\n\n");
 }
-
-function selectImageAssignments(generated: ContentGenerateResponse, assets: UploadedAsset[]) {
-  const imageAssets = assets.filter((asset) => asset.type.startsWith("image/") && asset.url);
-  const usedNames = new Set<string>();
-
-  const hero = generated.sections?.find((section) => section.sectionType === "hero");
-  const topStory = generated.sections?.find((section) => section.sectionType === "top_story");
-  const newsGrid = generated.sections?.find((section) => section.sectionType === "news_grid");
-  const spotlight = generated.sections?.find((section) => section.sectionType === "student_spotlight");
-  const events = generated.sections?.find((section) => section.sectionType === "arts_events");
-
-  const heroImage = chooseImageForText(
-    [
-      generated.title,
-      hero?.title,
-      typeof hero?.content?.headline === "string" ? hero.content.headline : "",
-      typeof hero?.content?.body === "string" ? hero.content.body : ""
-    ],
-    imageAssets,
-    usedNames
-  );
-
-  const topStoryImage = chooseImageForText(
-    [
-      topStory?.title,
-      typeof topStory?.content?.headline === "string" ? topStory.content.headline : "",
-      typeof topStory?.content?.summary === "string" ? topStory.content.summary : ""
-    ],
-    imageAssets,
-    usedNames
-  );
-
-  const spotlightImage = chooseImageForText(
-    [
-      spotlight?.title,
-      typeof spotlight?.content?.name === "string" ? spotlight.content.name : "",
-      typeof spotlight?.content?.summary === "string" ? spotlight.content.summary : ""
-    ],
-    imageAssets,
-    usedNames
-  );
-
-  const newsItemImages = Array.isArray(newsGrid?.content?.items)
-    ? newsGrid.content.items.map((item) =>
-        chooseImageForText(
-          [
-            typeof item?.headline === "string" ? item.headline : "",
-            typeof item?.summary === "string" ? item.summary : "",
-            typeof item?.tag === "string" ? item.tag : ""
-          ],
-          imageAssets,
-          usedNames
-        )
-      )
-    : [];
-
-  const eventItemImages = Array.isArray(events?.content?.items)
-    ? events.content.items.map((item) =>
-        chooseImageForText(
-          [
-            typeof item?.title === "string" ? item.title : "",
-            typeof item?.summary === "string" ? item.summary : "",
-            typeof item?.date === "string" ? item.date : ""
-          ],
-          imageAssets,
-          usedNames
-        )
-      )
-    : [];
-
-  const galleryImages = imageAssets
-    .filter((asset) => !usedNames.has(asset.name) && asset.url)
-    .map((asset) => asset.url as string);
-
-  return {
-    heroImage,
-    topStoryImage,
-    spotlightImage,
-    newsItemImages,
-    eventItemImages,
-    galleryImages
-  };
-}
-
-function chooseImageForText(
-  textParts: Array<string | undefined>,
-  assets: UploadedAsset[],
-  usedNames: Set<string>
-) {
-  const availableAssets = assets.filter((asset) => !usedNames.has(asset.name) && asset.url);
-
-  if (!availableAssets.length) {
-    return "";
-  }
-
-  const combinedText = textParts.filter(Boolean).join(" ");
-  const tokens = tokenizeForMatching(combinedText);
-  const scoredAssets = availableAssets
-    .map((asset) => ({
-      asset,
-      score: scoreAssetAgainstTokens(asset, tokens, combinedText)
-    }))
-    .sort((left, right) => right.score - left.score);
-
-  const bestMatch = scoredAssets[0]?.asset ?? availableAssets[0];
-  usedNames.add(bestMatch.name);
-  return bestMatch.url ?? "";
-}
-
-function scoreAssetAgainstTokens(asset: UploadedAsset, tokens: string[], sourceText: string) {
-  const normalizedName = normalizeForMatching(asset.name);
-  const assetTokens = tokenizeForMatching(asset.name);
-  let score = 0;
-
-  if (!tokens.length) {
-    return assetTokens.length ? 0.5 : 0;
-  }
-
-  for (const token of tokens) {
-    if (!token) {
-      continue;
-    }
-
-    if (normalizedName.includes(token)) {
-      score += 4;
-      continue;
-    }
-
-    if (assetTokens.some((assetToken) => assetToken.startsWith(token) || token.startsWith(assetToken))) {
-      score += 2;
-      continue;
-    }
-
-    if (findTokenVariant(token, assetTokens)) {
-      score += 1.5;
-    }
-  }
-
-  if (assetTokens.length) {
-    const combinedAssetPhrase = assetTokens.join(" ");
-    const normalizedSource = normalizeForMatching(sourceText);
-    if (normalizedSource.includes(combinedAssetPhrase)) {
-      score += 6;
-    }
-  }
-
-  if (/\b(photo|image|picture)\b/.test(normalizeForMatching(sourceText))) {
-    score += 0.5;
-  }
-
-  return score;
-}
-
-function tokenizeForMatching(value: string) {
-  return normalizeForMatching(value)
-    .replace(/[^a-z0-9\s-]/g, " ")
-    .split(/\s+/)
-    .map((token) => simplifyToken(token))
-    .filter((token) => token.length > 2)
-    .filter((token) => !COMMON_MATCH_WORDS.has(token));
-}
-
-function normalizeForMatching(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/[_–—]+/g, "-")
-    .replace(/\.(png|jpe?g|gif|webp|svg)$/g, "");
-}
-
-function simplifyToken(token: string) {
-  if (token.endsWith("ies") && token.length > 4) {
-    return `${token.slice(0, -3)}y`;
-  }
-
-  if (token.endsWith("es") && token.length > 4) {
-    return token.slice(0, -2);
-  }
-
-  if (token.endsWith("s") && token.length > 3) {
-    return token.slice(0, -1);
-  }
-
-  return token;
-}
-
-function findTokenVariant(token: string, assetTokens: string[]) {
-  const variants = new Set([
-    token,
-    simplifyToken(token),
-    token.replace(/-/g, ""),
-    token.replace(/fruit/g, "cafeteria"),
-    token.replace(/cafeteria/g, "fruit"),
-    token.replace(/lunch/g, "cafeteria"),
-    token.replace(/food/g, "fruit")
-  ]);
-
-  return assetTokens.some((assetToken) =>
-    [...variants].some(
-      (variant) =>
-        variant &&
-        (assetToken.includes(variant) || variant.includes(assetToken))
-    )
-  );
-}
-
-const COMMON_MATCH_WORDS = new Set([
-  "school",
-  "newsletter",
-  "about",
-  "with",
-  "from",
-  "that",
-  "this",
-  "have",
-  "will",
-  "your",
-  "their",
-  "they",
-  "into",
-  "next",
-  "week"
-]);
