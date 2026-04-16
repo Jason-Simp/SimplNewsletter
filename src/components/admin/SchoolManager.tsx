@@ -203,6 +203,31 @@ export function SchoolManager() {
     }));
   };
 
+  const moveSupportModule = (moduleId: string, direction: "up" | "down") => {
+    setForm((current) => {
+      const index = current.supportModules.findIndex((module) => module.id === moduleId);
+
+      if (index === -1) {
+        return current;
+      }
+
+      const nextIndex = direction === "up" ? index - 1 : index + 1;
+
+      if (nextIndex < 0 || nextIndex >= current.supportModules.length) {
+        return current;
+      }
+
+      const nextModules = [...current.supportModules];
+      const [module] = nextModules.splice(index, 1);
+      nextModules.splice(nextIndex, 0, module);
+
+      return {
+        ...current,
+        supportModules: nextModules
+      };
+    });
+  };
+
   const showNotice = (message: string, tone: "success" | "error" | "info") => {
     setNotice({ message, tone });
   };
@@ -849,17 +874,53 @@ export function SchoolManager() {
               ))}
             </div>
             {form.supportModules.length > 0 ? (
+              <div className="rounded-[24px] border border-slate-200 bg-white p-4">
+                <div className="text-sm font-semibold text-brand-text">Preview</div>
+                <div className="mt-1 text-sm leading-6 text-brand-muted">
+                  This is how the current support modules are likely to feel when the newsletter uses them.
+                </div>
+                <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                  {form.supportModules.map((module) => (
+                    <SupportModulePreviewCard
+                      key={`preview-${module.id}`}
+                      module={module}
+                      primaryColor={form.primaryColor}
+                      secondaryColor={form.secondaryColor}
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            {form.supportModules.length > 0 ? (
               form.supportModules.map((module, index) => (
                 <div key={module.id} className="rounded-[24px] border border-slate-200 bg-[#F7F9FC] p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="font-semibold text-brand-text">Support module {index + 1}</div>
-                    <button
-                      className="rounded-full border border-red-200 bg-white px-4 py-2 text-sm font-semibold uppercase tracking-[0.12em] text-red-700"
-                      onClick={() => removeSupportModule(module.id)}
-                      type="button"
-                    >
-                      Remove
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-brand-text disabled:cursor-not-allowed disabled:opacity-35"
+                        disabled={index === 0}
+                        onClick={() => moveSupportModule(module.id, "up")}
+                        type="button"
+                      >
+                        Move up
+                      </button>
+                      <button
+                        className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-brand-text disabled:cursor-not-allowed disabled:opacity-35"
+                        disabled={index === form.supportModules.length - 1}
+                        onClick={() => moveSupportModule(module.id, "down")}
+                        type="button"
+                      >
+                        Move down
+                      </button>
+                      <button
+                        className="rounded-full border border-red-200 bg-white px-4 py-2 text-sm font-semibold uppercase tracking-[0.12em] text-red-700"
+                        onClick={() => removeSupportModule(module.id)}
+                        type="button"
+                      >
+                        Remove
+                      </button>
+                    </div>
                   </div>
 
                   <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -912,6 +973,17 @@ export function SchoolManager() {
                       value={module.body}
                     />
                   </label>
+
+                  <div className="mt-4 rounded-[24px] border border-slate-200 bg-white p-4">
+                    <div className="text-xs font-bold uppercase tracking-[0.2em] text-brand-secondary">Card preview</div>
+                    <div className="mt-4">
+                      <SupportModulePreviewCard
+                        module={module}
+                        primaryColor={form.primaryColor}
+                        secondaryColor={form.secondaryColor}
+                      />
+                    </div>
+                  </div>
                 </div>
               ))
             ) : (
@@ -1071,6 +1143,100 @@ function normalizeSupportModulesForSave(modules: SupportModule[]) {
       };
     })
     .filter((module) => module.title || module.body || module.eyebrow);
+}
+
+function SupportModulePreviewCard({
+  module,
+  primaryColor,
+  secondaryColor
+}: {
+  module: SupportModule;
+  primaryColor: string;
+  secondaryColor: string;
+}) {
+  const toneStyles =
+    module.tone === "primary"
+      ? {
+          borderColor: `${primaryColor}22`,
+          background: primaryColor,
+          textColor: getReadableTextColor(primaryColor),
+          eyebrowColor: `${getReadableTextColor(primaryColor)}CC`,
+          bodyColor: `${getReadableTextColor(primaryColor)}E6`,
+          buttonClassName: "bg-white text-brand-primary"
+        }
+      : module.tone === "secondary"
+        ? {
+            borderColor: `${secondaryColor}22`,
+            background: `${secondaryColor}14`,
+            textColor: "#142033",
+            eyebrowColor: secondaryColor,
+            bodyColor: "#5B667A",
+            buttonClassName: "border border-slate-200 bg-white text-brand-primary"
+          }
+        : {
+            borderColor: "rgba(148, 163, 184, 0.25)",
+            background: "#FFFFFF",
+            textColor: "#142033",
+            eyebrowColor: "#123A69",
+            bodyColor: "#5B667A",
+            buttonClassName: "border border-slate-200 bg-white text-brand-primary"
+          };
+
+  return (
+    <article
+      className="relative overflow-hidden rounded-[28px] border p-6 shadow-[0_14px_34px_rgba(15,39,69,0.08)]"
+      style={{
+        borderColor: toneStyles.borderColor,
+        background: toneStyles.background,
+        color: toneStyles.textColor
+      }}
+    >
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-20 opacity-80"
+        style={{
+          background:
+            module.tone === "primary"
+              ? "linear-gradient(180deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0) 100%)"
+              : module.tone === "secondary"
+                ? "linear-gradient(180deg, rgba(134,32,26,0.08) 0%, rgba(134,32,26,0) 100%)"
+                : "linear-gradient(180deg, rgba(18,58,105,0.05) 0%, rgba(18,58,105,0) 100%)"
+        }}
+      />
+      <div className="relative">
+        <div className="text-xs font-bold uppercase tracking-[0.28em]" style={{ color: toneStyles.eyebrowColor }}>
+          {module.eyebrow || "Support module"}
+        </div>
+        <h4 className="mt-3 text-2xl font-semibold leading-tight">
+          {module.title || "Add a title for this card"}
+        </h4>
+        <p className="mt-3 text-sm leading-6" style={{ color: toneStyles.bodyColor }}>
+          {module.body || "Add the evergreen information you want this school to be able to reuse."}
+        </p>
+        {module.actionLabel && module.actionHref ? (
+          <div
+            className={`mt-5 inline-flex rounded-full px-4 py-2 text-sm font-semibold ${toneStyles.buttonClassName}`}
+          >
+            {module.actionLabel}
+          </div>
+        ) : null}
+      </div>
+    </article>
+  );
+}
+
+function getReadableTextColor(hexColor: string) {
+  const normalized = hexColor.replace("#", "").trim();
+
+  if (normalized.length !== 6) {
+    return "#FFFFFF";
+  }
+
+  const red = Number.parseInt(normalized.slice(0, 2), 16);
+  const green = Number.parseInt(normalized.slice(2, 4), 16);
+  const blue = Number.parseInt(normalized.slice(4, 6), 16);
+  const luminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255;
+
+  return luminance > 0.62 ? "#142033" : "#FFFFFF";
 }
 
 function ReadOnlyField({
