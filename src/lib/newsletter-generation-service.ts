@@ -56,30 +56,218 @@ export async function generateNewsletterPackage(
     );
   }
 
-  let result;
-
   try {
-    result =
-      hasElevenLabsConnection
-        ? await generateNewsletterWithElevenLabs({
-            agentId: resolvedAssistantReference,
-            apiKey: resolvedIntegrationEndpoint,
-            prompt: generationPrompt,
-            trigger: getNewsletterAgentTriggerPrompt()
-          })
-        : await generateContentWithProvider(generationRequest);
+    const firstResult = await requestNewsletterPackage({
+      generationRequest,
+      generationPrompt,
+      hasElevenLabsConnection,
+      resolvedAssistantReference,
+      resolvedIntegrationEndpoint
+    });
+
+    const firstValidated = validateNewsletterPackageOrThrow(firstResult, {
+      requireHero: !sectionRewrite,
+      minimumSections: sectionRewrite ? 1 : 2,
+      allowedSectionTypes: payload.sectionTypes
+    });
+
+    const missingStoryTopics = sectionRewrite ? [] : findMissingStoryTopics(payload, firstValidated);
+
+    if (!missingStoryTopics.length) {
+      return firstValidated;
+    }
+
+    const repairPrompt = buildCoverageRepairPrompt(generationPrompt, missingStoryTopics);
+    const repairedResult = await requestNewsletterPackage({
+      generationRequest: {
+        ...generationRequest,
+        prompt: repairPrompt
+      },
+      generationPrompt: repairPrompt,
+      hasElevenLabsConnection,
+      resolvedAssistantReference,
+      resolvedIntegrationEndpoint
+    });
+
+    return validateNewsletterPackageOrThrow(repairedResult, {
+      requireHero: !sectionRewrite,
+      minimumSections: sectionRewrite ? 1 : 2,
+      allowedSectionTypes: payload.sectionTypes
+    });
+  } catch (error) {
+    if (error instanceof ApiRouteError) {
+      throw error;
+    }
+
+    throw new ApiRouteError(502, normalizeGenerationErrorMessage(error), {
+      exposeMessage: true
+    });
+  }
+}
+
+async function requestNewsletterPackage({
+  generationRequest,
+  generationPrompt,
+  hasElevenLabsConnection,
+  resolvedAssistantReference,
+  resolvedIntegrationEndpoint
+}: {
+  generationRequest: ContentGenerateRequest;
+  generationPrompt: string;
+  hasElevenLabsConnection: boolean;
+  resolvedAssistantReference: string;
+  resolvedIntegrationEndpoint: string;
+}) {
+  try {
+    return hasElevenLabsConnection
+      ? await generateNewsletterWithElevenLabs({
+          agentId: resolvedAssistantReference,
+          apiKey: resolvedIntegrationEndpoint,
+          prompt: generationPrompt,
+          trigger: getNewsletterAgentTriggerPrompt()
+        })
+      : await generateContentWithProvider(generationRequest);
   } catch (error) {
     throw new ApiRouteError(502, normalizeGenerationErrorMessage(error), {
       exposeMessage: true
     });
   }
+}
 
+function findMissingStoryTopics(
+  payload: ContentGenerateRequest,
+  generated: ReturnType<typeof validateGeneratedNewsletterPackage>
+) {
+  const generatedText = normalizeCoverageText(
+    [
+      generated.title,
+      generated.intro,
+      ...(generated.sections ?? []).flatMap((section) => [
+        section.title,
+        JSON.stringify(section.content)
+      ])
+    ].join(" ")
+  );
+
+  const noteCandidates = extractNoteCandidates(payload.notes ?? payload.prompt);
+  const imageCandidates = extractImageCandidates(payload.imageHints ?? []);
+  const allCandidates = [...noteCandidates, ...imageCandidates];
+
+  return allCandidates
+    .filter((candidate, index, candidates) => {
+      if (candidates.findIndex((item) => item.label === candidate.label) !== index) {
+        return false;
+      }
+
+      return !isCandidateCovered(candidate.tokens, generatedText);
+    })
+    .slice(0, 3)
+    .map((candidate) => candidate.label);
+}
+
+function buildCoverageRepairPrompt(basePrompt: string, missingTopics: string[]) {
+  return [
+    basePrompt,
+    "",
+    "[THE_WIRE_COVERAGE_REPAIR]",
+    "The previous newsletter draft missed these likely story topics or image-driven updates:",
+    ...missingTopics.map((topic) => `- ${topic}`),
+    "Return a corrected full newsletter package that keeps those updates visible as their own stories or spotlight items when they are supported by the notes and image hints.",
+    "Do not explain the correction. Return only the corrected JSON package.",
+    "[/THE_WIRE_COVERAGE_REPAIR]"
+  ].join("\n");
+}
+
+function extractNoteCandidates(source: string) {
+  return source
+    .split(/\n+/)
+    .map((line) => line.replace(/^[-*•\d.\s]+/, "").trim())
+    .filter((line) => line.length >= 18)
+    .map((line) => ({
+      label: line.length > 80 ? `${line.slice(0, 77).trim()}...` : line,
+      tokens: tokenizeCoverageText(line)
+    }))
+    .filter((candidate) => candidate.tokens.length >= 2);
+}
+
+function extractImageCandidates(imageHints: string[]) {
+  return imageHints
+    .map((hint) => hint.trim())
+    .filter(Boolean)
+    .map((hint) => {
+      const cleaned = hint
+        .replace(/\.[a-z0-9]+$/i, "")
+        .replace(/^(lead|hero|top-story|top_story|spotlight|story|event)__+/i, "")
+        .replace(/[_-]+/g, " ")
+        .replace(/([a-z])([A-Z])/g, "$1 $2")
+        .trim();
+
+      return {
+        label: cleaned,
+        tokens: tokenizeCoverageText(cleaned)
+      };
+    })
+    .filter((candidate) => candidate.tokens.length >= 2);
+}
+
+function isCandidateCovered(tokens: string[], generatedText: string) {
+  if (!tokens.length) {
+    return true;
+  }
+
+  const matchedTokens = tokens.filter((token) => generatedText.includes(token));
+  const requiredMatches = tokens.length >= 3 ? 2 : 1;
+
+  return matchedTokens.length >= requiredMatches;
+}
+
+function tokenizeCoverageText(value: string) {
+  return normalizeCoverageText(value)
+    .split(" ")
+    .map((token) => token.trim())
+    .filter((token) => token.length > 2 && !COVERAGE_STOP_WORDS.has(token));
+}
+
+function normalizeCoverageText(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const COVERAGE_STOP_WORDS = new Set([
+  "the",
+  "and",
+  "for",
+  "with",
+  "from",
+  "this",
+  "that",
+  "will",
+  "have",
+  "your",
+  "about",
+  "into",
+  "only",
+  "they",
+  "them",
+  "next",
+  "week",
+  "school",
+  "newsletter",
+  "story",
+  "photo",
+  "image",
+  "update"
+]);
+
+function validateNewsletterPackageOrThrow(
+  result: unknown,
+  options: Parameters<typeof validateGeneratedNewsletterPackage>[1]
+) {
   try {
-    return validateGeneratedNewsletterPackage(result, {
-      requireHero: !sectionRewrite,
-      minimumSections: sectionRewrite ? 1 : 2,
-      allowedSectionTypes: payload.sectionTypes
-    });
+    return validateGeneratedNewsletterPackage(result, options);
   } catch (error) {
     throw new ApiRouteError(
       422,

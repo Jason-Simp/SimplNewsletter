@@ -491,6 +491,7 @@ ${userRequest}${linksBlock}${imageHintsBlock}
 
 Important builder rules:
 - If the notes clearly contain multiple distinct updates, turn them into distinct newsletter stories instead of collapsing everything into one short summary.
+- Do not drop a distinct update just because another story feels stronger. If a real person, celebration, policy change, event, or operational item is present in the notes, keep it visible somewhere in the package.
 - Write with enough substance that the main story feels complete and secondary story cards feel useful, not clipped or placeholder-short.
 - When uploaded image hints clearly map to a topic, person, event, or announcement, keep that topic visible as its own story so the builder can pair the right image with it.
 [/THE_WIRE_NEWSLETTER_TASK]

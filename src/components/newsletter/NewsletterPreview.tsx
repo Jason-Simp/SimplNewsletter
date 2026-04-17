@@ -107,6 +107,12 @@ export function NewsletterPreview({
   const primarySupportingStories = supportingStories.slice(0, 4);
   const overflowStories = supportingStories.slice(4);
   const showSpotlight = Boolean(spotlight) && !isDuplicateSpotlight(spotlight, topStory, news);
+  const spotlightStory = showSpotlight && spotlight ? toSpotlightStory(spotlight.content) : null;
+  const secondaryStoryRows = [
+    ...primarySupportingStories,
+    ...overflowStories,
+    ...(spotlightStory ? [spotlightStory] : [])
+  ];
   const supportBundle = selectSupportModules({
     document,
     storyCount: (leadStory ? 1 : 0) + supportingStories.length,
@@ -115,18 +121,6 @@ export function NewsletterPreview({
     hasPrincipal: Boolean(principal?.content.quote)
   });
 
-  const usedImageUrls = new Set(
-    [
-      leadStory?.image,
-      hero?.content.heroImage,
-      showSpotlight ? spotlight?.content.image : undefined,
-      ...primarySupportingStories.map((story) => story.image),
-      ...overflowStories.map((story) => story.image)
-    ].filter((imageUrl): imageUrl is string => Boolean(imageUrl))
-  );
-  const galleryImages = Array.isArray(hero?.content.galleryImages)
-    ? hero.content.galleryImages.filter((imageUrl) => imageUrl && !usedImageUrls.has(imageUrl))
-    : [];
   const showHeroBanner = Boolean(hero?.content.heroImage) && hero?.content.heroImage !== leadStory?.image;
   const issueHeading = getIssueHeading(document);
   const issueIntro = document.intro || hero?.content.body || "";
@@ -275,43 +269,34 @@ export function NewsletterPreview({
         ) : null}
 
         <div className="px-6 py-8 lg:px-8">
-          <div className="grid gap-8 xl:grid-cols-[minmax(0,1.5fr)_320px]">
-            <div className="grid gap-8">
-              {leadStory ? <LeadStoryCard story={leadStory} /> : null}
+          <div className="grid gap-6">
+            {leadStory ? <LeadStoryCard story={leadStory} /> : null}
 
-              {primarySupportingStories.length ? (
-                <section className="grid gap-4">
-                  {primarySupportingStories.map((story) => (
-                    <StoryCard key={story.id} story={story} />
-                  ))}
-                </section>
-              ) : null}
+            {secondaryStoryRows.length ? (
+              <section className="grid gap-5">
+                {secondaryStoryRows.map((story, index) => (
+                  <StoryRowCard
+                    key={story.id}
+                    story={story}
+                    imageSide={index % 2 === 0 ? "left" : "right"}
+                  />
+                ))}
+              </section>
+            ) : null}
 
-              {overflowStories.length ? (
-                <PlainUpdatesSection stories={overflowStories} />
-              ) : null}
-
-              {clubs?.content.items.length ? <ClubsCard items={clubs.content.items} /> : null}
-              {cta ? <CtaBand cta={cta.content} /> : null}
-              {quote ? <QuoteCard quote={quote.content} /> : null}
-            </div>
-
-            <aside className="grid gap-5">
-              {showSpotlight && spotlight ? <SpotlightCard spotlight={spotlight.content} /> : null}
+            <div className="grid gap-5 lg:grid-cols-2">
               {principal ? <LeadershipCard principal={principal.content} /> : null}
               {quickLinks?.content.items.length ? <QuickLinksCard links={quickLinks.content.items} /> : null}
-              {calendar?.content.items.length ? <CalendarCard items={calendar.content.items} /> : null}
-              {supportBundle.inlineModules.map((module) => (
+              {clubs?.content.items.length ? <ClubsCard items={clubs.content.items} /> : null}
+              {supportBundle.inlineModules.slice(0, 1).map((module) => (
                 <SupportModuleCard key={module.id} module={module} />
               ))}
-            </aside>
-          </div>
-
-          {galleryImages.length >= 2 ? (
-            <div className="mt-10">
-              <PhotoStrip images={galleryImages.slice(0, 4)} organizationName={organization.name} />
             </div>
-          ) : null}
+
+            {cta ? <CtaBand cta={cta.content} /> : null}
+            {quote ? <QuoteCard quote={quote.content} /> : null}
+            {calendar?.content.items.length ? <CalendarCard items={calendar.content.items} /> : null}
+          </div>
         </div>
 
         <footer className="border-t border-slate-200 bg-[#0F2745] px-6 py-8 text-white lg:px-8">
@@ -374,81 +359,47 @@ function LeadStoryCard({ story }: { story: StoryCardData }) {
   );
 }
 
-function StoryCard({ story }: { story: StoryCardData }) {
+function StoryRowCard({
+  story,
+  imageSide
+}: {
+  story: StoryCardData;
+  imageSide: "left" | "right";
+}) {
   return (
     <article className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_12px_28px_rgba(15,39,69,0.06)]">
-      <div className={`grid ${story.image ? "md:grid-cols-[164px_minmax(0,1fr)]" : ""}`}>
+      <div
+        className={`grid items-stretch ${story.image ? "lg:grid-cols-2" : ""} ${
+          story.image && imageSide === "right" ? "lg:[&>*:first-child]:order-2 lg:[&>*:last-child]:order-1" : ""
+        }`}
+      >
         {story.image ? (
           <ImageFrame
             alt={story.title}
             aspectRatio="4 / 3"
-            className="bg-[#F7F9FC]"
+            className="border-b border-slate-200 bg-[#F7F9FC] lg:border-b-0 lg:border-r"
+            fit="contain"
             imageClassName="h-full"
             src={story.image}
           />
         ) : null}
-        <div className="p-5">
+        <div className="p-6">
           {story.eyebrow ? (
             <div className="text-xs font-bold uppercase tracking-[0.24em] text-brand-secondary">{story.eyebrow}</div>
           ) : null}
-          <h3 className="mt-3 text-2xl font-semibold leading-tight text-brand-text">{story.title}</h3>
-          <p className="mt-3 text-sm leading-6 text-brand-muted">{story.summary}</p>
+          <h3 className="mt-3 text-3xl font-semibold leading-tight text-brand-text">{story.title}</h3>
+          <p className="mt-4 text-base leading-7 text-brand-muted">{story.summary}</p>
+          {story.url ? (
+            <a
+              className="mt-5 inline-flex rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold text-white"
+              href={story.url}
+            >
+              Read more
+            </a>
+          ) : null}
         </div>
       </div>
     </article>
-  );
-}
-
-function PlainUpdatesSection({ stories }: { stories: StoryCardData[] }) {
-  return (
-    <section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_12px_28px_rgba(15,39,69,0.06)]">
-      <div className="text-xs font-bold uppercase tracking-[0.28em] text-brand-secondary">More updates</div>
-      <div className="mt-4 grid gap-4">
-        {stories.map((story) => (
-          <article
-            key={story.id}
-            className={`border-t border-slate-200 pt-4 first:border-t-0 first:pt-0 ${story.image ? "grid gap-4 md:grid-cols-[124px_minmax(0,1fr)] md:items-start" : ""}`}
-          >
-            {story.image ? (
-              <ImageFrame
-                alt={story.title}
-                aspectRatio="4 / 3"
-                className="overflow-hidden rounded-[16px] bg-[#F7F9FC]"
-                imageClassName="rounded-[16px]"
-                src={story.image}
-              />
-            ) : null}
-            <div>
-              {story.eyebrow ? (
-                <div className="text-xs font-bold uppercase tracking-[0.2em] text-brand-secondary">{story.eyebrow}</div>
-              ) : null}
-              <h3 className="mt-2 text-xl font-semibold text-brand-text">{story.title}</h3>
-              <p className="mt-2 text-sm leading-6 text-brand-muted">{story.summary}</p>
-            </div>
-          </article>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function SpotlightCard({ spotlight }: { spotlight: SpotlightContent }) {
-  return (
-    <section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_12px_28px_rgba(15,39,69,0.06)]">
-      <div className="text-xs font-bold uppercase tracking-[0.28em] text-brand-secondary">Student spotlight</div>
-      {spotlight.image ? (
-        <ImageFrame
-          alt={spotlight.name}
-          aspectRatio="4 / 3"
-          className="mt-4 rounded-[18px] bg-[#F7F9FC]"
-          imageClassName="rounded-[18px]"
-          src={spotlight.image}
-        />
-      ) : null}
-      <h3 className="mt-4 text-2xl font-semibold text-brand-text">{spotlight.name}</h3>
-      <div className="mt-1 text-sm font-semibold text-brand-muted">{spotlight.role}</div>
-      <p className="mt-3 text-sm leading-6 text-brand-muted">{spotlight.summary}</p>
-    </section>
   );
 }
 
@@ -616,44 +567,20 @@ function SupportBannerCard({ module }: { module: SupportModule }) {
   );
 }
 
-function PhotoStrip({
-  images,
-  organizationName
-}: {
-  images: string[];
-  organizationName: string;
-}) {
-  return (
-    <section>
-      <div className="text-xs font-bold uppercase tracking-[0.28em] text-brand-secondary">More from around campus</div>
-      <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {images.map((imageUrl, index) => (
-          <ImageFrame
-            key={`${imageUrl}-${index}`}
-            alt={`${organizationName} newsletter photo ${index + 1}`}
-            aspectRatio="4 / 3"
-            className="rounded-[20px] border border-slate-200 bg-[#F7F9FC]"
-            imageClassName="rounded-[20px]"
-            src={imageUrl}
-          />
-        ))}
-      </div>
-    </section>
-  );
-}
-
 function ImageFrame({
   src,
   alt,
   className,
   imageClassName,
-  aspectRatio = "16 / 10"
+  aspectRatio = "16 / 10",
+  fit = "cover"
 }: {
   src?: string;
   alt: string;
   className?: string;
   imageClassName?: string;
   aspectRatio?: string;
+  fit?: "cover" | "contain";
 }) {
   if (!src) {
     return null;
@@ -663,10 +590,24 @@ function ImageFrame({
     <div className={`w-full overflow-hidden ${className ?? ""}`}>
       <div style={{ aspectRatio }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img alt={alt} className={`block h-full w-full object-cover ${imageClassName ?? ""}`} src={src} />
+        <img
+          alt={alt}
+          className={`block h-full w-full ${fit === "contain" ? "object-contain" : "object-cover"} ${imageClassName ?? ""}`}
+          src={src}
+        />
       </div>
     </div>
   );
+}
+
+function toSpotlightStory(spotlight: SpotlightContent): StoryCardData {
+  return {
+    id: "student-spotlight",
+    eyebrow: "Student spotlight",
+    title: spotlight.name,
+    summary: [spotlight.role, spotlight.summary].filter(Boolean).join(" — "),
+    image: spotlight.image
+  };
 }
 
 function buildSupportStories(
