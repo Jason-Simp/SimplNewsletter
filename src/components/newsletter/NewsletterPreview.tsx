@@ -1,7 +1,6 @@
 import Image from "next/image";
 
 import type { Channel, NewsletterDocument, NewsletterSection } from "@/types/newsletter";
-import type { SupportModule, SupportModuleGraphic, SupportModuleTone } from "@/types/support-module";
 
 type Props = {
   document: NewsletterDocument;
@@ -16,7 +15,6 @@ type HeroContent = {
   body: string;
   stats: { label: string; value: string }[];
   heroImage: string;
-  galleryImages?: string[];
 };
 
 type PrincipalContent = { quote: string; author: string };
@@ -34,25 +32,17 @@ type EventsContent = {
 };
 type ClubsContent = { items: string[] };
 type CalendarContent = { items: { date: string; detail: string }[] };
-type CtaContent = {
-  volunteer: { headline: string; summary: string; url: string };
-  support: { headline: string; summary: string; url: string };
-};
-type QuoteContent = { quote: string; attribution: string };
 type QuickLinksContent = { items: { id: string; label: string; url: string }[] };
 
-type StoryCardData = {
+type StoryRow = {
   id: string;
-  eyebrow?: string;
+  kicker: string;
   title: string;
-  summary: string;
-  image?: string;
-  url?: string;
-};
-
-type SupportBundle = {
-  bannerModules: SupportModule[];
-  inlineModules: SupportModule[];
+  body: string;
+  imageUrl?: string;
+  imageAlt: string;
+  buttonText?: string;
+  buttonUrl?: string;
 };
 
 const channels: Channel[] = ["web", "pdf"];
@@ -67,63 +57,10 @@ export function NewsletterPreview({
   onChannelChange,
   chrome = "editor"
 }: Props) {
-  const { organization } = document;
   const showEditorChrome = chrome === "editor";
-
   const hero = getSection<HeroContent>(document.sections, "hero");
-  const principal = getSection<PrincipalContent>(document.sections, "principal_message");
-  const topStory = getSection<TopStoryContent>(document.sections, "top_story");
-  const news = getSection<NewsGridContent>(document.sections, "news_grid");
-  const split = getSection<SplitContent>(document.sections, "academics");
-  const spotlight = getSection<SpotlightContent>(document.sections, "student_spotlight");
-  const events = getSection<EventsContent>(document.sections, "arts_events");
-  const clubs = getSection<ClubsContent>(document.sections, "clubs_and_organizations");
   const calendar = getSection<CalendarContent>(document.sections, "calendar_snapshot");
-  const cta = getSection<CtaContent>(document.sections, "cta_band");
-  const quote = getSection<QuoteContent>(document.sections, "quote_or_mission");
-  const quickLinks = getSection<QuickLinksContent>(document.sections, "quick_links");
-
-  const supportStories = buildSupportStories(news, split, events);
-  const heroLooksLikeTopStory =
-    hero && topStory
-      ? hasMeaningfulOverlap(
-          normalizeForComparison(`${hero.content.headline} ${hero.content.body}`),
-          normalizeForComparison(`${topStory.content.headline} ${topStory.content.summary}`)
-        )
-      : false;
-
-  const leadStory = topStory
-    ? {
-        id: topStory.id,
-        eyebrow: "Top story",
-        title: topStory.content.headline,
-        summary: topStory.content.summary,
-        image: topStory.content.image,
-        url: topStory.content.url
-      }
-    : supportStories[0] ?? null;
-
-  const supportingStories = supportStories.filter((story) => story.id !== leadStory?.id);
-  const primarySupportingStories = supportingStories.slice(0, 4);
-  const overflowStories = supportingStories.slice(4);
-  const showSpotlight = Boolean(spotlight) && !isDuplicateSpotlight(spotlight, topStory, news);
-  const spotlightStory = showSpotlight && spotlight ? toSpotlightStory(spotlight.content) : null;
-  const secondaryStoryRows = [
-    ...primarySupportingStories,
-    ...overflowStories,
-    ...(spotlightStory ? [spotlightStory] : [])
-  ];
-  const supportBundle = selectSupportModules({
-    document,
-    storyCount: (leadStory ? 1 : 0) + supportingStories.length,
-    hasQuickLinks: Boolean(quickLinks?.content.items.length),
-    hasCalendar: Boolean(calendar?.content.items.length),
-    hasPrincipal: Boolean(principal?.content.quote)
-  });
-
-  const showHeroBanner = Boolean(hero?.content.heroImage) && hero?.content.heroImage !== leadStory?.image;
-  const issueHeading = getIssueHeading(document);
-  const issueIntro = document.intro || hero?.content.body || "";
+  const previewData = buildTwoColumnTemplateData(document);
 
   return (
     <section className="rounded-editorial border border-slate-200 bg-white p-4 shadow-editorial lg:p-6">
@@ -133,8 +70,8 @@ export function NewsletterPreview({
             <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">Preview</p>
             <h2 className="font-display text-3xl text-brand-navy">{channel.toUpperCase()} preview</h2>
             <p className="mt-2 max-w-xl text-sm leading-6 text-brand-muted">
-              This version uses one simple editorial grid so the page can grow or shrink cleanly without forcing
-              images or repeating content.
+              This version now follows the strict two-column template you provided: full-width header, alternating
+              image and article rows, a full-width calendar near the bottom, and a simple two-column footer.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -154,171 +91,98 @@ export function NewsletterPreview({
         </div>
       ) : null}
 
-      <div className="overflow-hidden rounded-[30px] border border-slate-200 bg-white">
-        <header className="border-b border-slate-200 bg-white px-6 py-5 lg:px-8">
-          <div className="flex flex-wrap items-start justify-between gap-5">
-            <div className="flex items-center gap-4">
-              <div className="flex min-h-[72px] min-w-[112px] items-center justify-center overflow-hidden rounded-[22px] border border-slate-200 bg-white px-4 py-3 shadow-sm">
+      <div className="mx-auto max-w-[900px] overflow-hidden rounded-[28px] border border-slate-200 bg-[#f4f4f2] shadow-[0_12px_30px_rgba(0,0,0,0.12)]">
+        <header
+          className="relative min-h-[190px] px-6 py-6 lg:px-8"
+          style={{
+            backgroundImage: previewData.header.backgroundImage
+              ? `linear-gradient(rgba(15,39,69,0.08), rgba(15,39,69,0.08)), url(${previewData.header.backgroundImage})`
+              : undefined,
+            backgroundSize: "cover",
+            backgroundPosition: "center"
+          }}
+        >
+          <div className="max-w-[74%] bg-white/95 px-5 py-4 shadow-[0_2px_0_rgba(0,0,0,0.08)] max-md:max-w-full">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-20 items-center justify-center overflow-hidden rounded-md bg-white">
                 <Image
-                  alt={`${organization.name} logo`}
-                  className="h-12 w-auto object-contain"
-                  height={48}
-                  src={organization.logoUrl}
-                  width={180}
+                  alt={`${document.organization.name} logo`}
+                  className="h-9 w-auto object-contain"
+                  height={36}
+                  src={document.organization.logoUrl}
+                  width={96}
                 />
               </div>
-              <div>
-                <div
-                  className="text-[11px] font-bold uppercase tracking-[0.28em]"
-                  style={{ color: organization.colors.secondary }}
-                >
-                  School newsletter
-                </div>
-                <div className="mt-2 font-display text-3xl leading-none text-brand-navy">{organization.name}</div>
-                <div className="mt-2 text-sm text-brand-muted">{organization.tagline}</div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: document.organization.colors.secondary }}>
+                {previewData.header.kicker}
               </div>
             </div>
-
-            <div className="rounded-[22px] border border-slate-200 bg-[#F7F9FC] px-4 py-3 text-right">
-              <div className="text-[11px] font-bold uppercase tracking-[0.24em] text-brand-secondary">Issue date</div>
-              <div className="mt-2 text-sm font-semibold text-brand-text">{document.issueDate}</div>
-            </div>
-          </div>
-
-          <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4 text-xs font-semibold uppercase tracking-[0.18em] text-brand-muted">
-            {organization.contactEmail ? <span>{organization.contactEmail}</span> : null}
-            {organization.contactEmail && organization.phone ? <span className="text-slate-300">•</span> : null}
-            {organization.phone ? <span>{organization.phone}</span> : null}
-            {organization.websiteUrl ? (
-              <>
-                {(organization.contactEmail || organization.phone) ? <span className="text-slate-300">•</span> : null}
-                <span>{organization.websiteUrl}</span>
-              </>
-            ) : null}
-          </div>
-        </header>
-
-        <section className="border-b border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] px-6 py-7 lg:px-8">
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px] lg:items-start">
-            <div>
-              <div
-                className="inline-flex w-fit rounded-full px-4 py-2 text-[11px] font-bold uppercase tracking-[0.28em]"
-                style={{ backgroundColor: `${organization.colors.secondary}12`, color: organization.colors.secondary }}
-              >
-                {hero?.content.eyebrow || organization.name}
-              </div>
-              <h1 className="mt-4 max-w-4xl font-display text-4xl leading-[1.02] text-brand-navy lg:text-[3.25rem]">
-                {heroLooksLikeTopStory ? issueHeading : hero?.content.headline || issueHeading}
-              </h1>
-              {issueIntro ? <p className="mt-4 max-w-3xl text-lg leading-8 text-brand-muted">{issueIntro}</p> : null}
-            </div>
-
+            <h1 className="mt-3 font-display text-[28px] leading-[1.15] text-brand-text">
+              {previewData.header.title}
+            </h1>
+            <p className="mt-2 text-[13px] leading-[1.45] text-slate-700">{previewData.header.body}</p>
             {hero?.content.stats?.length ? (
-              <div className="grid gap-3">
-                {hero.content.stats.slice(0, 3).map((stat, index) => (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {hero.content.stats.slice(0, 3).map((stat) => (
                   <div
-                    key={stat.label}
-                    className="rounded-[20px] px-4 py-4"
+                    key={`${stat.label}-${stat.value}`}
+                    className="rounded-full px-3 py-2 text-[11px] font-semibold"
                     style={{
-                      backgroundColor: index % 2 === 0 ? organization.colors.primary : `${organization.colors.secondary}14`
+                      backgroundColor: "rgba(15,45,77,0.08)",
+                      color: document.organization.colors.primary
                     }}
                   >
-                    <div
-                      className="text-2xl font-bold"
-                      style={{
-                        color: index % 2 === 0 ? getReadableTextColor(organization.colors.primary) : organization.colors.text
-                      }}
-                    >
-                      {stat.value}
-                    </div>
-                    <div
-                      className="mt-1 text-sm"
-                      style={{
-                        color: index % 2 === 0 ? getReadableTextColor(organization.colors.primary) : organization.colors.muted
-                      }}
-                    >
-                      {stat.label}
-                    </div>
+                    {stat.value}
+                    {stat.label ? ` • ${stat.label}` : ""}
                   </div>
                 ))}
               </div>
             ) : null}
           </div>
+        </header>
+
+        <section>
+          {previewData.rows.map((row, index) => (
+            <TemplateRow key={row.id} row={row} reverse={index % 2 === 1} />
+          ))}
         </section>
 
-        {showHeroBanner ? (
-          <section className="border-b border-slate-200 px-6 py-6 lg:px-8">
-            <ImageFrame
-              alt={hero?.content.headline || issueHeading}
-              aspectRatio="16 / 6"
-              className="rounded-[24px] bg-[#F7F9FC]"
-              imageClassName="rounded-[24px]"
-              src={hero?.content.heroImage}
-            />
-          </section>
-        ) : null}
-
-        {supportBundle.bannerModules.length ? (
-          <section className="border-b border-slate-200 px-6 py-5 lg:px-8">
-            <div className="grid gap-4">
-              {supportBundle.bannerModules.map((module) => (
-                <SupportBannerCard key={module.id} module={module} />
+        {calendar?.content.items.length ? (
+          <section className="bg-[#fafafa] px-7 py-7">
+            <div
+              className="mb-5 text-[14px] font-bold uppercase tracking-[0.22em]"
+              style={{ color: document.organization.colors.secondary }}
+            >
+              {previewData.calendar.title}
+            </div>
+            <div className="grid gap-3">
+              {previewData.calendar.items.map((item) => (
+                <div
+                  key={`${item.label}-${item.text}`}
+                  className="grid grid-cols-[90px_minmax(0,1fr)] items-center gap-4 rounded-[16px] bg-[#eef1f5] p-3"
+                >
+                  <div className="rounded-[14px] bg-white px-3 py-3 text-center text-sm font-bold leading-[1.2] text-brand-text">
+                    {item.label}
+                  </div>
+                  <div className="text-sm text-[#566275]">{item.text}</div>
+                </div>
               ))}
             </div>
           </section>
         ) : null}
 
-        <div className="px-6 py-8 lg:px-8">
-          <div className="grid gap-6">
-            {leadStory ? <LeadStoryCard story={leadStory} /> : null}
-
-            {secondaryStoryRows.length ? (
-              <section className="grid gap-5">
-                {secondaryStoryRows.map((story, index) => (
-                  <StoryRowCard
-                    key={story.id}
-                    story={story}
-                    imageSide={index % 2 === 0 ? "left" : "right"}
-                  />
-                ))}
-              </section>
-            ) : null}
-
-            <div className="grid gap-5 lg:grid-cols-2">
-              {principal ? <LeadershipCard principal={principal.content} /> : null}
-              {quickLinks?.content.items.length ? <QuickLinksCard links={quickLinks.content.items} /> : null}
-              {clubs?.content.items.length ? <ClubsCard items={clubs.content.items} /> : null}
-              {supportBundle.inlineModules.slice(0, 1).map((module) => (
-                <SupportModuleCard key={module.id} module={module} />
-              ))}
-            </div>
-
-            {cta ? <CtaBand cta={cta.content} /> : null}
-            {quote ? <QuoteCard quote={quote.content} /> : null}
-            {calendar?.content.items.length ? <CalendarCard items={calendar.content.items} /> : null}
+        <footer className="grid gap-6 bg-[#0f2d4d] px-8 py-8 text-white md:grid-cols-[minmax(0,1fr)_320px]">
+          <div>
+            <h3 className="text-lg font-semibold">{previewData.footer.schoolName}</h3>
+            {previewData.footer.address ? <p className="mt-3 leading-[1.4]">{previewData.footer.address}</p> : null}
+            {previewData.footer.phone ? <p className="leading-[1.4]">{previewData.footer.phone}</p> : null}
+            {previewData.footer.email ? <p className="leading-[1.4]">{previewData.footer.email}</p> : null}
           </div>
-        </div>
-
-        <footer className="border-t border-slate-200 bg-[#0F2745] px-6 py-8 text-white lg:px-8">
-          <div className="grid gap-8 md:grid-cols-[minmax(0,1fr)_320px]">
-            <div>
-              <h4 className="text-lg font-semibold">{organization.name}</h4>
-              <p className="mt-3 text-sm leading-6 text-white/80">
-                {organization.address}
-                <br />
-                {organization.phone}
-                <br />
-                {organization.contactEmail}
-              </p>
+          <div className="self-center rounded-[20px] bg-white/10 px-5 py-5">
+            <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-white/80">
+              {previewData.footer.ctaTitle}
             </div>
-            <div className="rounded-[22px] bg-white/10 px-5 py-4">
-              <div className="text-xs font-bold uppercase tracking-[0.24em] text-white/70">Stay connected</div>
-              <p className="mt-3 text-sm leading-6 text-white/85">
-                {organization.websiteUrl
-                  ? `Find more updates, resources, and archive access at ${organization.websiteUrl}.`
-                  : "Watch the school archive and district channels for the next issue and family resources."}
-              </p>
-            </div>
+            <p className="m-0 leading-[1.45] text-white/90">{previewData.footer.ctaBody}</p>
           </div>
         </footer>
       </div>
@@ -326,606 +190,214 @@ export function NewsletterPreview({
   );
 }
 
-function LeadStoryCard({ story }: { story: StoryCardData }) {
+function TemplateRow({ row, reverse }: { row: StoryRow; reverse: boolean }) {
   return (
-    <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_16px_34px_rgba(15,39,69,0.08)]">
-      <div className={`grid ${story.image ? "lg:grid-cols-[minmax(260px,0.95fr)_minmax(0,1.05fr)]" : ""}`}>
-        {story.image ? (
-          <ImageFrame
-            alt={story.title}
-            aspectRatio="4 / 3"
-            className="bg-[#F7F9FC]"
-            imageClassName="h-full"
-            src={story.image}
-          />
-        ) : null}
-        <div className="p-6 lg:p-7">
-          <div className="text-xs font-bold uppercase tracking-[0.28em] text-brand-secondary">
-            {story.eyebrow || "Lead story"}
-          </div>
-          <h2 className="mt-3 font-display text-4xl leading-[1.02] text-brand-text">{story.title}</h2>
-          <p className="mt-4 text-base leading-7 text-brand-muted">{story.summary}</p>
-          {story.url ? (
-            <a
-              className="mt-6 inline-flex rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold text-white"
-              href={story.url}
-            >
-              Read more
-            </a>
-          ) : null}
-        </div>
+    <div className="grid min-h-[300px] md:grid-cols-2">
+      <div className={reverse ? "order-2" : ""}>
+        {reverse ? (
+          <ArticleCell row={row} />
+        ) : (
+          <ImageCell imageUrl={row.imageUrl} alt={row.imageAlt} />
+        )}
       </div>
-    </section>
-  );
-}
-
-function StoryRowCard({
-  story,
-  imageSide
-}: {
-  story: StoryCardData;
-  imageSide: "left" | "right";
-}) {
-  return (
-    <article className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_12px_28px_rgba(15,39,69,0.06)]">
-      <div
-        className={`grid items-stretch ${story.image ? "lg:grid-cols-2" : ""} ${
-          story.image && imageSide === "right" ? "lg:[&>*:first-child]:order-2 lg:[&>*:last-child]:order-1" : ""
-        }`}
-      >
-        {story.image ? (
-          <ImageFrame
-            alt={story.title}
-            aspectRatio="4 / 3"
-            className="border-b border-slate-200 bg-[#F7F9FC] lg:border-b-0 lg:border-r"
-            fit="contain"
-            imageClassName="h-full"
-            src={story.image}
-          />
-        ) : null}
-        <div className="p-6">
-          {story.eyebrow ? (
-            <div className="text-xs font-bold uppercase tracking-[0.24em] text-brand-secondary">{story.eyebrow}</div>
-          ) : null}
-          <h3 className="mt-3 text-3xl font-semibold leading-tight text-brand-text">{story.title}</h3>
-          <p className="mt-4 text-base leading-7 text-brand-muted">{story.summary}</p>
-          {story.url ? (
-            <a
-              className="mt-5 inline-flex rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold text-white"
-              href={story.url}
-            >
-              Read more
-            </a>
-          ) : null}
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function LeadershipCard({ principal }: { principal: PrincipalContent }) {
-  return (
-    <section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_12px_28px_rgba(15,39,69,0.06)]">
-      <div className="text-xs font-bold uppercase tracking-[0.28em] text-brand-secondary">Leadership note</div>
-      <blockquote className="mt-4 border-l-4 border-brand-primary pl-4 text-base leading-7 text-brand-text">
-        {principal.quote}
-      </blockquote>
-      <div className="mt-4 text-sm text-brand-muted">{principal.author}, Principal</div>
-    </section>
-  );
-}
-
-function QuickLinksCard({ links }: { links: QuickLinksContent["items"] }) {
-  return (
-    <section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_12px_28px_rgba(15,39,69,0.06)]">
-      <div className="text-xs font-bold uppercase tracking-[0.28em] text-brand-secondary">Quick links</div>
-      <div className="mt-4 grid gap-3">
-        {links.map((item) => (
-          <a
-            key={item.id}
-            className="rounded-2xl border border-slate-200 bg-[#F7F9FC] px-4 py-3 text-sm font-semibold text-brand-text transition-colors hover:bg-white"
-            href={item.url}
-          >
-            {item.label}
-          </a>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function CalendarCard({ items }: { items: CalendarContent["items"] }) {
-  return (
-    <section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_12px_28px_rgba(15,39,69,0.06)]">
-      <div className="text-xs font-bold uppercase tracking-[0.28em] text-brand-secondary">Calendar snapshot</div>
-      <div className="mt-4 grid gap-3">
-        {items.map((item) => (
-          <div
-            key={`${item.date}-${item.detail}`}
-            className="grid grid-cols-[88px_minmax(0,1fr)] gap-4 rounded-2xl bg-[#F7F9FC] px-4 py-3"
-          >
-            <div className="rounded-xl bg-white px-3 py-2 text-sm font-semibold text-brand-text shadow-sm">{item.date}</div>
-            <div className="text-sm leading-6 text-brand-muted">{item.detail}</div>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function ClubsCard({ items }: { items: ClubsContent["items"] }) {
-  return (
-    <section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_12px_28px_rgba(15,39,69,0.06)]">
-      <div className="text-xs font-bold uppercase tracking-[0.28em] text-brand-secondary">Student life</div>
-      <h2 className="mt-2 font-display text-3xl text-brand-text">Clubs and organizations</h2>
-      <ul className="mt-5 grid gap-3 text-sm leading-6 text-brand-muted">
-        {items.map((item) => (
-          <li key={item} className="rounded-2xl bg-[#F7F9FC] px-4 py-3">
-            {item}
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-function CtaBand({ cta }: { cta: CtaContent }) {
-  return (
-    <section className="grid gap-4 lg:grid-cols-2">
-      <article className="rounded-[24px] bg-brand-primary px-6 py-6 text-white shadow-[0_16px_32px_rgba(18,58,105,0.2)]">
-        <div className="text-xs font-bold uppercase tracking-[0.28em] text-white/80">Get involved</div>
-        <h3 className="mt-3 text-2xl font-semibold">{cta.volunteer.headline}</h3>
-        <p className="mt-3 text-sm leading-6 text-white/90">{cta.volunteer.summary}</p>
-      </article>
-      <article className="rounded-[24px] border border-slate-200 bg-white px-6 py-6 shadow-[0_12px_28px_rgba(15,39,69,0.06)]">
-        <div className="text-xs font-bold uppercase tracking-[0.28em] text-brand-secondary">Support</div>
-        <h3 className="mt-3 text-2xl font-semibold text-brand-text">{cta.support.headline}</h3>
-        <p className="mt-3 text-sm leading-6 text-brand-muted">{cta.support.summary}</p>
-      </article>
-    </section>
-  );
-}
-
-function QuoteCard({ quote }: { quote: QuoteContent }) {
-  return (
-    <section className="rounded-[24px] border border-slate-200 bg-white px-8 py-8 text-center shadow-[0_12px_28px_rgba(15,39,69,0.06)]">
-      <p className="font-display text-3xl leading-tight text-brand-text">{quote.quote}</p>
-      <div className="mt-4 text-sm text-brand-muted">{quote.attribution}</div>
-    </section>
-  );
-}
-
-function SupportModuleCard({ module }: { module: SupportModule }) {
-  const toneClasses =
-    module.tone === "primary"
-      ? "border-brand-primary/10 bg-brand-primary text-white"
-      : module.tone === "secondary"
-        ? "border-brand-secondary/10 bg-brand-secondary/10 text-brand-text"
-        : "border-slate-200 bg-white text-brand-text";
-  const eyebrowTone =
-    module.tone === "primary"
-      ? "text-white/80"
-      : module.tone === "secondary"
-        ? "text-brand-secondary"
-        : "text-brand-primary";
-  const bodyTone = module.tone === "primary" ? "text-white/90" : "text-brand-muted";
-
-  return (
-    <article className={`overflow-hidden rounded-[24px] border p-5 shadow-[0_12px_28px_rgba(15,39,69,0.06)] ${toneClasses}`}>
-      {module.graphic && module.graphic !== "none" ? <div className="mb-4">{renderSupportGraphic(module.graphic, module.tone)}</div> : null}
-      <div className={`text-xs font-bold uppercase tracking-[0.28em] ${eyebrowTone}`}>{module.eyebrow}</div>
-      <h3 className="mt-3 text-xl font-semibold leading-tight">{module.title}</h3>
-      <p className={`mt-3 text-sm leading-6 ${bodyTone}`}>{module.body}</p>
-      {module.actionLabel && module.actionHref ? (
-        <a
-          className={`mt-5 inline-flex rounded-full px-4 py-2 text-sm font-semibold ${
-            module.tone === "primary"
-              ? "bg-white text-brand-primary"
-              : "border border-slate-200 bg-white text-brand-primary"
-          }`}
-          href={module.actionHref}
-        >
-          {module.actionLabel}
-        </a>
-      ) : null}
-    </article>
-  );
-}
-
-function SupportBannerCard({ module }: { module: SupportModule }) {
-  const primary = module.tone === "primary";
-  const secondary = module.tone === "secondary";
-  const surfaceClass = primary
-    ? "border-brand-primary/10 bg-[linear-gradient(135deg,#123A69_0%,#1C4E89_100%)] text-white"
-    : secondary
-      ? "border-brand-secondary/10 bg-[linear-gradient(135deg,rgba(134,32,26,0.12)_0%,rgba(255,255,255,1)_100%)] text-brand-text"
-      : "border-slate-200 bg-[linear-gradient(135deg,#ffffff_0%,#f7f9fc_100%)] text-brand-text";
-  const eyebrowClass = primary ? "text-white/80" : secondary ? "text-brand-secondary" : "text-brand-primary";
-  const bodyClass = primary ? "text-white/90" : "text-brand-muted";
-
-  return (
-    <article className={`overflow-hidden rounded-[24px] border p-5 shadow-[0_12px_28px_rgba(15,39,69,0.08)] ${surfaceClass}`}>
-      <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
-        <div>
-          <div className={`text-xs font-bold uppercase tracking-[0.28em] ${eyebrowClass}`}>{module.eyebrow}</div>
-          <h3 className="mt-3 max-w-2xl text-2xl font-semibold leading-tight">{module.title}</h3>
-          <p className={`mt-3 max-w-2xl text-sm leading-6 ${bodyClass}`}>{module.body}</p>
-          {module.actionLabel && module.actionHref ? (
-            <a
-              className={`mt-5 inline-flex rounded-full px-4 py-2 text-sm font-semibold ${
-                primary ? "bg-white text-brand-primary" : "border border-slate-200 bg-white text-brand-primary"
-              }`}
-              href={module.actionHref}
-            >
-              {module.actionLabel}
-            </a>
-          ) : null}
-        </div>
-        <div className="md:justify-self-end">{renderSupportGraphic(module.graphic ?? "none", module.tone)}</div>
-      </div>
-    </article>
-  );
-}
-
-function ImageFrame({
-  src,
-  alt,
-  className,
-  imageClassName,
-  aspectRatio = "16 / 10",
-  fit = "cover"
-}: {
-  src?: string;
-  alt: string;
-  className?: string;
-  imageClassName?: string;
-  aspectRatio?: string;
-  fit?: "cover" | "contain";
-}) {
-  if (!src) {
-    return null;
-  }
-
-  return (
-    <div className={`w-full overflow-hidden ${className ?? ""}`}>
-      <div style={{ aspectRatio }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          alt={alt}
-          className={`block h-full w-full ${fit === "contain" ? "object-contain" : "object-cover"} ${imageClassName ?? ""}`}
-          src={src}
-        />
+      <div className={reverse ? "order-1" : ""}>
+        {reverse ? (
+          <ImageCell imageUrl={row.imageUrl} alt={row.imageAlt} />
+        ) : (
+          <ArticleCell row={row} />
+        )}
       </div>
     </div>
   );
 }
 
-function toSpotlightStory(spotlight: SpotlightContent): StoryCardData {
-  return {
-    id: "student-spotlight",
-    eyebrow: "Student spotlight",
-    title: spotlight.name,
-    summary: [spotlight.role, spotlight.summary].filter(Boolean).join(" — "),
-    image: spotlight.image
-  };
-}
-
-function buildSupportStories(
-  news: NewsletterSection<NewsGridContent> | undefined,
-  split: NewsletterSection<SplitContent> | undefined,
-  events: NewsletterSection<EventsContent> | undefined
-) {
-  const newsStories: StoryCardData[] =
-    news?.content.items.map((item) => ({
-      id: item.id,
-      eyebrow: item.tag || "Campus update",
-      title: item.headline,
-      summary: item.summary,
-      image: item.image
-    })) ?? [];
-
-  const splitStories: StoryCardData[] = split
-    ? [
-        {
-          id: "academics",
-          eyebrow: "Academics",
-          title: split.content.academics.headline,
-          summary: `${split.content.academics.summary} ${split.content.academics.meta}`.trim()
-        },
-        {
-          id: "athletics",
-          eyebrow: "Athletics",
-          title: split.content.athletics.headline,
-          summary: `${split.content.athletics.summary} ${split.content.athletics.meta}`.trim()
-        }
-      ]
-    : [];
-
-  const eventStories: StoryCardData[] =
-    events?.content.items.map((item) => ({
-      id: item.id,
-      eyebrow: item.date,
-      title: item.title,
-      summary: item.summary,
-      image: item.image
-    })) ?? [];
-
-  return [...newsStories, ...splitStories, ...eventStories].filter(
-    (story) => story.title.trim() || story.summary.trim()
+function ImageCell({ imageUrl, alt }: { imageUrl?: string; alt: string }) {
+  return (
+    <div className="flex items-center justify-center bg-[#f4f4f2] p-9">
+      {imageUrl ? (
+        <div className="flex aspect-[4/3] w-full items-center justify-center overflow-hidden bg-[#d9d9d9]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img alt={alt} className="h-full w-full object-contain" src={imageUrl} />
+        </div>
+      ) : (
+        <div className="flex aspect-[4/3] w-full items-center justify-center border border-dashed border-slate-300 bg-[#e6e6e6] text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
+          Image placeholder
+        </div>
+      )}
+    </div>
   );
 }
 
-function buildSupportModules(document: NewsletterDocument) {
-  const { organization } = document;
-  const modules: SupportModule[] = [
-    ...(organization.supportModules ?? []).filter((module) => module.title.trim() || module.body.trim())
-  ];
-
-  if (organization.websiteUrl) {
-    modules.push({
-      id: "website",
-      eyebrow: "Family resources",
-      title: "Visit the school website for calendars, forms, and updates",
-      body: `Keep ${organization.websiteUrl} close for school news, family resources, and important follow-up details.`,
-      actionHref: organization.websiteUrl.startsWith("http")
-        ? organization.websiteUrl
-        : `https://${organization.websiteUrl}`,
-      actionLabel: "Visit website",
-      tone: "primary",
-      graphic: "spark"
-    });
-  }
-
-  if (organization.contactEmail || organization.phone) {
-    modules.push({
-      id: "contact",
-      eyebrow: "Need help?",
-      title: "Questions or follow-up? Start here.",
-      body: [organization.contactEmail, organization.phone, organization.address].filter(Boolean).join(" • "),
-      actionHref: organization.contactEmail ? `mailto:${organization.contactEmail}` : undefined,
-      actionLabel: organization.contactEmail ? "Email the school" : undefined,
-      tone: "neutral",
-      graphic: "contact"
-    });
-  }
-
-  if (organization.tagline) {
-    modules.push({
-      id: "identity",
-      eyebrow: "School identity",
-      title: organization.name,
-      body: organization.tagline,
-      tone: "neutral",
-      graphic: "spark"
-    });
-  }
-
-  return dedupeSupportModules(modules);
-}
-
-function selectSupportModules({
-  document,
-  storyCount,
-  hasQuickLinks,
-  hasCalendar,
-  hasPrincipal
-}: {
-  document: NewsletterDocument;
-  storyCount: number;
-  hasQuickLinks: boolean;
-  hasCalendar: boolean;
-  hasPrincipal: boolean;
-}): SupportBundle {
-  const modules = buildSupportModules(document).filter((module) =>
-    shouldUseSupportModule(module, {
-      hasQuickLinks,
-      hasCalendar,
-      hasPrincipal
-    })
+function ArticleCell({ row }: { row: StoryRow }) {
+  return (
+    <div className="flex items-center justify-center bg-[#f4f4f2] p-9">
+      <article className="w-full rounded-[16px] bg-white px-5 py-5 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.04)]">
+        {row.kicker ? (
+          <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-brand-secondary">
+            {row.kicker}
+          </div>
+        ) : null}
+        <h2 className="m-0 font-display text-[28px] leading-[1.15] text-brand-text">{row.title}</h2>
+        <p className="mt-3 text-[13px] leading-[1.6] text-[#404040]">{row.body}</p>
+        {row.buttonText ? (
+          <a
+            className="mt-4 inline-block rounded-full bg-[#224a7d] px-4 py-2 text-xs font-bold text-white no-underline"
+            href={row.buttonUrl || "#"}
+          >
+            {row.buttonText}
+          </a>
+        ) : null}
+      </article>
+    </div>
   );
-
-  if (storyCount >= 4) {
-    return { bannerModules: [], inlineModules: [] };
-  }
-
-  if (storyCount <= 1) {
-    return {
-      bannerModules: modules.slice(0, 1),
-      inlineModules: modules.slice(1, 2)
-    };
-  }
-
-  return {
-    bannerModules: [],
-    inlineModules: modules.slice(0, 1)
-  };
 }
 
-function shouldUseSupportModule(
-  module: SupportModule,
-  {
-    hasQuickLinks,
-    hasCalendar,
-    hasPrincipal
-  }: {
-    hasQuickLinks: boolean;
-    hasCalendar: boolean;
-    hasPrincipal: boolean;
-  }
-) {
-  const needle = normalizeForComparison(`${module.eyebrow} ${module.title} ${module.body}`);
+function buildTwoColumnTemplateData(document: NewsletterDocument) {
+  const hero = getSection<HeroContent>(document.sections, "hero");
+  const topStory = getSection<TopStoryContent>(document.sections, "top_story");
+  const news = getSection<NewsGridContent>(document.sections, "news_grid");
+  const spotlight = getSection<SpotlightContent>(document.sections, "student_spotlight");
+  const academics = getSection<SplitContent>(document.sections, "academics");
+  const events = getSection<EventsContent>(document.sections, "arts_events");
+  const principal = getSection<PrincipalContent>(document.sections, "principal_message");
+  const clubs = getSection<ClubsContent>(document.sections, "clubs_and_organizations");
+  const quickLinks = getSection<QuickLinksContent>(document.sections, "quick_links");
+  const calendar = getSection<CalendarContent>(document.sections, "calendar_snapshot");
 
-  if (hasQuickLinks && needle.includes("website")) {
-    return false;
-  }
-
-  if (hasCalendar && needle.includes("calendar")) {
-    return false;
-  }
-
-  if (hasPrincipal && needle.includes("identity")) {
-    return false;
-  }
-
-  return true;
-}
-
-function dedupeSupportModules(modules: SupportModule[]) {
-  const seen = new Set<string>();
-
-  return modules.filter((module) => {
-    const key = normalizeForComparison(`${module.eyebrow} ${module.title}`);
-
-    if (!key || seen.has(key)) {
-      return false;
-    }
-
-    seen.add(key);
-    return true;
-  });
-}
-
-function getIssueHeading(document: NewsletterDocument) {
-  const title = document.title?.trim();
-
-  if (title) {
-    return title;
-  }
-
-  const intro = document.intro?.trim();
-
-  if (!intro) {
-    return `${document.organization.name} newsletter`;
-  }
-
-  return intro.length > 90 ? `${intro.slice(0, 87).trim()}...` : intro;
-}
-
-function getReadableTextColor(hexColor: string) {
-  const normalized = hexColor.replace("#", "").trim();
-
-  if (normalized.length !== 6) {
-    return "#FFFFFF";
-  }
-
-  const red = Number.parseInt(normalized.slice(0, 2), 16);
-  const green = Number.parseInt(normalized.slice(2, 4), 16);
-  const blue = Number.parseInt(normalized.slice(4, 6), 16);
-  const luminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255;
-
-  return luminance > 0.62 ? "#142033" : "#FFFFFF";
-}
-
-function renderSupportGraphic(graphic: SupportModuleGraphic, tone: SupportModuleTone) {
-  const isPrimary = tone === "primary";
-  const textTone = isPrimary ? "text-white/90" : "text-brand-primary";
-  const mutedTone = isPrimary ? "bg-white/70" : "bg-brand-secondary/70";
-  const surfaceTone = isPrimary ? "bg-white/15 border-white/15" : "bg-white border-slate-200";
-
-  if (graphic === "calendar") {
-    return (
-      <div className={`inline-flex items-center gap-3 rounded-2xl border px-4 py-3 ${surfaceTone}`}>
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/90 text-sm font-bold text-brand-primary">
-          15
-        </div>
-        <div className={`text-xs font-bold uppercase tracking-[0.24em] ${textTone}`}>Weekly dates</div>
-      </div>
-    );
-  }
-
-  if (graphic === "contact") {
-    return (
-      <div className="flex items-center gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-lg text-brand-primary">
-          @
-        </div>
-        <div className={`text-xs font-bold uppercase tracking-[0.24em] ${textTone}`}>Contact card</div>
-      </div>
-    );
-  }
-
-  if (graphic === "announcement") {
-    return (
-      <div className={`relative h-12 overflow-hidden rounded-2xl border ${surfaceTone}`}>
-        <div className={`absolute inset-y-0 left-0 w-16 ${mutedTone}`} />
-        <div
-          className={`absolute inset-y-0 left-5 flex items-center text-xs font-bold uppercase tracking-[0.24em] ${
-            isPrimary ? "text-brand-primary" : "text-white"
-          }`}
-        >
-          Important
-        </div>
-      </div>
-    );
-  }
-
-  if (graphic === "spark") {
-    return (
-      <div className="flex items-center gap-2">
-        <div className={`h-3 w-3 rounded-full ${mutedTone}`} />
-        <div className={`h-3 w-3 rounded-full opacity-80 ${isPrimary ? "bg-white/85" : "bg-brand-primary"}`} />
-        <div className={`h-3 w-3 rounded-full opacity-60 ${mutedTone}`} />
-      </div>
-    );
-  }
-
-  return null;
-}
-
-function isDuplicateSpotlight(
-  spotlight: NewsletterSection<SpotlightContent> | undefined,
-  topStory: NewsletterSection<TopStoryContent> | undefined,
-  news: NewsletterSection<NewsGridContent> | undefined
-) {
-  if (!spotlight) {
-    return false;
-  }
-
-  const spotlightNeedle = normalizeForComparison(
-    `${spotlight.content.name} ${spotlight.content.role} ${spotlight.content.summary}`
-  );
+  const rows: StoryRow[] = [];
 
   if (topStory) {
-    const topStoryText = normalizeForComparison(`${topStory.content.headline} ${topStory.content.summary}`);
-    if (hasMeaningfulOverlap(spotlightNeedle, topStoryText)) {
-      return true;
+    rows.push({
+      id: topStory.id,
+      kicker: "Top story",
+      title: topStory.content.headline,
+      body: topStory.content.summary,
+      imageUrl: topStory.content.image || hero?.content.heroImage,
+      imageAlt: topStory.content.headline,
+      buttonText: topStory.content.url && topStory.content.url !== "#" ? "Read more" : undefined,
+      buttonUrl: topStory.content.url
+    });
+  }
+
+  news?.content.items.forEach((item, index) => {
+    rows.push({
+      id: item.id || `news-${index + 1}`,
+      kicker: item.tag || "Campus update",
+      title: item.headline,
+      body: item.summary,
+      imageUrl: item.image,
+      imageAlt: item.headline
+    });
+  });
+
+  if (spotlight) {
+    rows.push({
+      id: `${spotlight.id}-spotlight`,
+      kicker: "Student spotlight",
+      title: spotlight.content.name,
+      body: [spotlight.content.role, spotlight.content.summary].filter(Boolean).join(" — "),
+      imageUrl: spotlight.content.image,
+      imageAlt: spotlight.content.name
+    });
+  }
+
+  if (academics?.content.academics.headline) {
+    rows.push({
+      id: `${academics.id}-academics`,
+      kicker: "Academics",
+      title: academics.content.academics.headline,
+      body: [academics.content.academics.summary, academics.content.academics.meta].filter(Boolean).join(" "),
+      imageAlt: academics.content.academics.headline
+    });
+  }
+
+  if (academics?.content.athletics.headline) {
+    rows.push({
+      id: `${academics.id}-athletics`,
+      kicker: "Athletics",
+      title: academics.content.athletics.headline,
+      body: [academics.content.athletics.summary, academics.content.athletics.meta].filter(Boolean).join(" "),
+      imageAlt: academics.content.athletics.headline
+    });
+  }
+
+  events?.content.items.forEach((item, index) => {
+    rows.push({
+      id: item.id || `event-${index + 1}`,
+      kicker: item.date,
+      title: item.title,
+      body: item.summary,
+      imageUrl: item.image,
+      imageAlt: item.title
+    });
+  });
+
+  if (principal?.content.quote) {
+    rows.push({
+      id: `${principal.id}-leadership`,
+      kicker: "Leadership note",
+      title: principal.content.author || "School leadership",
+      body: principal.content.quote,
+      imageAlt: principal.content.author || "School leadership"
+    });
+  }
+
+  if (clubs?.content.items.length) {
+    rows.push({
+      id: `${clubs.id}-clubs`,
+      kicker: "Student life",
+      title: "Clubs and organizations",
+      body: clubs.content.items.join(" • "),
+      imageAlt: "Clubs and organizations"
+    });
+  }
+
+  if (quickLinks?.content.items.length) {
+    rows.push({
+      id: `${quickLinks.id}-links`,
+      kicker: "Quick links",
+      title: "Family resources",
+      body: quickLinks.content.items.map((item) => item.label).join(" • "),
+      imageAlt: "Family resources"
+    });
+  }
+
+  if (!rows.length) {
+    rows.push({
+      id: "fallback-row",
+      kicker: hero?.content.eyebrow || document.organization.name,
+      title: hero?.content.headline || document.title || `${document.organization.name} newsletter`,
+      body: document.intro || hero?.content.body || "This issue is being prepared.",
+      imageUrl: hero?.content.heroImage,
+      imageAlt: document.organization.name
+    });
+  }
+
+  return {
+    header: {
+      kicker: hero?.content.eyebrow || "School newsletter",
+      title: document.title || hero?.content.headline || `${document.organization.name} newsletter`,
+      body: document.intro || hero?.content.body || document.organization.tagline,
+      backgroundImage: hero?.content.heroImage || rows.find((row) => row.imageUrl)?.imageUrl || ""
+    },
+    rows,
+    calendar: {
+      title: "Calendar snapshot",
+      items:
+        calendar?.content.items.map((item) => ({
+          label: item.date,
+          text: item.detail
+        })) ?? []
+    },
+    footer: {
+      schoolName: document.organization.name,
+      address: document.organization.address,
+      phone: document.organization.phone,
+      email: document.organization.contactEmail,
+      ctaTitle: "Stay connected",
+      ctaBody: document.organization.websiteUrl
+        ? `Find more updates, resources, and archive access at ${document.organization.websiteUrl}.`
+        : "Watch the school archive for the next issue and family resources."
     }
-  }
-
-  if (!news) {
-    return false;
-  }
-
-  return news.content.items.some((item) =>
-    hasMeaningfulOverlap(
-      spotlightNeedle,
-      normalizeForComparison(`${item.headline} ${item.summary} ${item.tag ?? ""}`)
-    )
-  );
-}
-
-function hasMeaningfulOverlap(left: string, right: string) {
-  if (!left || !right) {
-    return false;
-  }
-
-  const leftTokens = new Set(left.split(/\s+/).filter((token) => token.length > 3));
-  const rightTokens = new Set(right.split(/\s+/).filter((token) => token.length > 3));
-  let overlap = 0;
-
-  for (const token of leftTokens) {
-    if (rightTokens.has(token)) {
-      overlap += 1;
-    }
-  }
-
-  return overlap >= 2;
-}
-
-function normalizeForComparison(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  };
 }
