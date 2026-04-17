@@ -14,6 +14,8 @@ export type NewsletterGenerationJob = {
   id: string;
   schoolId: string;
   draftId: string | null;
+  externalThreadId: string | null;
+  callbackUrl: string | null;
   status: NewsletterGenerationJobStatus;
   createdAt: string;
   updatedAt: string;
@@ -32,6 +34,8 @@ export function createNewsletterGenerationJob(
     draftDocument: NewsletterDocument;
     quickNotes: string;
     uploadedAssets: UploadedAsset[];
+    callbackUrl?: string;
+    externalThreadId?: string;
   },
   options?: { schoolProfile?: SchoolProfile | null }
 ) {
@@ -42,6 +46,8 @@ export function createNewsletterGenerationJob(
     id: jobId,
     schoolId,
     draftId: context.draftDocument.id || null,
+    externalThreadId: context.externalThreadId?.trim() || null,
+    callbackUrl: context.callbackUrl?.trim() || null,
     status: "queued",
     createdAt: now,
     updatedAt: now,
@@ -55,7 +61,9 @@ export function createNewsletterGenerationJob(
   pruneExpiredJobs();
   logJobEvent("queued", job, {
     draftId: context.draftDocument.id,
-    title: context.draftDocument.title
+    title: context.draftDocument.title,
+    externalThreadId: context.externalThreadId ?? null,
+    callbackUrl: context.callbackUrl ?? null
   });
 
   queueMicrotask(() => {
@@ -118,6 +126,7 @@ async function runNewsletterGenerationJob(
     });
     const completedJob = getNewsletterGenerationJob(jobId);
     if (completedJob) {
+      await sendJobCallback(completedJob);
       logJobEvent("completed", completedJob, {
         newsletterId: persisted.newsletter.id,
         title: persisted.newsletter.title
@@ -131,10 +140,47 @@ async function runNewsletterGenerationJob(
     });
     const failedJob = getNewsletterGenerationJob(jobId);
     if (failedJob) {
+      await sendJobCallback(failedJob);
       logJobEvent("failed", failedJob, {
         error: error instanceof Error ? error.message : "Unknown error"
       });
     }
+  }
+}
+
+async function sendJobCallback(job: NewsletterGenerationJob) {
+  if (!job.callbackUrl) {
+    return;
+  }
+
+  try {
+    await fetch(job.callbackUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        status: job.status,
+        jobId: job.id,
+        draftId: job.draftId,
+        externalThreadId: job.externalThreadId,
+        error: job.error,
+        completedAt: job.completedAt,
+        result: job.result,
+        newsletter: job.persistedDocument
+      })
+    });
+  } catch (error) {
+    console.warn(
+      JSON.stringify({
+        level: "warn",
+        scope: "newsletter-generation-job",
+        event: "callback_failed",
+        jobId: job.id,
+        callbackUrl: job.callbackUrl,
+        error: error instanceof Error ? error.message : "Unknown callback error"
+      })
+    );
   }
 }
 

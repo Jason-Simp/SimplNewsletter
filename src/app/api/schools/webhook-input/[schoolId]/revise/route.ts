@@ -2,11 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { ApiRouteError, jsonApiError } from "@/lib/api-route";
 import { createNewsletterGenerationJob } from "@/lib/newsletter-generation-jobs";
-import { saveNewsletter } from "@/lib/newsletter-repository";
+import { getNewsletterById } from "@/lib/newsletter-repository";
 import {
   assertWebhookSecret,
-  buildCreatePrompt,
-  createFreshDraftForSchool,
+  buildRevisionPrompt,
   getWebhookSecretFromHeaders,
   normalizeWebhookDraftRequest,
   requireWebhookSchool
@@ -31,18 +30,23 @@ export async function POST(
     const school = await requireWebhookSchool(resolvedSchoolId);
     assertWebhookSecret(getWebhookSecretFromHeaders(request.headers), school);
 
-    const body = (await request.json()) as Record<string, unknown>;
+    const body = (await request.json()) as Record<string, unknown> & { draftId?: string };
+    const draftId = typeof body.draftId === "string" ? body.draftId.trim() : "";
     const normalized = normalizeWebhookDraftRequest(body);
 
-    if (!normalized.prompt) {
-      throw new ApiRouteError(
-        400,
-        "Include a prompt or notes field so The Wire knows what newsletter to create."
-      );
+    if (!draftId) {
+      throw new ApiRouteError(400, "Include a draftId so The Wire knows which newsletter to revise.");
     }
 
-    const draftDocument = createFreshDraftForSchool(school);
-    const persisted = await saveNewsletter(draftDocument);
+    if (!normalized.notes) {
+      throw new ApiRouteError(400, "Include notes describing what should change in the draft.");
+    }
+
+    const draftDocument = await getNewsletterById(draftId, resolvedSchoolId);
+
+    if (!draftDocument) {
+      throw new ApiRouteError(404, "That newsletter draft could not be found for this school.");
+    }
 
     const payload: ContentGenerateRequest = {
       schoolId: resolvedSchoolId,
@@ -52,21 +56,23 @@ export async function POST(
       assistantReference: school.assistantReference,
       integrationEndpoint: school.integrationEndpoint,
       encryptedKnowledgeRef: school.encryptedKnowledgeRef,
-      prompt: buildCreatePrompt(normalized.notes),
+      prompt: buildRevisionPrompt(draftDocument, normalized.notes),
       notes: normalized.notes,
       links: normalized.links,
       imageHints:
         normalized.imageHints.length > 0
           ? normalized.imageHints
           : normalized.uploadedAssets.map((asset) => asset.name),
-      uploadedAssets: normalized.uploadedAssets,
+      uploadedAssets:
+        normalized.uploadedAssets.length > 0 ? normalized.uploadedAssets : [],
       sectionTypes: []
     };
 
     const job = createNewsletterGenerationJob(payload, {
-      draftDocument: persisted.newsletter,
+      draftDocument,
       quickNotes: normalized.notes,
-      uploadedAssets: normalized.uploadedAssets,
+      uploadedAssets:
+        normalized.uploadedAssets.length > 0 ? normalized.uploadedAssets : [],
       callbackUrl: normalized.callbackUrl,
       externalThreadId: normalized.externalThreadId
     });
@@ -79,7 +85,7 @@ export async function POST(
           name: school.name
         },
         data: {
-          draftId: persisted.newsletter.id,
+          draftId: draftDocument.id,
           jobId: job.id,
           externalThreadId: normalized.externalThreadId || null,
           callbackUrl: normalized.callbackUrl || null,
@@ -94,9 +100,9 @@ export async function POST(
     );
   } catch (error) {
     return jsonApiError(
-      "api.schools.webhook-input.post",
+      "api.schools.webhook-input.revise.post",
       error,
-      "The inbound school webhook could not create the newsletter draft."
+      "The inbound school webhook could not revise the newsletter draft."
     );
   }
 }
