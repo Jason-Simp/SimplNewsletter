@@ -156,6 +156,15 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
           type?: string;
           ping_event?: { event_id?: number };
           agent_response_event?: { agent_response?: string };
+          agent_response_correction_event?: {
+            original_agent_response?: string;
+            corrected_agent_response?: string;
+          };
+          text_response_part?: {
+            type?: "start" | "delta" | "stop";
+            text?: string;
+            event_id?: string;
+          };
         };
 
         if (message.type === "ping" && message.ping_event?.event_id) {
@@ -218,6 +227,90 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
               })
             );
           }
+        }
+
+        if (
+          message.type === "agent_response_correction" &&
+          message.agent_response_correction_event?.corrected_agent_response
+        ) {
+          resetTimeout();
+          const correctedResponse = message.agent_response_correction_event.corrected_agent_response;
+
+          if (collectedResponses.length > 0) {
+            collectedResponses[collectedResponses.length - 1] = correctedResponse;
+          } else {
+            collectedResponses.push(correctedResponse);
+          }
+
+          const combinedResponse = collectedResponses.join("\n\n");
+          const packageStatus = getPackageStatus(combinedResponse);
+
+          if (packageStatus === "ready") {
+            finish(() => {
+              socket.close();
+              resolve(combinedResponse);
+            });
+          }
+
+          return;
+        }
+
+        if (message.type === "agent_chat_response_part" && message.text_response_part) {
+          resetTimeout();
+          const part = message.text_response_part;
+          const partText = typeof part.text === "string" ? part.text : "";
+
+          if (part.type === "start") {
+            collectedResponses.push(partText);
+          } else if (part.type === "delta") {
+            if (collectedResponses.length === 0) {
+              collectedResponses.push(partText);
+            } else {
+              collectedResponses[collectedResponses.length - 1] += partText;
+            }
+          } else if (part.type === "stop") {
+            if (collectedResponses.length === 0 && partText) {
+              collectedResponses.push(partText);
+            } else if (partText) {
+              collectedResponses[collectedResponses.length - 1] += partText;
+            }
+
+            agentResponseCount += 1;
+            const combinedResponse = collectedResponses.join("\n\n");
+            const packageStatus = getPackageStatus(combinedResponse);
+
+            if (packageStatus === "ready") {
+              finish(() => {
+                socket.close();
+                resolve(combinedResponse);
+              });
+              return;
+            }
+
+            const shouldCorrect =
+              !packageCorrectionSent &&
+              packageStatus === "invalid" &&
+              shouldSendPackageCorrection({
+                combinedResponse,
+                agentResponseCount
+              });
+
+            if (shouldCorrect) {
+              packageCorrectionSent = true;
+              socket.send(
+                JSON.stringify({
+                  type: "user_message",
+                  text: buildPackageCorrectionMessage(
+                    prompt,
+                    "The reply did not yet contain the required completed newsletter JSON package.",
+                    combinedResponse
+                  )
+                })
+              );
+            }
+          }
+
+          return;
         }
       } catch (error) {
         finish(() => {
