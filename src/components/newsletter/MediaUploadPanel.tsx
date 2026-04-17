@@ -202,6 +202,10 @@ export function MediaUploadPanel({ assets: externalAssets = [], document, onAsse
           Example file names: `football-team.jpg`, `spring-concert-stage.jpg`, `science-fair-winners.png`.
         </div>
         <div className="mt-2 text-sm leading-6 text-brand-muted">
+          For exact placement, you can use a prefix: `lead__vote-day.png`, `top-story__closure.jpg`,
+          `spotlight__molly-cup-stacking.png`, `story__hot-fruit.jpg`, `event__spring-concert.jpg`.
+        </div>
+        <div className="mt-2 text-sm leading-6 text-brand-muted">
           The system will choose the images that best fit the newsletter it builds.
         </div>
         <div className="mt-2 text-sm leading-6 text-brand-muted">

@@ -193,7 +193,8 @@ export function selectImageAssignments(generated: ContentGenerateResponse, asset
           ],
           imageAssets,
           usedNames,
-          3
+          3,
+          "news_grid"
         )
       )
     : [];
@@ -208,7 +209,8 @@ export function selectImageAssignments(generated: ContentGenerateResponse, asset
           ],
           imageAssets,
           usedNames,
-          3
+          3,
+          "arts_events"
         )
       )
     : [];
@@ -221,7 +223,8 @@ export function selectImageAssignments(generated: ContentGenerateResponse, asset
     ],
     imageAssets,
     usedNames,
-    3
+    3,
+    "student_spotlight"
   );
 
   const topStoryImage = chooseImageForText(
@@ -232,7 +235,8 @@ export function selectImageAssignments(generated: ContentGenerateResponse, asset
     ],
     imageAssets,
     usedNames,
-    3
+    3,
+    "top_story"
   );
 
   const heroImage = chooseImageForText(
@@ -244,7 +248,8 @@ export function selectImageAssignments(generated: ContentGenerateResponse, asset
     ],
     imageAssets,
     usedNames,
-    6
+    6,
+    "hero"
   );
 
   const galleryImages = imageAssets
@@ -265,7 +270,8 @@ function chooseImageForText(
   textParts: Array<string | undefined>,
   assets: UploadedAsset[],
   usedNames: Set<string>,
-  minimumScore = 2
+  minimumScore = 2,
+  targetSlot?: "hero" | "top_story" | "student_spotlight" | "news_grid" | "arts_events"
 ) {
   const availableAssets = assets.filter((asset) => !usedNames.has(asset.name) && asset.url);
 
@@ -275,6 +281,20 @@ function chooseImageForText(
 
   const combinedText = textParts.filter(Boolean).join(" ");
   const tokens = tokenizeForMatching(combinedText);
+  const directedAssets = availableAssets
+    .map((asset) => ({
+      asset,
+      strength: getDirectedMatchStrength(asset, tokens, combinedText, targetSlot)
+    }))
+    .filter((candidate) => candidate.strength > 0)
+    .sort((left, right) => right.strength - left.strength);
+
+  if (directedAssets.length > 0) {
+    const bestMatch = directedAssets[0].asset;
+    usedNames.add(bestMatch.name);
+    return bestMatch.url ?? "";
+  }
+
   const deterministicAssets = availableAssets
     .map((asset) => ({
       asset,
@@ -305,6 +325,40 @@ function chooseImageForText(
   const bestMatch = bestCandidate.asset;
   usedNames.add(bestMatch.name);
   return bestMatch.url ?? "";
+}
+
+function getDirectedMatchStrength(
+  asset: UploadedAsset,
+  tokens: string[],
+  sourceText: string,
+  targetSlot?: "hero" | "top_story" | "student_spotlight" | "news_grid" | "arts_events"
+) {
+  if (!targetSlot) {
+    return 0;
+  }
+
+  const directive = parseAssetDirective(asset.name);
+
+  if (!directive.slot || directive.slot !== targetSlot) {
+    return 0;
+  }
+
+  if (!directive.keywords.length) {
+    return 200;
+  }
+
+  const sourceTokens = tokenizeForMatching(sourceText);
+  const overlapCount = directive.keywords.filter((keyword) => hasTokenMatch(keyword, sourceTokens)).length;
+
+  if (overlapCount === directive.keywords.length) {
+    return 220 + overlapCount;
+  }
+
+  if (overlapCount >= 2 || overlapCount / directive.keywords.length >= 0.67) {
+    return 210 + overlapCount;
+  }
+
+  return 0;
 }
 
 function getDeterministicMatchStrength(asset: UploadedAsset, tokens: string[], sourceText: string) {
@@ -480,6 +534,38 @@ function findTokenVariant(token: string, assetTokens: string[]) {
       (variant) => variant && (assetToken.includes(variant) || variant.includes(assetToken))
     )
   );
+}
+
+function parseAssetDirective(name: string): {
+  slot: "hero" | "top_story" | "student_spotlight" | "news_grid" | "arts_events" | null;
+  keywords: string[];
+} {
+  const normalizedName = normalizeForMatching(name);
+  const directiveMatch = normalizedName.match(/^([a-z0-9-]+)(?:__|--|:)(.+)$/);
+
+  if (!directiveMatch) {
+    return { slot: null, keywords: [] };
+  }
+
+  const rawSlot = directiveMatch[1];
+  const remainder = directiveMatch[2];
+  const slot =
+    rawSlot === "hero" || rawSlot === "lead" || rawSlot === "banner"
+      ? "hero"
+      : rawSlot === "top" || rawSlot === "top-story" || rawSlot === "topstory"
+        ? "top_story"
+        : rawSlot === "spotlight" || rawSlot === "student-spotlight"
+          ? "student_spotlight"
+          : rawSlot === "news" || rawSlot === "story" || rawSlot === "article"
+            ? "news_grid"
+            : rawSlot === "event" || rawSlot === "events" || rawSlot === "arts-events"
+              ? "arts_events"
+              : null;
+
+  return {
+    slot,
+    keywords: tokenizeForMatching(remainder)
+  };
 }
 
 const COMMON_MATCH_WORDS = new Set([
