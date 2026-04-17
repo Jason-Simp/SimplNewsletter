@@ -25,7 +25,9 @@ export async function GET(request: Request, context: RouteContext) {
       throw new ApiRouteError(400, "Generation job ID is required.");
     }
 
-    const job = getNewsletterGenerationJob(scopedJobId);
+    const job = await getNewsletterGenerationJob(scopedJobId, {
+      resumeIfPending: true
+    });
 
     if (!job) {
       throw new ApiRouteError(404, "That newsletter writing job could not be found.");

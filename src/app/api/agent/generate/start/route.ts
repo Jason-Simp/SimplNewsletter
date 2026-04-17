@@ -44,7 +44,7 @@ export async function POST(request: Request) {
 
     assertSchoolScope(member, schoolId);
 
-    const job = createNewsletterGenerationJob(
+    const job = await createNewsletterGenerationJob(
       payload,
       {
         draftDocument,

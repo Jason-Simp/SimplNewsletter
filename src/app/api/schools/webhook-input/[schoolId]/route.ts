@@ -63,7 +63,7 @@ export async function POST(
       sectionTypes: []
     };
 
-    const job = createNewsletterGenerationJob(payload, {
+    const job = await createNewsletterGenerationJob(payload, {
       draftDocument: persisted.newsletter,
       quickNotes: normalized.notes,
       uploadedAssets: normalized.uploadedAssets,

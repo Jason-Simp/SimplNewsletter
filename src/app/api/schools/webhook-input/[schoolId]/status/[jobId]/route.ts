@@ -31,7 +31,9 @@ export async function GET(
     const school = await requireWebhookSchool(resolvedSchoolId);
     assertWebhookSecret(getWebhookSecretFromHeaders(request.headers), school);
 
-    const job = getNewsletterGenerationJob(resolvedJobId);
+    const job = await getNewsletterGenerationJob(resolvedJobId, {
+      resumeIfPending: true
+    });
 
     if (!job || job.schoolId !== resolvedSchoolId) {
       throw new ApiRouteError(404, "That newsletter writing job could not be found for this school.");
