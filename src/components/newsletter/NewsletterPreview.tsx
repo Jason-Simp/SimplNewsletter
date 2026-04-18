@@ -15,6 +15,7 @@ type HeroContent = {
   body: string;
   stats: { label: string; value: string }[];
   heroImage: string;
+  galleryImages?: string[];
 };
 
 type PrincipalContent = { quote: string; author: string };
@@ -60,7 +61,7 @@ export function NewsletterPreview({
   const showEditorChrome = chrome === "editor";
   const hero = getSection<HeroContent>(document.sections, "hero");
   const calendar = getSection<CalendarContent>(document.sections, "calendar_snapshot");
-  const previewData = buildTwoColumnTemplateData(document);
+  const previewData = buildTwoColumnTemplateData(document, hero);
 
   return (
     <section className="rounded-editorial border border-slate-200 bg-white p-4 shadow-editorial lg:p-6">
@@ -91,7 +92,13 @@ export function NewsletterPreview({
         </div>
       ) : null}
 
-      <div className="mx-auto max-w-[900px] overflow-hidden rounded-[28px] border border-slate-200 bg-[#f4f4f2] shadow-[0_12px_30px_rgba(0,0,0,0.12)]">
+      <div
+        className={`mx-auto max-w-[900px] overflow-hidden rounded-[28px] border border-slate-200 ${
+          channel === "pdf"
+            ? "bg-white shadow-none"
+            : "bg-[#f4f4f2] shadow-[0_12px_30px_rgba(0,0,0,0.12)]"
+        }`}
+      >
         <header
           className="relative min-h-[190px] px-6 py-6 lg:px-8"
           style={{
@@ -252,8 +259,10 @@ function ArticleCell({ row }: { row: StoryRow }) {
   );
 }
 
-function buildTwoColumnTemplateData(document: NewsletterDocument) {
-  const hero = getSection<HeroContent>(document.sections, "hero");
+function buildTwoColumnTemplateData(
+  document: NewsletterDocument,
+  hero: NewsletterSection<HeroContent> | undefined
+) {
   const topStory = getSection<TopStoryContent>(document.sections, "top_story");
   const news = getSection<NewsGridContent>(document.sections, "news_grid");
   const spotlight = getSection<SpotlightContent>(document.sections, "student_spotlight");
@@ -362,8 +371,13 @@ function buildTwoColumnTemplateData(document: NewsletterDocument) {
     });
   }
 
-  if (!rows.length) {
-    rows.push({
+  const dedupedRows = dedupeStoryRows(rows);
+  const fallbackImages =
+    hero?.content.galleryImages?.filter((imageUrl) => typeof imageUrl === "string" && imageUrl.trim()) ?? [];
+  const hydratedRows = assignFallbackImagesToRows(dedupedRows, fallbackImages);
+
+  if (!hydratedRows.length) {
+    hydratedRows.push({
       id: "fallback-row",
       kicker: hero?.content.eyebrow || document.organization.name,
       title: hero?.content.headline || document.title || `${document.organization.name} newsletter`,
@@ -378,9 +392,9 @@ function buildTwoColumnTemplateData(document: NewsletterDocument) {
       kicker: hero?.content.eyebrow || "School newsletter",
       title: document.title || hero?.content.headline || `${document.organization.name} newsletter`,
       body: document.intro || hero?.content.body || document.organization.tagline,
-      backgroundImage: hero?.content.heroImage || rows.find((row) => row.imageUrl)?.imageUrl || ""
+      backgroundImage: hero?.content.heroImage || hydratedRows.find((row) => row.imageUrl)?.imageUrl || ""
     },
-    rows,
+    rows: hydratedRows,
     calendar: {
       title: "Calendar snapshot",
       items:
@@ -400,4 +414,72 @@ function buildTwoColumnTemplateData(document: NewsletterDocument) {
         : "Watch the school archive for the next issue and family resources."
     }
   };
+}
+
+function dedupeStoryRows(rows: StoryRow[]) {
+  const seen = new Set<string>();
+
+  return rows.filter((row) => {
+    const key = normalizeForComparison(`${row.kicker} ${row.title} ${row.body}`);
+
+    if (!key) {
+      return false;
+    }
+
+    for (const existing of seen) {
+      if (hasMeaningfulOverlap(existing, key)) {
+        return false;
+      }
+    }
+
+    seen.add(key);
+    return true;
+  });
+}
+
+function assignFallbackImagesToRows(rows: StoryRow[], fallbackImages: string[]) {
+  const availableImages = [...fallbackImages];
+
+  return rows.map((row) => {
+    if (row.imageUrl) {
+      return row;
+    }
+
+    const nextImage = availableImages.shift();
+
+    if (!nextImage) {
+      return row;
+    }
+
+    return {
+      ...row,
+      imageUrl: nextImage
+    };
+  });
+}
+
+function hasMeaningfulOverlap(left: string, right: string) {
+  if (!left || !right) {
+    return false;
+  }
+
+  const leftTokens = new Set(left.split(/\s+/).filter((token) => token.length > 3));
+  const rightTokens = new Set(right.split(/\s+/).filter((token) => token.length > 3));
+  let overlap = 0;
+
+  for (const token of leftTokens) {
+    if (rightTokens.has(token)) {
+      overlap += 1;
+    }
+  }
+
+  return overlap >= 2;
+}
+
+function normalizeForComparison(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
