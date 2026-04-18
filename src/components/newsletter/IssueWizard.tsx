@@ -64,7 +64,7 @@ export function IssueWizard() {
   const cloneFromId = searchParams.get("from");
   const draftId = searchParams.get("draft");
   const freshIssue = searchParams.get("fresh") === "1";
-  const canRestoreBuilderState = Boolean(draftId?.trim() || cloneFromId?.trim());
+  const canRestoreBuilderState = Boolean(draftId?.trim());
   const browserDraftKey = useMemo(
     () =>
       [
@@ -499,6 +499,7 @@ export function IssueWizard() {
           const restoredState = canRestoreBuilderState ? readBuilderDraft(browserDraftKey) : null;
           const restoredDocument =
             restoredState?.document &&
+            restoredState.document.id === mergedDocument.id &&
             restoredState.document.workspace?.schoolId === mergedDocument.workspace.schoolId
               ? restoredState.document
               : null;
@@ -526,27 +527,31 @@ export function IssueWizard() {
                 ? "error"
                 : "idle";
           const nextActiveStep =
-            restoredState?.activeStep && restoredState.activeStep !== "setup" && !hasReviewableDraftContent(restoredDocument ?? mergedDocument)
+            restoredState?.activeStep &&
+            restoredState.activeStep !== "setup" &&
+            !hasReviewableDraftContent(restoredDocument ?? mergedDocument)
               ? "setup"
               : restoredState?.activeStep ?? "setup";
 
           setDocument(restoredDocument ?? mergedDocument);
-          setSourceIssueLabel(restoredState?.sourceIssueLabel ?? (selectedSource ? selectedSource.title : null));
+          setSourceIssueLabel(
+            draftId?.trim() ? restoredState?.sourceIssueLabel ?? null : selectedSource ? selectedSource.title : null
+          );
           setQuickNotes(
-            restoredState?.quickNotes ??
+            (draftId?.trim() ? restoredState?.quickNotes : null) ??
               (selectedDraft
                 ? buildQuickNotesFromDocument(selectedDraft)
                 : selectedSource
                   ? buildQuickNotesFromDocument(selectedSource)
                   : "")
           );
-          setUploadedAssets(restoredState?.uploadedAssets ?? []);
-          setActiveStep(nextActiveStep);
-          setGenerationJobId(restoredJobId);
-          setGenerationState(restoredGenerationState);
-          setGenerationPhase(restoredGenerationPhase);
-          setGenerationMessage(restoredGenerationMessage);
-          setLastGeneratedAt(restoredState?.lastGeneratedAt ?? null);
+          setUploadedAssets((draftId?.trim() ? restoredState?.uploadedAssets : null) ?? []);
+          setActiveStep(draftId?.trim() ? nextActiveStep : "setup");
+          setGenerationJobId(draftId?.trim() ? restoredJobId : null);
+          setGenerationState(draftId?.trim() ? restoredGenerationState : "idle");
+          setGenerationPhase(draftId?.trim() ? restoredGenerationPhase : "idle");
+          setGenerationMessage(draftId?.trim() ? restoredGenerationMessage : defaultGenerationMessage);
+          setLastGeneratedAt((draftId?.trim() ? restoredState?.lastGeneratedAt : null) ?? null);
           setSaveMessage("Draft loaded.");
           setLastSavedAt(null);
         }

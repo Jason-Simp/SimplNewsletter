@@ -221,22 +221,46 @@ export function buildTwoColumnRenderModel(document: NewsletterDocument): TwoColu
 }
 
 function dedupeStoryRows(rows: TwoColumnStoryRow[]) {
-  const seen = new Set<string>();
+  const seenTitleKeys = new Set<string>();
+  const seenImageTitleKeys = new Set<string>();
+  const seenFullKeys = new Set<string>();
 
   return rows.filter((row) => {
-    const key = normalizeForComparison(`${row.kicker} ${row.title} ${row.body}`);
+    const titleKey = normalizeForComparison(row.title);
+    const bodyKey = normalizeForComparison(row.body);
+    const imageKey = normalizeForComparison(row.imageUrl ?? "");
+    const fullKey = normalizeForComparison(`${row.kicker} ${row.title} ${row.body}`);
 
-    if (!key) {
+    if (!titleKey && !bodyKey) {
       return false;
     }
 
-    for (const existing of seen) {
-      if (hasMeaningfulOverlap(existing, key)) {
-        return false;
-      }
+    if (titleKey && seenTitleKeys.has(titleKey)) {
+      return false;
     }
 
-    seen.add(key);
+    if (imageKey && titleKey) {
+      const imageTitleKey = `${imageKey}::${titleKey}`;
+
+      if (seenImageTitleKeys.has(imageTitleKey)) {
+        return false;
+      }
+
+      seenImageTitleKeys.add(imageTitleKey);
+    }
+
+    if (fullKey && seenFullKeys.has(fullKey)) {
+      return false;
+    }
+
+    if (titleKey) {
+      seenTitleKeys.add(titleKey);
+    }
+
+    if (fullKey) {
+      seenFullKeys.add(fullKey);
+    }
+
     return true;
   });
 }
@@ -260,24 +284,6 @@ function assignFallbackImagesToRows(rows: TwoColumnStoryRow[], fallbackImages: s
       imageUrl: nextImage
     };
   });
-}
-
-function hasMeaningfulOverlap(left: string, right: string) {
-  if (!left || !right) {
-    return false;
-  }
-
-  const leftTokens = new Set(left.split(/\s+/).filter((token) => token.length > 3));
-  const rightTokens = new Set(right.split(/\s+/).filter((token) => token.length > 3));
-  let overlap = 0;
-
-  for (const token of leftTokens) {
-    if (rightTokens.has(token)) {
-      overlap += 1;
-    }
-  }
-
-  return overlap >= 2;
 }
 
 function normalizeForComparison(value: string) {
