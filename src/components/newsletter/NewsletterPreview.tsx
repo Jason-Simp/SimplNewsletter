@@ -1,5 +1,6 @@
 import Image from "next/image";
 
+import { buildTwoColumnRenderModel, type TwoColumnStoryRow } from "@/lib/newsletter-render-model";
 import type { Channel, NewsletterDocument, NewsletterSection } from "@/types/newsletter";
 
 type Props = {
@@ -15,36 +16,8 @@ type HeroContent = {
   body: string;
   stats: { label: string; value: string }[];
   heroImage: string;
-  galleryImages?: string[];
 };
-
-type PrincipalContent = { quote: string; author: string };
-type TopStoryContent = { headline: string; summary: string; url: string; image: string };
-type NewsGridContent = {
-  items: { id: string; headline: string; summary: string; tag?: string; image?: string }[];
-};
-type SplitContent = {
-  academics: { headline: string; summary: string; meta: string };
-  athletics: { headline: string; summary: string; meta: string };
-};
-type SpotlightContent = { name: string; role: string; summary: string; image: string };
-type EventsContent = {
-  items: { id: string; date: string; title: string; summary: string; image?: string }[];
-};
-type ClubsContent = { items: string[] };
 type CalendarContent = { items: { date: string; detail: string }[] };
-type QuickLinksContent = { items: { id: string; label: string; url: string }[] };
-
-type StoryRow = {
-  id: string;
-  kicker: string;
-  title: string;
-  body: string;
-  imageUrl?: string;
-  imageAlt: string;
-  buttonText?: string;
-  buttonUrl?: string;
-};
 
 const channels: Channel[] = ["web", "pdf"];
 
@@ -61,7 +34,7 @@ export function NewsletterPreview({
   const showEditorChrome = chrome === "editor";
   const hero = getSection<HeroContent>(document.sections, "hero");
   const calendar = getSection<CalendarContent>(document.sections, "calendar_snapshot");
-  const previewData = buildTwoColumnTemplateData(document, hero);
+  const previewData = buildTwoColumnRenderModel(document);
 
   return (
     <section className="rounded-editorial border border-slate-200 bg-white p-4 shadow-editorial lg:p-6">
@@ -197,7 +170,7 @@ export function NewsletterPreview({
   );
 }
 
-function TemplateRow({ row, reverse }: { row: StoryRow; reverse: boolean }) {
+function TemplateRow({ row, reverse }: { row: TwoColumnStoryRow; reverse: boolean }) {
   return (
     <div className="grid min-h-[300px] md:grid-cols-2">
       <div className={reverse ? "order-2" : ""}>
@@ -235,7 +208,7 @@ function ImageCell({ imageUrl, alt }: { imageUrl?: string; alt: string }) {
   );
 }
 
-function ArticleCell({ row }: { row: StoryRow }) {
+function ArticleCell({ row }: { row: TwoColumnStoryRow }) {
   return (
     <div className="flex items-center justify-center bg-[#f4f4f2] p-9">
       <article className="w-full rounded-[16px] bg-white px-5 py-5 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.04)]">
@@ -257,229 +230,4 @@ function ArticleCell({ row }: { row: StoryRow }) {
       </article>
     </div>
   );
-}
-
-function buildTwoColumnTemplateData(
-  document: NewsletterDocument,
-  hero: NewsletterSection<HeroContent> | undefined
-) {
-  const topStory = getSection<TopStoryContent>(document.sections, "top_story");
-  const news = getSection<NewsGridContent>(document.sections, "news_grid");
-  const spotlight = getSection<SpotlightContent>(document.sections, "student_spotlight");
-  const academics = getSection<SplitContent>(document.sections, "academics");
-  const events = getSection<EventsContent>(document.sections, "arts_events");
-  const principal = getSection<PrincipalContent>(document.sections, "principal_message");
-  const clubs = getSection<ClubsContent>(document.sections, "clubs_and_organizations");
-  const quickLinks = getSection<QuickLinksContent>(document.sections, "quick_links");
-  const calendar = getSection<CalendarContent>(document.sections, "calendar_snapshot");
-
-  const rows: StoryRow[] = [];
-
-  if (topStory) {
-    rows.push({
-      id: topStory.id,
-      kicker: "Top story",
-      title: topStory.content.headline,
-      body: topStory.content.summary,
-      imageUrl: topStory.content.image || hero?.content.heroImage,
-      imageAlt: topStory.content.headline,
-      buttonText: topStory.content.url && topStory.content.url !== "#" ? "Read more" : undefined,
-      buttonUrl: topStory.content.url
-    });
-  }
-
-  news?.content.items.forEach((item, index) => {
-    rows.push({
-      id: item.id || `news-${index + 1}`,
-      kicker: item.tag || "Campus update",
-      title: item.headline,
-      body: item.summary,
-      imageUrl: item.image,
-      imageAlt: item.headline
-    });
-  });
-
-  if (spotlight) {
-    rows.push({
-      id: `${spotlight.id}-spotlight`,
-      kicker: "Student spotlight",
-      title: spotlight.content.name,
-      body: [spotlight.content.role, spotlight.content.summary].filter(Boolean).join(" — "),
-      imageUrl: spotlight.content.image,
-      imageAlt: spotlight.content.name
-    });
-  }
-
-  if (academics?.content.academics.headline) {
-    rows.push({
-      id: `${academics.id}-academics`,
-      kicker: "Academics",
-      title: academics.content.academics.headline,
-      body: [academics.content.academics.summary, academics.content.academics.meta].filter(Boolean).join(" "),
-      imageAlt: academics.content.academics.headline
-    });
-  }
-
-  if (academics?.content.athletics.headline) {
-    rows.push({
-      id: `${academics.id}-athletics`,
-      kicker: "Athletics",
-      title: academics.content.athletics.headline,
-      body: [academics.content.athletics.summary, academics.content.athletics.meta].filter(Boolean).join(" "),
-      imageAlt: academics.content.athletics.headline
-    });
-  }
-
-  events?.content.items.forEach((item, index) => {
-    rows.push({
-      id: item.id || `event-${index + 1}`,
-      kicker: item.date,
-      title: item.title,
-      body: item.summary,
-      imageUrl: item.image,
-      imageAlt: item.title
-    });
-  });
-
-  if (principal?.content.quote) {
-    rows.push({
-      id: `${principal.id}-leadership`,
-      kicker: "Leadership note",
-      title: principal.content.author || "School leadership",
-      body: principal.content.quote,
-      imageAlt: principal.content.author || "School leadership"
-    });
-  }
-
-  if (clubs?.content.items.length) {
-    rows.push({
-      id: `${clubs.id}-clubs`,
-      kicker: "Student life",
-      title: "Clubs and organizations",
-      body: clubs.content.items.join(" • "),
-      imageAlt: "Clubs and organizations"
-    });
-  }
-
-  if (quickLinks?.content.items.length) {
-    rows.push({
-      id: `${quickLinks.id}-links`,
-      kicker: "Quick links",
-      title: "Family resources",
-      body: quickLinks.content.items.map((item) => item.label).join(" • "),
-      imageAlt: "Family resources"
-    });
-  }
-
-  const dedupedRows = dedupeStoryRows(rows);
-  const fallbackImages =
-    hero?.content.galleryImages?.filter((imageUrl) => typeof imageUrl === "string" && imageUrl.trim()) ?? [];
-  const hydratedRows = assignFallbackImagesToRows(dedupedRows, fallbackImages);
-
-  if (!hydratedRows.length) {
-    hydratedRows.push({
-      id: "fallback-row",
-      kicker: hero?.content.eyebrow || document.organization.name,
-      title: hero?.content.headline || document.title || `${document.organization.name} newsletter`,
-      body: document.intro || hero?.content.body || "This issue is being prepared.",
-      imageUrl: hero?.content.heroImage,
-      imageAlt: document.organization.name
-    });
-  }
-
-  return {
-    header: {
-      kicker: hero?.content.eyebrow || "School newsletter",
-      title: document.title || hero?.content.headline || `${document.organization.name} newsletter`,
-      body: document.intro || hero?.content.body || document.organization.tagline,
-      backgroundImage: hero?.content.heroImage || hydratedRows.find((row) => row.imageUrl)?.imageUrl || ""
-    },
-    rows: hydratedRows,
-    calendar: {
-      title: "Calendar snapshot",
-      items:
-        calendar?.content.items.map((item) => ({
-          label: item.date,
-          text: item.detail
-        })) ?? []
-    },
-    footer: {
-      schoolName: document.organization.name,
-      address: document.organization.address,
-      phone: document.organization.phone,
-      email: document.organization.contactEmail,
-      ctaTitle: "Stay connected",
-      ctaBody: document.organization.websiteUrl
-        ? `Find more updates, resources, and archive access at ${document.organization.websiteUrl}.`
-        : "Watch the school archive for the next issue and family resources."
-    }
-  };
-}
-
-function dedupeStoryRows(rows: StoryRow[]) {
-  const seen = new Set<string>();
-
-  return rows.filter((row) => {
-    const key = normalizeForComparison(`${row.kicker} ${row.title} ${row.body}`);
-
-    if (!key) {
-      return false;
-    }
-
-    for (const existing of seen) {
-      if (hasMeaningfulOverlap(existing, key)) {
-        return false;
-      }
-    }
-
-    seen.add(key);
-    return true;
-  });
-}
-
-function assignFallbackImagesToRows(rows: StoryRow[], fallbackImages: string[]) {
-  const availableImages = [...fallbackImages];
-
-  return rows.map((row) => {
-    if (row.imageUrl) {
-      return row;
-    }
-
-    const nextImage = availableImages.shift();
-
-    if (!nextImage) {
-      return row;
-    }
-
-    return {
-      ...row,
-      imageUrl: nextImage
-    };
-  });
-}
-
-function hasMeaningfulOverlap(left: string, right: string) {
-  if (!left || !right) {
-    return false;
-  }
-
-  const leftTokens = new Set(left.split(/\s+/).filter((token) => token.length > 3));
-  const rightTokens = new Set(right.split(/\s+/).filter((token) => token.length > 3));
-  let overlap = 0;
-
-  for (const token of leftTokens) {
-    if (rightTokens.has(token)) {
-      overlap += 1;
-    }
-  }
-
-  return overlap >= 2;
-}
-
-function normalizeForComparison(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
 }
