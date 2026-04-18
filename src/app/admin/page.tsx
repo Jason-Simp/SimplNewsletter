@@ -165,6 +165,7 @@ export default function AdminPage() {
         throw new Error(payload?.message ?? "The newsletter could not be deleted.");
       }
 
+      clearBuilderDraftSnapshots(newsletter.id, schoolId);
       setNewsletters((current) => current.filter((item) => item.id !== newsletter.id));
       showNotice(
         newsletter.status === "published"
@@ -516,6 +517,54 @@ function Stat({ label, value }: { label: string; value: string }) {
       <div className="mt-3 text-2xl font-bold text-brand-navy">{value}</div>
     </article>
   );
+}
+
+function clearBuilderDraftSnapshots(newsletterId: string, schoolId: string) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    const keysToDelete: string[] = [];
+
+    for (let index = 0; index < window.localStorage.length; index += 1) {
+      const key = window.localStorage.key(index);
+
+      if (!key || !key.startsWith("the-wire-builder-draft:")) {
+        continue;
+      }
+
+      if (key === `the-wire-builder-draft:${newsletterId}`) {
+        keysToDelete.push(key);
+        continue;
+      }
+
+      const raw = window.localStorage.getItem(key);
+
+      if (!raw) {
+        continue;
+      }
+
+      try {
+        const snapshot = JSON.parse(raw) as {
+          document?: { id?: string; workspace?: { schoolId?: string } };
+        };
+
+        if (
+          snapshot.document?.id === newsletterId ||
+          (snapshot.document?.workspace?.schoolId === schoolId && key === `the-wire-builder-draft:${schoolId}`)
+        ) {
+          keysToDelete.push(key);
+        }
+      } catch {
+        // Ignore malformed local snapshots.
+      }
+    }
+
+    keysToDelete.forEach((key) => window.localStorage.removeItem(key));
+  } catch {
+    // Ignore local cleanup failures and rely on server deletion.
+  }
 }
 
 function formatDisplayDate(value?: string | null) {

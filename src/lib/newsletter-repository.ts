@@ -526,19 +526,44 @@ export async function deleteNewsletter(newsletterId: string, schoolId?: string) 
     return { deleted: true };
   }
 
-  let query = supabase.from("newsletters").delete().eq("id", newsletterId);
+  await Promise.all([
+    supabase.from("newsletter_sections").delete().eq("newsletter_id", newsletterId),
+    supabase.from("newsletter_distribution_targets").delete().eq("newsletter_id", newsletterId),
+    supabase.from("distribution_jobs").delete().eq("newsletter_id", newsletterId),
+    supabase.from("assets").delete().eq("newsletter_id", newsletterId),
+    clearNullableNewsletterReference(supabase, "newsletter_generation_jobs", "draft_id", newsletterId),
+    clearNullableNewsletterReference(supabase, "vector_content_queue", "newsletter_id", newsletterId)
+  ]);
+
+  let query = supabase.from("newsletters").delete().eq("id", newsletterId).select("id");
 
   if (schoolId) {
     query = query.eq("school_id", schoolId);
   }
 
-  const { error } = await query;
+  const { error, data } = await query;
 
   if (error) {
     throw new Error(error.message);
   }
 
-  return { deleted: true };
+  return { deleted: Boolean(data?.length) };
+}
+
+async function clearNullableNewsletterReference(
+  supabase: NonNullable<ReturnType<typeof getServiceSupabase>>,
+  table: string,
+  column: string,
+  newsletterId: string
+) {
+  const { error } = await supabase
+    .from(table)
+    .update({ [column]: null })
+    .eq(column, newsletterId);
+
+  if (error && error.code !== "42P01") {
+    throw new Error(error.message);
+  }
 }
 
 function slugify(value: string) {
