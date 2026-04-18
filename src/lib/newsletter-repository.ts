@@ -267,12 +267,20 @@ export async function saveNewsletter(
     !document.id.startsWith("demo-") &&
     document.id !== sampleNewsletter.id;
 
-  const newsletterPayload = {
+  const baseSlug = slugify(document.title || `${document.organization.name} newsletter`);
+  const initialSlug = await resolveUniqueNewsletterSlug(
+    supabase,
+    school.id,
+    baseSlug,
+    hasPersistedNewsletterId ? document.id : null
+  );
+
+  let newsletterPayload = {
     ...(hasPersistedNewsletterId ? { id: document.id } : {}),
     school_id: school.id,
     status: options?.publish ? "published" : document.status ?? "draft",
     title: document.title,
-    slug: slugify(document.title),
+    slug: initialSlug,
     issue_date: normalizeIssueDate(document.issueDate),
     audience: document.audience,
     intro: document.intro,
@@ -281,13 +289,54 @@ export async function saveNewsletter(
     published_at: options?.publish ? new Date().toISOString() : document.publishedAt ?? null
   };
 
-  const newsletterMutation = hasPersistedNewsletterId
-    ? supabase.from("newsletters").upsert(newsletterPayload, { onConflict: "id" })
-    : supabase.from("newsletters").upsert(newsletterPayload, { onConflict: "school_id,slug" });
+  let newsletterResult = await persistNewsletterRow(
+    supabase,
+    newsletterPayload,
+    hasPersistedNewsletterId
+  );
+  let { data: newsletter, error: newsletterError } = newsletterResult;
 
-  const { data: newsletter, error: newsletterError } = await newsletterMutation
-    .select("id")
-    .single();
+  if (isDuplicateNewsletterSlugError(newsletterError)) {
+    if (!hasPersistedNewsletterId) {
+      const existingDraft = await supabase
+        .from("newsletters")
+        .select("id")
+        .eq("school_id", school.id)
+        .eq("slug", newsletterPayload.slug)
+        .maybeSingle();
+
+      if (existingDraft.data?.id) {
+        newsletterPayload = {
+          ...newsletterPayload,
+          id: existingDraft.data.id
+        };
+        newsletterResult = await persistNewsletterRow(supabase, newsletterPayload, true);
+        newsletter = newsletterResult.data;
+        newsletterError = newsletterResult.error;
+      }
+    }
+
+    if (isDuplicateNewsletterSlugError(newsletterError)) {
+      const retrySlug = await resolveUniqueNewsletterSlug(
+        supabase,
+        school.id,
+        baseSlug,
+        hasPersistedNewsletterId ? document.id : newsletterPayload.id ?? null
+      );
+
+      newsletterPayload = {
+        ...newsletterPayload,
+        slug: retrySlug
+      };
+      newsletterResult = await persistNewsletterRow(
+        supabase,
+        newsletterPayload,
+        hasPersistedNewsletterId || Boolean(newsletterPayload.id)
+      );
+      newsletter = newsletterResult.data;
+      newsletterError = newsletterResult.error;
+    }
+  }
 
   if (newsletterError || !newsletter) {
     throw new Error(newsletterError?.message ?? "Failed to save newsletter.");
@@ -379,6 +428,78 @@ function normalizeSupportModules(value: unknown): SupportModule[] {
       } satisfies SupportModule;
     })
     .filter(Boolean) as SupportModule[];
+}
+
+async function persistNewsletterRow(
+  supabase: NonNullable<ReturnType<typeof getServiceSupabase>>,
+  payload: {
+    id?: string;
+    school_id: string;
+    status: "draft" | "published" | "archived";
+    title: string;
+    slug: string;
+    issue_date: string | null;
+    audience: string;
+    intro: string;
+    subject_line: string;
+    preview_text: string;
+    published_at: string | null;
+  },
+  useIdConflict: boolean
+) {
+  const mutation = useIdConflict
+    ? supabase.from("newsletters").upsert(payload, { onConflict: "id" })
+    : supabase.from("newsletters").upsert(payload, { onConflict: "school_id,slug" });
+
+  return mutation.select("id").single();
+}
+
+async function resolveUniqueNewsletterSlug(
+  supabase: NonNullable<ReturnType<typeof getServiceSupabase>>,
+  schoolId: string,
+  preferredSlug: string,
+  currentNewsletterId: string | null
+) {
+  const baseSlug = preferredSlug || "newsletter";
+  const { data, error } = await supabase
+    .from("newsletters")
+    .select("id,slug")
+    .eq("school_id", schoolId)
+    .like("slug", `${baseSlug}%`);
+
+  if (error || !data?.length) {
+    return baseSlug;
+  }
+
+  const takenSlugs = new Set(
+    data
+      .filter((row) => row.id !== currentNewsletterId)
+      .map((row) => row.slug)
+      .filter((slug): slug is string => Boolean(slug?.trim()))
+  );
+
+  if (!takenSlugs.has(baseSlug)) {
+    return baseSlug;
+  }
+
+  let suffix = 2;
+  while (takenSlugs.has(`${baseSlug}-${suffix}`)) {
+    suffix += 1;
+  }
+
+  return `${baseSlug}-${suffix}`;
+}
+
+function isDuplicateNewsletterSlugError(error: { message?: string; code?: string } | null | undefined) {
+  if (!error) {
+    return false;
+  }
+
+  return (
+    error.code === "23505" ||
+    Boolean(error.message?.includes('newsletters_school_slug_idx')) ||
+    Boolean(error.message?.includes("duplicate key value violates unique constraint"))
+  );
 }
 
 function normalizeSupportTone(value: unknown): SupportModuleTone {
