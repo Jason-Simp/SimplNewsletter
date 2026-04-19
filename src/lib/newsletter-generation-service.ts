@@ -71,13 +71,20 @@ export async function generateNewsletterPackage(
       allowedSectionTypes: payload.sectionTypes
     });
 
+    const expectedMinimumStoryUnits = sectionRewrite ? 1 : getExpectedMinimumStoryUnits(payload);
+    const generatedStoryUnits = countGeneratedStoryUnits(firstValidated);
     const missingStoryTopics = sectionRewrite ? [] : findMissingStoryTopics(payload, firstValidated);
 
-    if (!missingStoryTopics.length) {
+    if (!missingStoryTopics.length && generatedStoryUnits >= expectedMinimumStoryUnits) {
       return firstValidated;
     }
 
-    const repairPrompt = buildCoverageRepairPrompt(generationPrompt, missingStoryTopics);
+    const repairPrompt = buildCoverageRepairPrompt(
+      generationPrompt,
+      missingStoryTopics,
+      expectedMinimumStoryUnits,
+      generatedStoryUnits
+    );
     const repairedResult = await requestNewsletterPackage({
       generationRequest: {
         ...generationRequest,
@@ -89,11 +96,21 @@ export async function generateNewsletterPackage(
       resolvedIntegrationEndpoint
     });
 
-    return validateNewsletterPackageOrThrow(repairedResult, {
+    const repairedValidated = validateNewsletterPackageOrThrow(repairedResult, {
       requireHero: !sectionRewrite,
       minimumSections: sectionRewrite ? 1 : 2,
       allowedSectionTypes: payload.sectionTypes
     });
+
+    if (!sectionRewrite && countGeneratedStoryUnits(repairedValidated) < expectedMinimumStoryUnits) {
+      throw new ApiRouteError(
+        422,
+        "The school's writing agent returned too few story sections for this request. Please try again or adjust the newsletter notes so each update is clearly separated.",
+        { exposeMessage: true }
+      );
+    }
+
+    return repairedValidated;
   } catch (error) {
     if (error instanceof ApiRouteError) {
       throw error;
@@ -165,13 +182,23 @@ function findMissingStoryTopics(
     .map((candidate) => candidate.label);
 }
 
-function buildCoverageRepairPrompt(basePrompt: string, missingTopics: string[]) {
+function buildCoverageRepairPrompt(
+  basePrompt: string,
+  missingTopics: string[],
+  expectedMinimumStoryUnits: number,
+  generatedStoryUnits: number
+) {
   return [
     basePrompt,
     "",
     "[THE_WIRE_COVERAGE_REPAIR]",
-    "The previous newsletter draft missed these likely story topics or image-driven updates:",
-    ...missingTopics.map((topic) => `- ${topic}`),
+    `The previous newsletter draft only surfaced ${generatedStoryUnits} distinct story unit${generatedStoryUnits === 1 ? "" : "s"}. This request should produce at least ${expectedMinimumStoryUnits}.`,
+    ...(missingTopics.length
+      ? [
+          "It also missed these likely story topics or image-driven updates:",
+          ...missingTopics.map((topic) => `- ${topic}`)
+        ]
+      : ["Expand the draft so it includes the distinct updates from the notes as separate story blocks."]),
     "Return a corrected full newsletter package that keeps those updates visible as their own stories or spotlight items when they are supported by the notes and image hints.",
     "Do not explain the correction. Return only the corrected JSON package.",
     "[/THE_WIRE_COVERAGE_REPAIR]"
@@ -208,6 +235,52 @@ function extractImageCandidates(imageHints: string[]) {
       };
     })
     .filter((candidate) => candidate.tokens.length >= 2);
+}
+
+function getExpectedMinimumStoryUnits(payload: ContentGenerateRequest) {
+  const noteCandidates = extractNoteCandidates(payload.notes ?? payload.prompt);
+  const imageCandidates = extractImageCandidates(payload.imageHints ?? []);
+  const uniqueLabels = new Set(
+    [...noteCandidates, ...imageCandidates].map((candidate) => candidate.label.toLowerCase())
+  );
+
+  if (uniqueLabels.size >= 3) {
+    return 3;
+  }
+
+  if (uniqueLabels.size >= 2) {
+    return 2;
+  }
+
+  return 1;
+}
+
+function countGeneratedStoryUnits(generated: ReturnType<typeof validateGeneratedNewsletterPackage>) {
+  return (generated.sections ?? []).reduce((count, section) => {
+    switch (section.sectionType) {
+      case "top_story":
+      case "student_spotlight":
+        return count + 1;
+      case "news_grid":
+        return count + ((section.content as { items?: unknown[] }).items?.length ?? 0);
+      case "academics": {
+        const content = section.content as {
+          academics?: { headline?: string };
+          athletics?: { headline?: string };
+        };
+
+        return (
+          count +
+          (content.academics?.headline ? 1 : 0) +
+          (content.athletics?.headline ? 1 : 0)
+        );
+      }
+      case "arts_events":
+        return count + ((section.content as { items?: unknown[] }).items?.length ?? 0);
+      default:
+        return count;
+    }
+  }, 0);
 }
 
 function isCandidateCovered(tokens: string[], generatedText: string) {

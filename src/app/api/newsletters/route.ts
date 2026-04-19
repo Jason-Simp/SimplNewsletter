@@ -70,7 +70,11 @@ export async function DELETE(request: NextRequest) {
 
     assertSchoolScope(member, scopedSchoolId);
 
-    await deleteNewsletter(newsletterId.trim(), scopedSchoolId);
+    const result = await deleteNewsletter(newsletterId.trim(), scopedSchoolId);
+
+    if (!result.deleted) {
+      throw new ApiRouteError(404, "The newsletter could not be found for deletion.");
+    }
 
     return NextResponse.json({
       status: "ok",
