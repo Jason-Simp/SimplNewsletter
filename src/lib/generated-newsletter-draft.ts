@@ -11,7 +11,7 @@ export function applyGeneratedDraftToDocument(
   const generatedSectionTypes = new Set(generated.sections?.map((item) => item.sectionType) ?? []);
   const fallbackTitle = getGeneratedTitle(generated, quickNotes);
   const fallbackIntro = getGeneratedIntro(generated, quickNotes);
-  const imageAssignments = selectImageAssignments(generated, uploadedAssets);
+  const imageAssignments = selectImageAssignments(generated, uploadedAssets, quickNotes);
 
   return {
     ...document,
@@ -173,15 +173,60 @@ function getGeneratedIntro(generated: ContentGenerateResponse, quickNotes: strin
   return quickNotes.trim();
 }
 
-export function selectImageAssignments(generated: ContentGenerateResponse, assets: UploadedAsset[]) {
+export function selectImageAssignments(
+  generated: ContentGenerateResponse,
+  assets: UploadedAsset[],
+  noteSource = ""
+) {
   const imageAssets = assets.filter((asset) => asset.type.startsWith("image/") && asset.url);
   const usedNames = new Set<string>();
+  const noteCandidates = extractOrderedStoryNotes(noteSource);
 
   const hero = generated.sections?.find((section) => section.sectionType === "hero");
   const topStory = generated.sections?.find((section) => section.sectionType === "top_story");
   const newsGrid = generated.sections?.find((section) => section.sectionType === "news_grid");
   const spotlight = generated.sections?.find((section) => section.sectionType === "student_spotlight");
   const events = generated.sections?.find((section) => section.sectionType === "arts_events");
+
+  const topStoryImage = chooseImageForText(
+    [
+      topStory?.title,
+      typeof topStory?.content?.headline === "string" ? topStory.content.headline : "",
+      typeof topStory?.content?.summary === "string" ? topStory.content.summary : ""
+    ],
+    imageAssets,
+    usedNames,
+    3,
+    "top_story",
+    getBestNoteContext(
+      [
+        topStory?.title,
+        typeof topStory?.content?.headline === "string" ? topStory.content.headline : "",
+        typeof topStory?.content?.summary === "string" ? topStory.content.summary : ""
+      ],
+      noteCandidates
+    )
+  );
+
+  const spotlightImage = chooseImageForText(
+    [
+      spotlight?.title,
+      typeof spotlight?.content?.name === "string" ? spotlight.content.name : "",
+      typeof spotlight?.content?.summary === "string" ? spotlight.content.summary : ""
+    ],
+    imageAssets,
+    usedNames,
+    3,
+    "student_spotlight",
+    getBestNoteContext(
+      [
+        spotlight?.title,
+        typeof spotlight?.content?.name === "string" ? spotlight.content.name : "",
+        typeof spotlight?.content?.summary === "string" ? spotlight.content.summary : ""
+      ],
+      noteCandidates
+    )
+  );
 
   const newsItemImages = Array.isArray(newsGrid?.content?.items)
     ? newsGrid.content.items.map((item) =>
@@ -194,7 +239,15 @@ export function selectImageAssignments(generated: ContentGenerateResponse, asset
           imageAssets,
           usedNames,
           3,
-          "news_grid"
+          "news_grid",
+          getBestNoteContext(
+            [
+              typeof item?.headline === "string" ? item.headline : "",
+              typeof item?.summary === "string" ? item.summary : "",
+              typeof item?.tag === "string" ? item.tag : ""
+            ],
+            noteCandidates
+          )
         )
       )
     : [];
@@ -210,34 +263,18 @@ export function selectImageAssignments(generated: ContentGenerateResponse, asset
           imageAssets,
           usedNames,
           3,
-          "arts_events"
+          "arts_events",
+          getBestNoteContext(
+            [
+              typeof item?.title === "string" ? item.title : "",
+              typeof item?.summary === "string" ? item.summary : "",
+              typeof item?.date === "string" ? item.date : ""
+            ],
+            noteCandidates
+          )
         )
       )
     : [];
-
-  const spotlightImage = chooseImageForText(
-    [
-      spotlight?.title,
-      typeof spotlight?.content?.name === "string" ? spotlight.content.name : "",
-      typeof spotlight?.content?.summary === "string" ? spotlight.content.summary : ""
-    ],
-    imageAssets,
-    usedNames,
-    3,
-    "student_spotlight"
-  );
-
-  const topStoryImage = chooseImageForText(
-    [
-      topStory?.title,
-      typeof topStory?.content?.headline === "string" ? topStory.content.headline : "",
-      typeof topStory?.content?.summary === "string" ? topStory.content.summary : ""
-    ],
-    imageAssets,
-    usedNames,
-    3,
-    "top_story"
-  );
 
   const heroImage = chooseImageForText(
     [
@@ -249,7 +286,16 @@ export function selectImageAssignments(generated: ContentGenerateResponse, asset
     imageAssets,
     usedNames,
     6,
-    "hero"
+    "hero",
+    getBestNoteContext(
+      [
+        generated.title,
+        hero?.title,
+        typeof hero?.content?.headline === "string" ? hero.content.headline : "",
+        typeof hero?.content?.body === "string" ? hero.content.body : ""
+      ],
+      noteCandidates
+    )
   );
 
   const galleryImages = imageAssets
@@ -271,7 +317,8 @@ function chooseImageForText(
   assets: UploadedAsset[],
   usedNames: Set<string>,
   minimumScore = 2,
-  targetSlot?: "hero" | "top_story" | "student_spotlight" | "news_grid" | "arts_events"
+  targetSlot?: "hero" | "top_story" | "student_spotlight" | "news_grid" | "arts_events",
+  noteContext = ""
 ) {
   const availableAssets = assets.filter((asset) => !usedNames.has(asset.name) && asset.url);
 
@@ -279,7 +326,7 @@ function chooseImageForText(
     return "";
   }
 
-  const combinedText = textParts.filter(Boolean).join(" ");
+  const combinedText = [...textParts.filter(Boolean), noteContext].filter(Boolean).join(" ");
   const tokens = tokenizeForMatching(combinedText);
   const directedAssets = availableAssets
     .map((asset) => ({
@@ -500,6 +547,46 @@ function normalizeForMatching(value: string) {
     .toLowerCase()
     .replace(/[_–—-]+/g, " ")
     .replace(/\.(png|jpe?g|gif|webp|svg)$/g, "");
+}
+
+function extractOrderedStoryNotes(noteSource: string) {
+  return noteSource
+    .split(/\n+/)
+    .flatMap((line) =>
+      line
+        .split(/\b(?:then we have|second story is|third story is|fourth story is|top story is)\b/i)
+        .map((part) => part.trim())
+    )
+    .map((line) => line.replace(/^[-*•\d.\s]+/, "").trim())
+    .filter((line) => line.length >= 12);
+}
+
+function getBestNoteContext(textParts: Array<string | undefined>, noteCandidates: string[]) {
+  if (!noteCandidates.length) {
+    return "";
+  }
+
+  const textTokens = tokenizeForMatching(textParts.filter(Boolean).join(" "));
+
+  if (!textTokens.length) {
+    return noteCandidates[0] ?? "";
+  }
+
+  let bestCandidate = "";
+  let bestScore = 0;
+
+  for (const candidate of noteCandidates) {
+    const candidateTokens = tokenizeForMatching(candidate);
+    const overlap = candidateTokens.filter((token) => hasTokenMatch(token, textTokens)).length;
+    const score = overlap * 10 + (containsOrderedTokenRun(candidateTokens, textTokens) ? 5 : 0);
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestCandidate = candidate;
+    }
+  }
+
+  return bestCandidate;
 }
 
 function simplifyToken(token: string) {

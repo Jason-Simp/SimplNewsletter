@@ -194,7 +194,15 @@ export function IssueWizard() {
         throw new Error("The writing agent did not return the updated section.");
       }
 
-      const imageAssignments = selectImageAssignments(payload.data, uploadedAssets);
+      const imageAssignments = selectImageAssignments(
+        payload.data,
+        uploadedAssets,
+        buildSectionRewriteNotes({
+          sectionType,
+          quickNotes,
+          document
+        })
+      );
 
       setDocument((current) => ({
         ...current,
