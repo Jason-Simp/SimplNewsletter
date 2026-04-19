@@ -577,9 +577,29 @@ async function clearNullableNewsletterReference(
     .update({ [column]: null })
     .eq(column, newsletterId);
 
-  if (error && error.code !== "42P01") {
+  if (isMissingRelationError(error, table)) {
+    return;
+  }
+
+  if (error) {
     throw new Error(error.message);
   }
+}
+
+function isMissingRelationError(
+  error: { code?: string; message?: string } | null | undefined,
+  relationName: string
+) {
+  if (!error) {
+    return false;
+  }
+
+  return (
+    error.code === "42P01" ||
+    error.code === "PGRST205" ||
+    new RegExp(relationName, "i").test(error.message ?? "") ||
+    /could not find the table|relation .* does not exist/i.test(error.message ?? "")
+  );
 }
 
 function slugify(value: string) {
