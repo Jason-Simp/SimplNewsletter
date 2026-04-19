@@ -526,6 +526,22 @@ export async function deleteNewsletter(newsletterId: string, schoolId?: string) 
     return { deleted: true };
   }
 
+  let existingQuery = supabase.from("newsletters").select("id").eq("id", newsletterId);
+
+  if (schoolId) {
+    existingQuery = existingQuery.eq("school_id", schoolId);
+  }
+
+  const { data: existingNewsletter, error: existingError } = await existingQuery.maybeSingle();
+
+  if (existingError) {
+    throw new Error(existingError.message);
+  }
+
+  if (!existingNewsletter) {
+    return { deleted: false };
+  }
+
   await Promise.all([
     supabase.from("newsletter_sections").delete().eq("newsletter_id", newsletterId),
     supabase.from("newsletter_distribution_targets").delete().eq("newsletter_id", newsletterId),
@@ -535,19 +551,19 @@ export async function deleteNewsletter(newsletterId: string, schoolId?: string) 
     clearNullableNewsletterReference(supabase, "vector_content_queue", "newsletter_id", newsletterId)
   ]);
 
-  let query = supabase.from("newsletters").delete().eq("id", newsletterId).select("id");
+  let query = supabase.from("newsletters").delete().eq("id", newsletterId);
 
   if (schoolId) {
     query = query.eq("school_id", schoolId);
   }
 
-  const { error, data } = await query;
+  const { error } = await query;
 
   if (error) {
     throw new Error(error.message);
   }
 
-  return { deleted: Boolean(data?.length) };
+  return { deleted: true };
 }
 
 async function clearNullableNewsletterReference(
