@@ -9,11 +9,25 @@ const ELEVENLABS_API_BASE_URL = "https://api.elevenlabs.io";
 
 export class AgentResponseFormatError extends Error {
   responsePreview: string;
+  diagnosticsSummary?: string;
 
-  constructor(message: string, responsePreview: string) {
+  constructor(message: string, responsePreview: string, diagnosticsSummary?: string) {
     super(message);
     this.name = "AgentResponseFormatError";
     this.responsePreview = responsePreview;
+    this.diagnosticsSummary = diagnosticsSummary;
+  }
+}
+
+export class AgentConversationTimeoutError extends Error {
+  responsePreview: string;
+  diagnosticsSummary: string;
+
+  constructor(message: string, responsePreview: string, diagnosticsSummary: string) {
+    super(message);
+    this.name = "AgentConversationTimeoutError";
+    this.responsePreview = responsePreview;
+    this.diagnosticsSummary = diagnosticsSummary;
   }
 }
 
@@ -78,23 +92,37 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
     let packageCorrectionSent = false;
     let agentResponseCount = 0;
     const collectedResponses: string[] = [];
-    const timeoutMs = Math.max(serverConfig.integrationTimeoutMs, 90000);
-    const maxDurationMs = Math.max(serverConfig.integrationMaxDurationMs, timeoutMs, 180000);
+    const timeoutMs = Math.max(serverConfig.integrationTimeoutMs, 120000);
+    const maxDurationMs = Math.max(serverConfig.integrationMaxDurationMs, timeoutMs, 240000);
+    const diagnostics = createConversationDiagnostics();
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     let hardStopId: ReturnType<typeof setTimeout> | null = null;
+
+    recordConversationEvent(diagnostics, "socket_open_requested");
 
     const startTimeout = () => {
       timeoutId = setTimeout(() => {
         if (!resolved) {
           resolved = true;
           socket.close();
+          const responsePreview = buildResponsePreview(collectedResponses.join("\n\n"));
+          const diagnosticsSummary = summarizeConversationDiagnostics(diagnostics, {
+            promptSent,
+            packageCorrectionSent,
+            agentResponseCount,
+            responsePreview
+          });
+          logConversationDiagnostics("timeout", diagnosticsSummary);
           reject(
-            new Error(
+            new AgentConversationTimeoutError(
               buildTimeoutMessage({
                 promptSent,
                 packageCorrectionSent,
-                hasAgentResponse: collectedResponses.length > 0
-              })
+                hasAgentResponse: collectedResponses.length > 0,
+                responsePreview
+              }),
+              responsePreview,
+              diagnosticsSummary
             )
           );
         }
@@ -116,13 +144,24 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
           clearTimeout(timeoutId);
         }
         socket.close();
+        const responsePreview = buildResponsePreview(collectedResponses.join("\n\n"));
+        const diagnosticsSummary = summarizeConversationDiagnostics(diagnostics, {
+          promptSent,
+          packageCorrectionSent,
+          agentResponseCount,
+          responsePreview
+        });
+        logConversationDiagnostics("hard_stop", diagnosticsSummary);
         reject(
-          new Error(
+          new AgentConversationTimeoutError(
             buildHardStopMessage({
               promptSent,
               packageCorrectionSent,
-              hasAgentResponse: collectedResponses.length > 0
-            })
+              hasAgentResponse: collectedResponses.length > 0,
+              responsePreview
+            }),
+            responsePreview,
+            diagnosticsSummary
           )
         );
       }
@@ -142,6 +181,7 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
     };
 
     const handleOpen = () => {
+      recordConversationEvent(diagnostics, "socket_open");
       socket.send(
         JSON.stringify({
           type: "conversation_initiation_client_data"
@@ -168,6 +208,8 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
         };
 
         if (message.type === "ping" && message.ping_event?.event_id) {
+          diagnostics.pingCount += 1;
+          recordConversationEvent(diagnostics, "ping");
           resetTimeout();
           socket.send(
             JSON.stringify({
@@ -181,6 +223,7 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
         if (message.type === "conversation_initiation_metadata" && !promptSent) {
           resetTimeout();
           promptSent = true;
+          recordConversationEvent(diagnostics, "prompt_sent");
           socket.send(
             JSON.stringify({
               type: "user_message",
@@ -195,10 +238,20 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
           agentResponseCount += 1;
           const responseText = message.agent_response_event.agent_response;
           collectedResponses.push(responseText);
+          recordConversationEvent(diagnostics, "agent_response", responseText);
           const combinedResponse = collectedResponses.join("\n\n");
           const packageStatus = getPackageStatus(combinedResponse);
 
           if (packageStatus === "ready") {
+            logConversationDiagnostics(
+              "completed",
+              summarizeConversationDiagnostics(diagnostics, {
+                promptSent,
+                packageCorrectionSent,
+                agentResponseCount,
+                responsePreview: buildResponsePreview(combinedResponse)
+              })
+            );
             finish(() => {
               socket.close();
               resolve(combinedResponse);
@@ -216,6 +269,8 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
 
           if (shouldCorrect) {
             packageCorrectionSent = true;
+            diagnostics.correctionCount += 1;
+            recordConversationEvent(diagnostics, "correction_sent", combinedResponse);
             socket.send(
               JSON.stringify({
                 type: "user_message",
@@ -235,6 +290,7 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
         ) {
           resetTimeout();
           const correctedResponse = message.agent_response_correction_event.corrected_agent_response;
+          recordConversationEvent(diagnostics, "agent_response_correction", correctedResponse);
 
           if (collectedResponses.length > 0) {
             collectedResponses[collectedResponses.length - 1] = correctedResponse;
@@ -246,6 +302,15 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
           const packageStatus = getPackageStatus(combinedResponse);
 
           if (packageStatus === "ready") {
+            logConversationDiagnostics(
+              "completed",
+              summarizeConversationDiagnostics(diagnostics, {
+                promptSent,
+                packageCorrectionSent,
+                agentResponseCount,
+                responsePreview: buildResponsePreview(combinedResponse)
+              })
+            );
             finish(() => {
               socket.close();
               resolve(combinedResponse);
@@ -259,15 +324,18 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
           resetTimeout();
           const part = message.text_response_part;
           const partText = typeof part.text === "string" ? part.text : "";
+          diagnostics.streamPartCount += 1;
 
           if (part.type === "start") {
             collectedResponses.push(partText);
+            recordConversationEvent(diagnostics, "stream_start", partText);
           } else if (part.type === "delta") {
             if (collectedResponses.length === 0) {
               collectedResponses.push(partText);
             } else {
               collectedResponses[collectedResponses.length - 1] += partText;
             }
+            diagnostics.streamDeltaChars += partText.length;
           } else if (part.type === "stop") {
             if (collectedResponses.length === 0 && partText) {
               collectedResponses.push(partText);
@@ -277,9 +345,19 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
 
             agentResponseCount += 1;
             const combinedResponse = collectedResponses.join("\n\n");
+            recordConversationEvent(diagnostics, "stream_stop", combinedResponse);
             const packageStatus = getPackageStatus(combinedResponse);
 
             if (packageStatus === "ready") {
+              logConversationDiagnostics(
+                "completed",
+                summarizeConversationDiagnostics(diagnostics, {
+                  promptSent,
+                  packageCorrectionSent,
+                  agentResponseCount,
+                  responsePreview: buildResponsePreview(combinedResponse)
+                })
+              );
               finish(() => {
                 socket.close();
                 resolve(combinedResponse);
@@ -297,6 +375,8 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
 
             if (shouldCorrect) {
               packageCorrectionSent = true;
+              diagnostics.correctionCount += 1;
+              recordConversationEvent(diagnostics, "correction_sent", combinedResponse);
               socket.send(
                 JSON.stringify({
                   type: "user_message",
@@ -313,6 +393,15 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
           return;
         }
       } catch (error) {
+        logConversationDiagnostics(
+          "parse_error",
+          summarizeConversationDiagnostics(diagnostics, {
+            promptSent,
+            packageCorrectionSent,
+            agentResponseCount,
+            responsePreview: buildResponsePreview(collectedResponses.join("\n\n"))
+          })
+        );
         finish(() => {
           socket.close();
           reject(
@@ -327,6 +416,16 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
         error instanceof Error && error.message
           ? error.message
           : "Unable to connect to the school's writing agent right now.";
+      logConversationDiagnostics(
+        "socket_error",
+        summarizeConversationDiagnostics(diagnostics, {
+          promptSent,
+          packageCorrectionSent,
+          agentResponseCount,
+          responsePreview: buildResponsePreview(collectedResponses.join("\n\n")),
+          socketError: message
+        })
+      );
 
       finish(() => reject(new Error(normalizeSocketError(message))));
     };
@@ -335,19 +434,28 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
       if (!resolved) {
         const combinedResponse = collectedResponses.join("\n\n");
         const extractedJson = extractJsonBlock(combinedResponse);
+        const diagnosticsSummary = summarizeConversationDiagnostics(diagnostics, {
+          promptSent,
+          packageCorrectionSent,
+          agentResponseCount,
+          responsePreview: buildResponsePreview(combinedResponse)
+        });
 
         if (extractedJson) {
+          logConversationDiagnostics("closed_with_json", diagnosticsSummary);
           finish(() => resolve(combinedResponse));
           return;
         }
 
+        logConversationDiagnostics("closed_without_package", diagnosticsSummary);
         finish(() =>
           reject(
             new AgentResponseFormatError(
               combinedResponse
                 ? "The school's writing agent replied, but it did not return the required newsletter package."
                 : "The school's writing agent closed the conversation too early.",
-              buildResponsePreview(combinedResponse)
+              buildResponsePreview(combinedResponse),
+              diagnosticsSummary
             )
           )
         );
@@ -364,14 +472,19 @@ async function sendPromptOverConversation(signedUrl: string, prompt: string) {
 function buildHardStopMessage({
   promptSent,
   packageCorrectionSent,
-  hasAgentResponse
+  hasAgentResponse,
+  responsePreview
 }: {
   promptSent: boolean;
   packageCorrectionSent: boolean;
   hasAgentResponse: boolean;
+  responsePreview: string;
 }) {
   if (hasAgentResponse) {
-    return "The school's writing agent stayed active, but it still did not finish the newsletter package in the allowed time.";
+    return withResponsePreview(
+      "The school's writing agent stayed active, but it still did not finish the newsletter package in the allowed time.",
+      responsePreview
+    );
   }
 
   if (packageCorrectionSent) {
@@ -388,14 +501,19 @@ function buildHardStopMessage({
 function buildTimeoutMessage({
   promptSent,
   packageCorrectionSent,
-  hasAgentResponse
+  hasAgentResponse,
+  responsePreview
 }: {
   promptSent: boolean;
   packageCorrectionSent: boolean;
   hasAgentResponse: boolean;
+  responsePreview: string;
 }) {
   if (hasAgentResponse) {
-    return "The school's writing agent started responding, but it did not finish the newsletter package in time.";
+    return withResponsePreview(
+      "The school's writing agent started responding, but it did not finish the newsletter package in time.",
+      responsePreview
+    );
   }
 
   if (packageCorrectionSent) {
@@ -620,4 +738,80 @@ function shouldSendPackageCorrection({
 
 function buildResponsePreview(raw: string) {
   return raw.replace(/\s+/g, " ").trim().slice(0, 220);
+}
+
+function withResponsePreview(message: string, responsePreview: string) {
+  return responsePreview ? `${message} Agent reply preview: "${responsePreview}"` : message;
+}
+
+type ConversationDiagnostics = {
+  startedAt: number;
+  pingCount: number;
+  correctionCount: number;
+  streamPartCount: number;
+  streamDeltaChars: number;
+  events: string[];
+};
+
+function createConversationDiagnostics(): ConversationDiagnostics {
+  return {
+    startedAt: Date.now(),
+    pingCount: 0,
+    correctionCount: 0,
+    streamPartCount: 0,
+    streamDeltaChars: 0,
+    events: []
+  };
+}
+
+function recordConversationEvent(
+  diagnostics: ConversationDiagnostics,
+  event: string,
+  detail?: string
+) {
+  const timestampMs = Date.now() - diagnostics.startedAt;
+  const summary = detail ? `${event}:${buildResponsePreview(detail)}` : event;
+  diagnostics.events.push(`${timestampMs}ms ${summary}`);
+
+  if (diagnostics.events.length > 16) {
+    diagnostics.events.shift();
+  }
+}
+
+function summarizeConversationDiagnostics(
+  diagnostics: ConversationDiagnostics,
+  extra: {
+    promptSent: boolean;
+    packageCorrectionSent: boolean;
+    agentResponseCount: number;
+    responsePreview: string;
+    socketError?: string;
+  }
+) {
+  const durationMs = Date.now() - diagnostics.startedAt;
+
+  return JSON.stringify({
+    durationMs,
+    promptSent: extra.promptSent,
+    packageCorrectionSent: extra.packageCorrectionSent,
+    agentResponseCount: extra.agentResponseCount,
+    pingCount: diagnostics.pingCount,
+    correctionCount: diagnostics.correctionCount,
+    streamPartCount: diagnostics.streamPartCount,
+    streamDeltaChars: diagnostics.streamDeltaChars,
+    responsePreview: extra.responsePreview,
+    socketError: extra.socketError,
+    events: diagnostics.events
+  });
+}
+
+function logConversationDiagnostics(scope: string, diagnosticsSummary: string) {
+  console.info(
+    JSON.stringify({
+      level: "info",
+      scope: "elevenlabs-newsletter-conversation",
+      event: scope,
+      diagnostics: diagnosticsSummary
+    })
+  );
 }

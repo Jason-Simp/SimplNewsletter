@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 
+import { AgentConversationTimeoutError, AgentResponseFormatError } from "@/lib/elevenlabs-generate";
 import { applyGeneratedDraftToDocument } from "@/lib/generated-newsletter-draft";
 import { generateNewsletterPackage } from "@/lib/newsletter-generation-service";
 import { saveNewsletter } from "@/lib/newsletter-repository";
@@ -260,7 +261,11 @@ async function runNewsletterGenerationJob(jobId: string, options?: NewsletterGen
     if (failedJob) {
       await sendJobCallback(failedJob);
       logJobEvent("failed", failedJob, {
-        error: error instanceof Error ? error.message : "Unknown error"
+        error: error instanceof Error ? error.message : "Unknown error",
+        diagnostics:
+          error instanceof AgentResponseFormatError || error instanceof AgentConversationTimeoutError
+            ? error.diagnosticsSummary
+            : undefined
       });
     }
   }

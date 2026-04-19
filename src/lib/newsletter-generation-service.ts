@@ -1,5 +1,6 @@
 import { ApiRouteError } from "@/lib/api-route";
 import {
+  AgentConversationTimeoutError,
   AgentResponseFormatError,
   generateNewsletterWithElevenLabs
 } from "@/lib/elevenlabs-generate";
@@ -365,7 +366,10 @@ function normalizeGenerationErrorMessage(error: unknown) {
   }
 
   if (normalized.includes("took too long")) {
-    return "The school's writing agent took too long to respond. Please try again in a moment.";
+    return withAgentPreview(
+      "The school's writing agent took too long to respond. Please try again in a moment.",
+      error
+    );
   }
 
   if (normalized.includes("closed the conversation too early")) {
@@ -398,7 +402,10 @@ function normalizeGenerationErrorMessage(error: unknown) {
 }
 
 function withAgentPreview(message: string, error: unknown) {
-  if (error instanceof AgentResponseFormatError && error.responsePreview) {
+  if (
+    (error instanceof AgentResponseFormatError || error instanceof AgentConversationTimeoutError) &&
+    error.responsePreview
+  ) {
     return `${message} Agent reply preview: "${error.responsePreview}"`;
   }
 
