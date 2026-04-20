@@ -4,9 +4,8 @@ import { ApiRouteError, jsonApiError } from "@/lib/api-route";
 import { createNewsletterGenerationJob } from "@/lib/newsletter-generation-jobs";
 import { getNewsletterById } from "@/lib/newsletter-repository";
 import {
-  assertWebhookSecret,
+  assertWebhookRequestSecurity,
   buildRevisionPrompt,
-  getWebhookSecretFromHeaders,
   normalizeWebhookDraftRequest,
   requireWebhookSchool
 } from "@/lib/webhook-newsletter";
@@ -28,9 +27,9 @@ export async function POST(
     }
 
     const school = await requireWebhookSchool(resolvedSchoolId);
-    assertWebhookSecret(getWebhookSecretFromHeaders(request.headers), school);
-
-    const body = (await request.json()) as Record<string, unknown> & { draftId?: string };
+    const rawBody = await request.text();
+    assertWebhookRequestSecurity({ request, school, rawBody });
+    const body = JSON.parse(rawBody) as Record<string, unknown> & { draftId?: string };
     const draftId = typeof body.draftId === "string" ? body.draftId.trim() : "";
     const normalized = normalizeWebhookDraftRequest(body);
 

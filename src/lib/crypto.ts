@@ -6,6 +6,10 @@ function getKey(secret: string) {
   return createHash("sha256").update(secret).digest();
 }
 
+export function getConfigEncryptionSecret() {
+  return process.env.APP_SECRET_ENCRYPTION_KEY || process.env.VECTOR_PROJECT_SECRET || "";
+}
+
 export function encryptProjectCode(value: string, secret: string) {
   const iv = randomBytes(12);
   const cipher = createCipheriv(ALGORITHM, getKey(secret), iv);
@@ -22,17 +26,37 @@ export function decryptProjectCode(payload: string, secret: string) {
     return payload;
   }
 
-  const decipher = createDecipheriv(
-    ALGORITHM,
-    getKey(secret),
-    Buffer.from(ivText, "base64")
-  );
-  decipher.setAuthTag(Buffer.from(authTagText, "base64"));
+  try {
+    const decipher = createDecipheriv(
+      ALGORITHM,
+      getKey(secret),
+      Buffer.from(ivText, "base64")
+    );
+    decipher.setAuthTag(Buffer.from(authTagText, "base64"));
 
-  const decrypted = Buffer.concat([
-    decipher.update(Buffer.from(encryptedText, "base64")),
-    decipher.final()
-  ]);
+    const decrypted = Buffer.concat([
+      decipher.update(Buffer.from(encryptedText, "base64")),
+      decipher.final()
+    ]);
 
-  return decrypted.toString("utf8");
+    return decrypted.toString("utf8");
+  } catch {
+    return payload;
+  }
+}
+
+export function encryptStoredSecret(value: string, secret: string) {
+  if (!value.trim() || !secret.trim()) {
+    return value;
+  }
+
+  return encryptProjectCode(value, secret);
+}
+
+export function decryptStoredSecret(payload: string, secret: string) {
+  if (!payload.trim() || !secret.trim()) {
+    return payload;
+  }
+
+  return decryptProjectCode(payload, secret);
 }

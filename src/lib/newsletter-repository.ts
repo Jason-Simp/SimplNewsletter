@@ -1,5 +1,11 @@
 import { schoolAmplifiedBrand } from "@/lib/brand";
-import { decryptProjectCode, encryptProjectCode } from "@/lib/crypto";
+import {
+  decryptProjectCode,
+  decryptStoredSecret,
+  encryptProjectCode,
+  encryptStoredSecret,
+  getConfigEncryptionSecret
+} from "@/lib/crypto";
 import { defaultDistributionOptions, mediaConstraints } from "@/lib/product-config";
 import { sampleNewsletter } from "@/lib/sample-data";
 import { getServiceSupabase } from "@/lib/supabase/server";
@@ -72,6 +78,7 @@ function toDocument(
   distributionRows: DistributionRow[]
 ): NewsletterDocument {
   const secret = process.env.VECTOR_PROJECT_SECRET;
+  const configSecret = getConfigEncryptionSecret();
   const selectedMap = new Map(distributionRows.map((row) => [row.channel, row]));
 
   return {
@@ -112,7 +119,10 @@ function toDocument(
       knowledgeProvider: school.vector_provider,
       syncProvider: school.agent_id ? "elevenlabs" : "none",
       assistantReference: school.agent_id ?? "",
-      integrationEndpoint: school.agent_api ?? "",
+      integrationEndpoint:
+        school.agent_api && configSecret
+          ? decryptStoredSecret(school.agent_api, configSecret)
+          : school.agent_api ?? "",
       encryptedKnowledgeRef:
         school.encrypted_project_code && secret
           ? decryptProjectCode(school.encrypted_project_code, secret)
@@ -210,6 +220,7 @@ export async function saveNewsletter(
   }
 
   const secret = process.env.VECTOR_PROJECT_SECRET;
+  const configSecret = getConfigEncryptionSecret();
 
   const schoolPayload = {
     id: document.workspace.schoolId,
@@ -229,7 +240,10 @@ export async function saveNewsletter(
     muted_text_color: document.organization.colors.muted,
     publish_mode: document.workspace.publishMode,
     agent_id: document.workspace.assistantReference ?? null,
-    agent_api: document.workspace.integrationEndpoint ?? null,
+    agent_api:
+      document.workspace.integrationEndpoint && configSecret
+        ? encryptStoredSecret(document.workspace.integrationEndpoint, configSecret)
+        : document.workspace.integrationEndpoint ?? null,
     archive_days: document.workspace.archiveDays,
     users_managed_by_school: document.workspace.usersManagedBySchool,
     vector_provider: normalizeVectorProvider(document.workspace.knowledgeProvider),

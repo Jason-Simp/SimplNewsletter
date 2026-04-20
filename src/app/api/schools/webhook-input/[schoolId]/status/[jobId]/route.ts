@@ -3,8 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ApiRouteError, jsonApiError } from "@/lib/api-route";
 import { getNewsletterGenerationJob } from "@/lib/newsletter-generation-jobs";
 import {
-  assertWebhookSecret,
-  getWebhookSecretFromHeaders,
+  assertWebhookRequestSecurity,
   requireWebhookSchool
 } from "@/lib/webhook-newsletter";
 
@@ -29,7 +28,7 @@ export async function GET(
     }
 
     const school = await requireWebhookSchool(resolvedSchoolId);
-    assertWebhookSecret(getWebhookSecretFromHeaders(request.headers), school);
+    assertWebhookRequestSecurity({ request, school });
 
     const job = await getNewsletterGenerationJob(resolvedJobId, {
       resumeIfPending: true

@@ -1,3 +1,6 @@
+import { createHmac, timingSafeEqual } from "crypto";
+
+import { ApiRouteError } from "@/lib/api-route";
 import { defaultDistributionOptions, mediaConstraints } from "@/lib/product-config";
 import { sampleNewsletter } from "@/lib/sample-data";
 import { getSchoolById } from "@/lib/school-repository";
@@ -14,6 +17,12 @@ export type WebhookDraftRequest = {
   callbackUrl?: string;
   externalThreadId?: string;
 };
+
+const WEBHOOK_MAX_SKEW_MS = 1000 * 60 * 5;
+const WEBHOOK_RATE_LIMIT_WINDOW_MS = 1000 * 60 * 5;
+const WEBHOOK_RATE_LIMIT_MAX_REQUESTS = 60;
+const webhookRequestLog = new Map<string, number[]>();
+const webhookReplayCache = new Map<string, number>();
 
 export function createFreshDraftForSchool(school: SchoolProfile): NewsletterDocument {
   const base = structuredClone(sampleNewsletter) as NewsletterDocument;
@@ -120,12 +129,26 @@ export function assertWebhookSecret(providedSecret: string, school: SchoolProfil
   const expectedSecret = school.webhookSecret.trim();
 
   if (!expectedSecret) {
-    throw new Error("This school's inbound webhook is not ready yet. Save a webhook secret on the school profile first.");
+    throw new ApiRouteError(400, "This school's inbound webhook is not ready yet. Save a webhook secret on the school profile first.");
   }
 
-  if (!providedSecret || providedSecret !== expectedSecret) {
-    throw new Error("Webhook secret is missing or invalid.");
+  if (!providedSecret || !safeCompareSecrets(providedSecret, expectedSecret)) {
+    throw new ApiRouteError(401, "Webhook secret is missing or invalid.");
   }
+}
+
+export function assertWebhookRequestSecurity({
+  request,
+  school,
+  rawBody = ""
+}: {
+  request: Request;
+  school: SchoolProfile;
+  rawBody?: string;
+}) {
+  assertWebhookRateLimit(request, school.id);
+  assertWebhookSecret(getWebhookSecretFromHeaders(request.headers), school);
+  assertWebhookSignatureIfPresent(request, school, rawBody);
 }
 
 export function normalizeWebhookDraftRequest(body: Partial<WebhookDraftRequest> & Record<string, unknown>) {
@@ -149,6 +172,91 @@ export function normalizeWebhookDraftRequest(body: Partial<WebhookDraftRequest> 
     callbackUrl: typeof body.callbackUrl === "string" ? body.callbackUrl.trim() : "",
     externalThreadId: typeof body.externalThreadId === "string" ? body.externalThreadId.trim() : ""
   };
+}
+
+function assertWebhookRateLimit(request: Request, schoolId: string) {
+  const now = Date.now();
+  const ip = getWebhookClientIp(request.headers);
+  const key = `${schoolId}:${ip}`;
+  const recentRequests = (webhookRequestLog.get(key) ?? []).filter(
+    (timestamp) => now - timestamp < WEBHOOK_RATE_LIMIT_WINDOW_MS
+  );
+
+  if (recentRequests.length >= WEBHOOK_RATE_LIMIT_MAX_REQUESTS) {
+    throw new ApiRouteError(429, "Webhook request limit reached. Please slow down and try again shortly.");
+  }
+
+  recentRequests.push(now);
+  webhookRequestLog.set(key, recentRequests);
+}
+
+function assertWebhookSignatureIfPresent(request: Request, school: SchoolProfile, rawBody: string) {
+  const timestamp = request.headers.get("x-the-wire-timestamp")?.trim() ?? "";
+  const signature = request.headers.get("x-the-wire-signature")?.trim() ?? "";
+
+  if (!timestamp && !signature) {
+    return;
+  }
+
+  if (!timestamp || !signature) {
+    throw new ApiRouteError(401, "Webhook signature headers are incomplete.");
+  }
+
+  const parsedTimestamp = Number.parseInt(timestamp, 10);
+
+  if (!Number.isFinite(parsedTimestamp)) {
+    throw new ApiRouteError(401, "Webhook timestamp is invalid.");
+  }
+
+  const now = Date.now();
+
+  if (Math.abs(now - parsedTimestamp) > WEBHOOK_MAX_SKEW_MS) {
+    throw new ApiRouteError(401, "Webhook timestamp is outside the allowed window.");
+  }
+
+  const replayKey = `${school.id}:${timestamp}:${signature}`;
+  const replayExpiry = webhookReplayCache.get(replayKey);
+
+  if (replayExpiry && replayExpiry > now) {
+    throw new ApiRouteError(409, "Webhook request was already processed.");
+  }
+
+  const expectedSignature = createHmac("sha256", school.webhookSecret.trim())
+    .update([timestamp, request.method.toUpperCase(), new URL(request.url).pathname, rawBody].join("."))
+    .digest("hex");
+
+  if (!safeCompareSecrets(signature, expectedSignature)) {
+    throw new ApiRouteError(401, "Webhook signature is invalid.");
+  }
+
+  webhookReplayCache.set(replayKey, now + WEBHOOK_MAX_SKEW_MS);
+  pruneReplayCache(now);
+}
+
+function safeCompareSecrets(left: string, right: string) {
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+
+  if (leftBuffer.length !== rightBuffer.length) {
+    return false;
+  }
+
+  return timingSafeEqual(leftBuffer, rightBuffer);
+}
+
+function getWebhookClientIp(headers: Headers) {
+  const forwardedFor = headers.get("x-forwarded-for") ?? "";
+  const realIp = headers.get("x-real-ip") ?? "";
+
+  return forwardedFor.split(",")[0]?.trim() || realIp.trim() || "unknown";
+}
+
+function pruneReplayCache(now: number) {
+  for (const [key, expiry] of webhookReplayCache.entries()) {
+    if (expiry <= now) {
+      webhookReplayCache.delete(key);
+    }
+  }
 }
 
 export function buildCreatePrompt(notes: string) {

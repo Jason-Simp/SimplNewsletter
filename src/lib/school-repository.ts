@@ -1,5 +1,11 @@
 import { schoolAmplifiedBrand } from "@/lib/brand";
-import { decryptProjectCode, encryptProjectCode } from "@/lib/crypto";
+import {
+  decryptProjectCode,
+  decryptStoredSecret,
+  encryptProjectCode,
+  encryptStoredSecret,
+  getConfigEncryptionSecret
+} from "@/lib/crypto";
 import { getServiceSupabase } from "@/lib/supabase/server";
 import type { SchoolProfile } from "@/types/school";
 import type { SupportModule, SupportModuleGraphic, SupportModuleTone } from "@/types/support-module";
@@ -50,6 +56,7 @@ export async function listSchools() {
   }
 
   const secret = process.env.VECTOR_PROJECT_SECRET;
+  const configSecret = getConfigEncryptionSecret();
 
   return data.map((school) => ({
     id: school.id,
@@ -70,13 +77,19 @@ export async function listSchools() {
     knowledgeProvider: school.vector_provider,
     syncProvider: (school.agent_id ? "elevenlabs" : "none"),
     assistantReference: school.agent_id ?? "",
-    integrationEndpoint: school.agent_api ?? "",
+    integrationEndpoint:
+      school.agent_api && configSecret
+        ? decryptStoredSecret(school.agent_api, configSecret)
+        : school.agent_api ?? "",
     encryptedKnowledgeRef:
       school.encrypted_project_code && secret
         ? decryptProjectCode(school.encrypted_project_code, secret)
         : school.encrypted_project_code ?? "",
     webhookUrl: school.webhook_url ?? "",
-    webhookSecret: school.webhook_secret ?? "",
+    webhookSecret:
+      school.webhook_secret && configSecret
+        ? decryptStoredSecret(school.webhook_secret, configSecret)
+        : school.webhook_secret ?? "",
     supportModules: normalizeSupportModules(school.support_modules)
   })) as SchoolProfile[];
 }
@@ -95,6 +108,7 @@ export async function getSchoolById(schoolId: string) {
   }
 
   const secret = process.env.VECTOR_PROJECT_SECRET;
+  const configSecret = getConfigEncryptionSecret();
 
   return {
     id: data.id,
@@ -115,13 +129,19 @@ export async function getSchoolById(schoolId: string) {
     knowledgeProvider: data.vector_provider,
     syncProvider: data.agent_id ? "elevenlabs" : "none",
     assistantReference: data.agent_id ?? "",
-    integrationEndpoint: data.agent_api ?? "",
+    integrationEndpoint:
+      data.agent_api && configSecret
+        ? decryptStoredSecret(data.agent_api, configSecret)
+        : data.agent_api ?? "",
     encryptedKnowledgeRef:
       data.encrypted_project_code && secret
         ? decryptProjectCode(data.encrypted_project_code, secret)
         : data.encrypted_project_code ?? "",
     webhookUrl: data.webhook_url ?? "",
-    webhookSecret: data.webhook_secret ?? "",
+    webhookSecret:
+      data.webhook_secret && configSecret
+        ? decryptStoredSecret(data.webhook_secret, configSecret)
+        : data.webhook_secret ?? "",
     supportModules: normalizeSupportModules(data.support_modules)
   } satisfies SchoolProfile;
 }
@@ -134,6 +154,7 @@ export async function saveSchool(profile: SchoolProfile) {
   }
 
   const secret = process.env.VECTOR_PROJECT_SECRET;
+  const configSecret = getConfigEncryptionSecret();
   const basePayload = {
     id: profile.id.startsWith("demo-") ? undefined : profile.id,
     name: profile.name,
@@ -150,9 +171,15 @@ export async function saveSchool(profile: SchoolProfile) {
     text_color: profile.textColor,
     publish_mode: profile.publishMode,
     agent_id: profile.assistantReference,
-    agent_api: profile.integrationEndpoint,
+    agent_api:
+      profile.integrationEndpoint && configSecret
+        ? encryptStoredSecret(profile.integrationEndpoint, configSecret)
+        : profile.integrationEndpoint,
     webhook_url: profile.webhookUrl,
-    webhook_secret: profile.webhookSecret,
+    webhook_secret:
+      profile.webhookSecret && configSecret
+        ? encryptStoredSecret(profile.webhookSecret, configSecret)
+        : profile.webhookSecret,
     support_modules: profile.supportModules,
     vector_provider: normalizeVectorProvider(profile.knowledgeProvider),
     encrypted_project_code:
