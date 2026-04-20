@@ -205,18 +205,18 @@ export function selectImageAssignments(
     spotlight,
     eventItems: Array.isArray(events?.content?.items) ? events.content.items : []
   });
+  const plannedAssignments = assignPlannedStoryImages({
+    plannedStories,
+    assets: imageAssets,
+    usedNames,
+    topStory,
+    newsGridItems: Array.isArray(newsGrid?.content?.items) ? newsGrid.content.items : [],
+    spotlight,
+    eventItems: Array.isArray(events?.content?.items) ? events.content.items : []
+  });
 
   const topStoryImage =
-    choosePlannedImageForText(
-      [
-        topStory?.title,
-        typeof topStory?.content?.headline === "string" ? topStory.content.headline : "",
-        typeof topStory?.content?.summary === "string" ? topStory.content.summary : ""
-      ],
-      plannedStories,
-      imageAssets,
-      usedNames
-    ) ||
+    plannedAssignments.topStoryImage ||
     orderedAssignments.topStoryImage ||
     chooseImageForText(
     [
@@ -239,16 +239,7 @@ export function selectImageAssignments(
   );
 
   const spotlightImage =
-    choosePlannedImageForText(
-      [
-        spotlight?.title,
-        typeof spotlight?.content?.name === "string" ? spotlight.content.name : "",
-        typeof spotlight?.content?.summary === "string" ? spotlight.content.summary : ""
-      ],
-      plannedStories,
-      imageAssets,
-      usedNames
-    ) ||
+    plannedAssignments.spotlightImage ||
     orderedAssignments.spotlightImage ||
     chooseImageForText(
     [
@@ -272,16 +263,7 @@ export function selectImageAssignments(
 
   const newsItemImages = Array.isArray(newsGrid?.content?.items)
     ? newsGrid.content.items.map((item, index) =>
-        choosePlannedImageForText(
-          [
-            typeof item?.headline === "string" ? item.headline : "",
-            typeof item?.summary === "string" ? item.summary : "",
-            typeof item?.tag === "string" ? item.tag : ""
-          ],
-          plannedStories,
-          imageAssets,
-          usedNames
-        ) ||
+        plannedAssignments.newsItemImages[index] ||
         orderedAssignments.newsItemImages[index] ||
         chooseImageForText(
           [
@@ -307,16 +289,7 @@ export function selectImageAssignments(
 
   const eventItemImages = Array.isArray(events?.content?.items)
     ? events.content.items.map((item, index) =>
-        choosePlannedImageForText(
-          [
-            typeof item?.title === "string" ? item.title : "",
-            typeof item?.summary === "string" ? item.summary : "",
-            typeof item?.date === "string" ? item.date : ""
-          ],
-          plannedStories,
-          imageAssets,
-          usedNames
-        ) ||
+        plannedAssignments.eventItemImages[index] ||
         orderedAssignments.eventItemImages[index] ||
         chooseImageForText(
           [
@@ -374,54 +347,6 @@ export function selectImageAssignments(
     eventItemImages,
     galleryImages
   };
-}
-
-function choosePlannedImageForText(
-  textParts: Array<string | undefined>,
-  plannedStories: PlannedStoryNote[],
-  assets: UploadedAsset[],
-  usedNames: Set<string>
-) {
-  if (!plannedStories.length) {
-    return "";
-  }
-
-  const textTokens = tokenizeForMatching(textParts.filter(Boolean).join(" "));
-
-  if (!textTokens.length) {
-    return "";
-  }
-
-  let bestMatch: UploadedAsset | null = null;
-  let bestScore = 0;
-
-  for (const story of plannedStories) {
-    if (!story.imageName.trim()) {
-      continue;
-    }
-
-    const asset = findAssetByName(story.imageName, assets);
-
-    if (!asset || usedNames.has(asset.name)) {
-      continue;
-    }
-
-    const candidateTokens = tokenizeForMatching(story.notes);
-    const overlap = candidateTokens.filter((token) => hasTokenMatch(token, textTokens)).length;
-    const score = overlap * 10 + (containsOrderedTokenRun(candidateTokens, textTokens) ? 5 : 0);
-
-    if (score > bestScore) {
-      bestScore = score;
-      bestMatch = asset;
-    }
-  }
-
-  if (!bestMatch || bestScore < 10) {
-    return "";
-  }
-
-  usedNames.add(bestMatch.name);
-  return bestMatch.url ?? "";
 }
 
 function assignOrderedDirectiveImages({
@@ -503,6 +428,84 @@ function assignOrderedDirectiveImages({
       usedNames.add(asset.name);
     }
   }
+
+  return {
+    topStoryImage,
+    spotlightImage,
+    newsItemImages,
+    eventItemImages
+  };
+}
+
+function assignPlannedStoryImages({
+  plannedStories,
+  assets,
+  usedNames,
+  topStory,
+  newsGridItems,
+  spotlight,
+  eventItems
+}: {
+  plannedStories: PlannedStoryNote[];
+  assets: UploadedAsset[];
+  usedNames: Set<string>;
+  topStory: GeneratedSection | undefined;
+  newsGridItems: Array<Record<string, unknown>>;
+  spotlight: GeneratedSection | undefined;
+  eventItems: Array<Record<string, unknown>>;
+}) {
+  let topStoryImage = "";
+  let spotlightImage = "";
+  const newsItemImages = newsGridItems.map(() => "");
+  const eventItemImages = eventItems.map(() => "");
+
+  const orderedTargets: Array<
+    | { kind: "top_story" }
+    | { kind: "news_grid"; index: number }
+    | { kind: "student_spotlight" }
+    | { kind: "arts_events"; index: number }
+  > = [];
+
+  if (topStory) {
+    orderedTargets.push({ kind: "top_story" });
+  }
+
+  newsGridItems.forEach((_, index) => {
+    orderedTargets.push({ kind: "news_grid", index });
+  });
+
+  if (spotlight) {
+    orderedTargets.push({ kind: "student_spotlight" });
+  }
+
+  eventItems.forEach((_, index) => {
+    orderedTargets.push({ kind: "arts_events", index });
+  });
+
+  plannedStories.forEach((story, index) => {
+    if (!story.imageName.trim()) {
+      return;
+    }
+
+    const asset = findAssetByName(story.imageName, assets);
+    const target = orderedTargets[index];
+
+    if (!asset || !asset.url || !target || usedNames.has(asset.name)) {
+      return;
+    }
+
+    if (target.kind === "top_story") {
+      topStoryImage = asset.url;
+    } else if (target.kind === "student_spotlight") {
+      spotlightImage = asset.url;
+    } else if (target.kind === "news_grid") {
+      newsItemImages[target.index] = asset.url;
+    } else if (target.kind === "arts_events") {
+      eventItemImages[target.index] = asset.url;
+    }
+
+    usedNames.add(asset.name);
+  });
 
   return {
     topStoryImage,

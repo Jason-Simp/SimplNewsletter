@@ -1059,6 +1059,8 @@ export function IssueWizard() {
                   />
                 </label>
 
+                <MediaUploadPanel assets={uploadedAssets} document={document} onAssetsChange={setUploadedAssets} />
+
                 <StoryPlannerPanel
                   assets={uploadedAssets}
                   onAddStory={addStoryInput}
@@ -1070,12 +1072,10 @@ export function IssueWizard() {
                 <div className="rounded-[24px] border border-slate-200 bg-white p-4">
                   <div className="text-sm font-semibold text-brand-text">Best results usually include</div>
                   <div className="mt-2 text-sm leading-6 text-brand-muted">
-                    One update per story row, dates and deadlines when they matter, and the exact image for a
-                    story if you already know it.
+                    Upload the photos first, then connect each one to the right story below. Keep one update per row,
+                    and include dates or deadlines inside the story that needs them.
                   </div>
                 </div>
-
-                <MediaUploadPanel assets={uploadedAssets} document={document} onAssetsChange={setUploadedAssets} />
 
                 {generationPhase === "idle" && generationState === "idle" ? (
                   <div className="rounded-[24px] bg-[#EAF2FB] p-4 text-sm leading-6 text-brand-muted">
@@ -1630,8 +1630,8 @@ function StoryPlannerPanel({
         <div>
           <div className="text-sm font-semibold text-brand-text">Story planner</div>
           <div className="mt-1 text-sm leading-6 text-brand-muted">
-            Add the issue one story at a time. Story A, Story B, and Story C are easier for people and much
-            easier for the system to map cleanly.
+            Upload your photos first, then tell the system which story each photo belongs to here. Story A,
+            Story B, and Story C are easier for people and much easier for the system to map cleanly.
           </div>
         </div>
         <button

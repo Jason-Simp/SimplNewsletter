@@ -72,18 +72,20 @@ export async function generateNewsletterPackage(
       allowedSectionTypes: payload.sectionTypes
     });
 
-    const expectedMinimumStoryUnits = sectionRewrite ? 1 : getExpectedMinimumStoryUnits(payload);
+    const expectedStoryRange = sectionRewrite ? { minimum: 1, maximum: null as number | null } : getExpectedStoryRange(payload);
     const generatedStoryUnits = countGeneratedStoryUnits(firstValidated);
     const missingStoryTopics = sectionRewrite ? [] : findMissingStoryTopics(payload, firstValidated);
+    const hasTooManyStoryUnits =
+      !sectionRewrite && expectedStoryRange.maximum !== null && generatedStoryUnits > expectedStoryRange.maximum;
 
-    if (!missingStoryTopics.length && generatedStoryUnits >= expectedMinimumStoryUnits) {
+    if (!missingStoryTopics.length && generatedStoryUnits >= expectedStoryRange.minimum && !hasTooManyStoryUnits) {
       return firstValidated;
     }
 
     const repairPrompt = buildCoverageRepairPrompt(
       generationPrompt,
       missingStoryTopics,
-      expectedMinimumStoryUnits,
+      expectedStoryRange,
       generatedStoryUnits
     );
     const repairedResult = await requestNewsletterPackage({
@@ -103,10 +105,13 @@ export async function generateNewsletterPackage(
       allowedSectionTypes: payload.sectionTypes
     });
 
-    if (!sectionRewrite && countGeneratedStoryUnits(repairedValidated) < expectedMinimumStoryUnits) {
+    if (
+      !sectionRewrite &&
+      !isStoryUnitCountWithinRange(countGeneratedStoryUnits(repairedValidated), expectedStoryRange)
+    ) {
       throw new ApiRouteError(
         422,
-        "The school's writing agent returned too few story sections for this request. Please try again or adjust the newsletter notes so each update is clearly separated.",
+        "The school's writing agent returned the wrong number of story sections for this request. Please try again or adjust the newsletter notes so each update is clearly separated.",
         { exposeMessage: true }
       );
     }
@@ -186,21 +191,26 @@ function findMissingStoryTopics(
 function buildCoverageRepairPrompt(
   basePrompt: string,
   missingTopics: string[],
-  expectedMinimumStoryUnits: number,
+  expectedStoryRange: { minimum: number; maximum: number | null },
   generatedStoryUnits: number
 ) {
+  const countInstruction =
+    expectedStoryRange.maximum !== null
+      ? `The previous newsletter draft surfaced ${generatedStoryUnits} distinct story unit${generatedStoryUnits === 1 ? "" : "s"}. This request should produce exactly ${expectedStoryRange.maximum}.`
+      : `The previous newsletter draft surfaced ${generatedStoryUnits} distinct story unit${generatedStoryUnits === 1 ? "" : "s"}. This request should produce at least ${expectedStoryRange.minimum}.`;
+
   return [
     basePrompt,
     "",
     "[THE_WIRE_COVERAGE_REPAIR]",
-    `The previous newsletter draft only surfaced ${generatedStoryUnits} distinct story unit${generatedStoryUnits === 1 ? "" : "s"}. This request should produce at least ${expectedMinimumStoryUnits}.`,
+    countInstruction,
     ...(missingTopics.length
       ? [
           "It also missed these likely story topics or image-driven updates:",
           ...missingTopics.map((topic) => `- ${topic}`)
         ]
-      : ["Expand the draft so it includes the distinct updates from the notes as separate story blocks."]),
-    "Return a corrected full newsletter package that keeps those updates visible as their own stories or spotlight items when they are supported by the notes and image hints.",
+      : ["Return to the planned stories in the notes and keep the output constrained to those real updates."]),
+    "Return a corrected full newsletter package that keeps those updates visible as their own stories without adding duplicate or extra story wrappers.",
     "Do not explain the correction. Return only the corrected JSON package.",
     "[/THE_WIRE_COVERAGE_REPAIR]"
   ].join("\n");
@@ -238,7 +248,16 @@ function extractImageCandidates(imageHints: string[]) {
     .filter((candidate) => candidate.tokens.length >= 2);
 }
 
-function getExpectedMinimumStoryUnits(payload: ContentGenerateRequest) {
+function getExpectedStoryRange(payload: ContentGenerateRequest) {
+  const explicitStoryCount = extractStructuredStoryCount(payload.notes ?? payload.prompt);
+
+  if (explicitStoryCount > 0) {
+    return {
+      minimum: explicitStoryCount,
+      maximum: explicitStoryCount
+    };
+  }
+
   const noteCandidates = extractNoteCandidates(payload.notes ?? payload.prompt);
   const imageCandidates = extractImageCandidates(payload.imageHints ?? []);
   const uniqueLabels = new Set(
@@ -246,14 +265,33 @@ function getExpectedMinimumStoryUnits(payload: ContentGenerateRequest) {
   );
 
   if (uniqueLabels.size >= 3) {
-    return 3;
+    return { minimum: 3, maximum: null };
   }
 
   if (uniqueLabels.size >= 2) {
-    return 2;
+    return { minimum: 2, maximum: null };
   }
 
-  return 1;
+  return { minimum: 1, maximum: null };
+}
+
+function extractStructuredStoryCount(source: string) {
+  return [...source.matchAll(/Story\s+[A-Z]:\s*\nNotes:/g)].length;
+}
+
+function isStoryUnitCountWithinRange(
+  generatedStoryUnits: number,
+  expectedStoryRange: { minimum: number; maximum: number | null }
+) {
+  if (generatedStoryUnits < expectedStoryRange.minimum) {
+    return false;
+  }
+
+  if (expectedStoryRange.maximum !== null && generatedStoryUnits > expectedStoryRange.maximum) {
+    return false;
+  }
+
+  return true;
 }
 
 function countGeneratedStoryUnits(generated: ReturnType<typeof validateGeneratedNewsletterPackage>) {

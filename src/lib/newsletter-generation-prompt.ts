@@ -299,6 +299,10 @@ function buildSectionSelectionBlock(requestedSectionTypes: string[]) {
     : "Choose the sections that are genuinely needed for this issue.";
 }
 
+function extractStructuredStoryCount(source: string) {
+  return [...source.matchAll(/Story\s+[A-Z]:\s*\nNotes:/g)].length;
+}
+
 export function getNewsletterWritingBehaviorPrompt() {
   return WRITING_MODULE_BRIEF;
 }
@@ -460,6 +464,7 @@ export function buildNewsletterGenerationPrompt(request: ContentGenerateRequest)
   const userRequest = request.notes?.trim() || request.prompt.trim();
   const requestedSectionTypes = request.sectionTypes?.filter(Boolean) ?? [];
   const sectionMode = buildSectionSelectionBlock(requestedSectionTypes);
+  const structuredStoryCount = extractStructuredStoryCount(userRequest);
   const linksBlock =
     request.links && request.links.length > 0
       ? `\nSource links to consider:\n${request.links.map((link) => `- ${link}`).join("\n")}`
@@ -494,6 +499,14 @@ Important builder rules:
 - Do not drop a distinct update just because another story feels stronger. If a real person, celebration, policy change, event, or operational item is present in the notes, keep it visible somewhere in the package.
 - Write with enough substance that the main story feels complete and secondary story cards feel useful, not clipped or placeholder-short.
 - When uploaded image hints clearly map to a topic, person, event, or announcement, keep that topic visible as its own story so the builder can pair the right image with it.
+- Keep the story order from the notes unless there is a very strong editorial reason not to.
+- Do not create extra story sections beyond the distinct story rows already present in the notes.
+- For this two-column template, prefer:
+  - first story -> top_story
+  - remaining stories -> news_grid items in the same order
+  - student_spotlight only when a person-centered recognition story clearly deserves that treatment and is not duplicated elsewhere
+  - calendar_snapshot only for real date-based items
+${structuredStoryCount > 0 ? `- The request contains ${structuredStoryCount} planned story row${structuredStoryCount === 1 ? "" : "s"}. Return that same number of distinct story units, not more.` : ""}
 [/THE_WIRE_NEWSLETTER_TASK]
 `.trim();
 }

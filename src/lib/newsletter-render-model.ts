@@ -8,8 +8,6 @@ type HeroContent = {
   heroImage: string;
   galleryImages?: string[];
 };
-
-type PrincipalContent = { quote: string; author: string };
 type TopStoryContent = { headline: string; summary: string; url: string; image: string };
 type NewsGridContent = {
   items: { id: string; headline: string; summary: string; tag?: string; image?: string }[];
@@ -22,9 +20,7 @@ type SpotlightContent = { name: string; role: string; summary: string; image: st
 type EventsContent = {
   items: { id: string; date: string; title: string; summary: string; image?: string }[];
 };
-type ClubsContent = { items: string[] };
 type CalendarContent = { items: { date: string; detail: string }[] };
-type QuickLinksContent = { items: { id: string; label: string; url: string }[] };
 
 export type TwoColumnStoryRow = {
   id: string;
@@ -71,9 +67,6 @@ export function buildTwoColumnRenderModel(document: NewsletterDocument): TwoColu
   const spotlight = getSection<SpotlightContent>(document.sections, "student_spotlight");
   const academics = getSection<SplitContent>(document.sections, "academics");
   const events = getSection<EventsContent>(document.sections, "arts_events");
-  const principal = getSection<PrincipalContent>(document.sections, "principal_message");
-  const clubs = getSection<ClubsContent>(document.sections, "clubs_and_organizations");
-  const quickLinks = getSection<QuickLinksContent>(document.sections, "quick_links");
   const calendar = getSection<CalendarContent>(document.sections, "calendar_snapshot");
 
   const rows: TwoColumnStoryRow[] = [];
@@ -143,36 +136,6 @@ export function buildTwoColumnRenderModel(document: NewsletterDocument): TwoColu
       imageAlt: item.title
     });
   });
-
-  if (principal?.content.quote) {
-    rows.push({
-      id: `${principal.id}-leadership`,
-      kicker: "Leadership note",
-      title: principal.content.author || "School leadership",
-      body: principal.content.quote,
-      imageAlt: principal.content.author || "School leadership"
-    });
-  }
-
-  if (clubs?.content.items.length) {
-    rows.push({
-      id: `${clubs.id}-clubs`,
-      kicker: "Student life",
-      title: "Clubs and organizations",
-      body: clubs.content.items.join(" • "),
-      imageAlt: "Clubs and organizations"
-    });
-  }
-
-  if (quickLinks?.content.items.length) {
-    rows.push({
-      id: `${quickLinks.id}-links`,
-      kicker: "Quick links",
-      title: "Family resources",
-      body: quickLinks.content.items.map((item) => item.label).join(" • "),
-      imageAlt: "Family resources"
-    });
-  }
 
   const dedupedRows = dedupeStoryRows(rows);
   const fallbackImages =

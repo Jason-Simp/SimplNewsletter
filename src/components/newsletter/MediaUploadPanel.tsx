@@ -189,24 +189,14 @@ export function MediaUploadPanel({ assets: externalAssets = [], document, onAsse
           onChange={(event) => void handleFiles(event.target.files)}
           type="file"
         />
-        <div className="font-semibold text-brand-text">Add up to 10 photos for this newsletter</div>
+        <div className="font-semibold text-brand-text">Upload photos here first</div>
         <div className="mt-2 text-sm leading-6 text-brand-muted">
           Add up to 10 photos per newsletter. PNG, JPG, GIF, WEBP, SVG, MP3, MP4, and PDF files are
-          supported. Use descriptive file names when you can so the system has better clues about which
-          images fit the story. Images are compressed automatically before upload.
+          supported. Images are compressed automatically before upload.
         </div>
         <div className="mt-2 text-sm leading-6 text-brand-muted">
-          Drag and drop files here, or use the upload button below.
-        </div>
-        <div className="mt-2 text-sm leading-6 text-brand-muted">
-          Example file names: `football-team.jpg`, `spring-concert-stage.jpg`, `science-fair-winners.png`.
-        </div>
-        <div className="mt-2 text-sm leading-6 text-brand-muted">
-          If you assign a photo directly to Story A, Story B, or Story C in the form above, you do not need to rename
-          your files. Filename prefixes still work as an advanced fallback if you ever need them.
-        </div>
-        <div className="mt-2 text-sm leading-6 text-brand-muted">
-          The system will choose the images that best fit the newsletter it builds.
+          Drag and drop files here, or use the upload button below. After upload, choose which story each photo
+          belongs to in the Story A / Story B planner below.
         </div>
         <div className="mt-2 text-sm leading-6 text-brand-muted">
           Images up to 4 MB, MP3 up to 4 MB, MP4 up to 5 MB, PDF up to 4 MB.
