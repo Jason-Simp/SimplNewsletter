@@ -25,7 +25,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Missing file." }, { status: 400 });
     }
 
-    const validationError = validateFile(file);
+    const arrayBuffer = await file.arrayBuffer();
+    const fileBuffer = Buffer.from(arrayBuffer);
+    const detectedMimeType = detectMimeType(fileBuffer, file.name, file.type);
+    const validationError = validateFile(file, detectedMimeType);
     if (validationError) {
       return NextResponse.json({ message: validationError }, { status: 400 });
     }
@@ -56,12 +59,10 @@ export async function POST(request: Request) {
     }
 
     const objectPath = buildStoragePath(organizationName, newsletterId, file.name);
-    const arrayBuffer = await file.arrayBuffer();
-
     const { error: uploadError } = await supabase.storage
       .from(serverConfig.storageBucket)
-      .upload(objectPath, Buffer.from(arrayBuffer), {
-        contentType: file.type,
+      .upload(objectPath, fileBuffer, {
+        contentType: detectedMimeType,
         upsert: true
       });
 
@@ -81,9 +82,9 @@ export async function POST(request: Request) {
     const { error: assetError } = await supabase.from("assets").insert({
       school_id: schoolId,
       newsletter_id: isUuid(newsletterId) ? newsletterId : null,
-      kind: resolveAssetKind(file.type),
+      kind: resolveAssetKind(detectedMimeType),
       original_filename: file.name,
-      mime_type: file.type,
+      mime_type: detectedMimeType,
       storage_path: objectPath,
       public_url: publicUrlData.publicUrl,
       original_size_bytes: file.size,
@@ -103,7 +104,7 @@ export async function POST(request: Request) {
       data: {
         id: randomUUID(),
         name: file.name,
-        type: file.type,
+        type: detectedMimeType,
         sizeMb,
         status: "uploaded",
         url: publicUrlData.publicUrl
@@ -114,14 +115,18 @@ export async function POST(request: Request) {
   }
 }
 
-function validateFile(file: File) {
+function validateFile(file: File, detectedMimeType: string) {
   const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
   const constraint =
     mediaConstraints.find((candidate) => candidate.extensions.includes(extension)) ??
-    mediaConstraints.find((candidate) => matchesMimeType(candidate.type, file.type));
+    mediaConstraints.find((candidate) => matchesMimeType(candidate.type, detectedMimeType));
 
   if (!constraint) {
     return `"${file.name}" is not supported. Use PNG, JPG, JPEG, GIF, WEBP, SVG, MP3, MP4, MOV, WEBM, WAV, M4A, or PDF.`;
+  }
+
+  if (!matchesExtensionToMime(extension, detectedMimeType)) {
+    return `${file.name} does not match its expected file type. Please upload the original file in its real format.`;
   }
 
   const sizeMb = file.size / (1024 * 1024);
@@ -164,4 +169,124 @@ function matchesMimeType(type: "image" | "audio" | "video" | "document", mimeTyp
   }
 
   return mimeType.startsWith(`${type}/`);
+}
+
+function detectMimeType(buffer: Buffer, fileName: string, fallbackMimeType: string) {
+  const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
+
+  if (hasPrefix(buffer, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) {
+    return "image/png";
+  }
+
+  if (hasPrefix(buffer, [0xff, 0xd8, 0xff])) {
+    return "image/jpeg";
+  }
+
+  if (hasPrefix(buffer, [0x47, 0x49, 0x46, 0x38])) {
+    return "image/gif";
+  }
+
+  if (buffer.slice(0, 4).toString("ascii") === "RIFF" && buffer.slice(8, 12).toString("ascii") === "WEBP") {
+    return "image/webp";
+  }
+
+  if (buffer.slice(0, 5).toString("utf8").toLowerCase() === "<?xml" || buffer.slice(0, 512).toString("utf8").includes("<svg")) {
+    return "image/svg+xml";
+  }
+
+  if (hasPrefix(buffer, [0x25, 0x50, 0x44, 0x46])) {
+    return "application/pdf";
+  }
+
+  if (buffer.slice(4, 8).toString("ascii") === "ftyp") {
+    const brand = buffer.slice(8, 12).toString("ascii").toLowerCase();
+
+    if (["m4a ", "m4b ", "mp41", "mp42", "isom"].includes(brand)) {
+      return extension === "m4a" ? "audio/mp4" : "video/mp4";
+    }
+
+    if (brand === "qt  ") {
+      return "video/quicktime";
+    }
+  }
+
+  if (hasPrefix(buffer, [0x1a, 0x45, 0xdf, 0xa3])) {
+    return "video/webm";
+  }
+
+  if (buffer.slice(0, 4).toString("ascii") === "RIFF" && buffer.slice(8, 12).toString("ascii") === "WAVE") {
+    return "audio/wav";
+  }
+
+  if (buffer.slice(0, 3).toString("ascii") === "ID3" || hasPrefix(buffer, [0xff, 0xfb]) || hasPrefix(buffer, [0xff, 0xf3]) || hasPrefix(buffer, [0xff, 0xf2])) {
+    return "audio/mpeg";
+  }
+
+  return fallbackMimeType || mimeTypeFromExtension(extension) || "application/octet-stream";
+}
+
+function mimeTypeFromExtension(extension: string) {
+  switch (extension) {
+    case "png":
+      return "image/png";
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg";
+    case "gif":
+      return "image/gif";
+    case "webp":
+      return "image/webp";
+    case "svg":
+      return "image/svg+xml";
+    case "pdf":
+      return "application/pdf";
+    case "mp3":
+      return "audio/mpeg";
+    case "wav":
+      return "audio/wav";
+    case "m4a":
+      return "audio/mp4";
+    case "mp4":
+      return "video/mp4";
+    case "mov":
+      return "video/quicktime";
+    case "webm":
+      return "video/webm";
+    default:
+      return "";
+  }
+}
+
+function matchesExtensionToMime(extension: string, mimeType: string) {
+  const allowedMimeTypesByExtension: Record<string, string[]> = {
+    png: ["image/png"],
+    jpg: ["image/jpeg"],
+    jpeg: ["image/jpeg"],
+    gif: ["image/gif"],
+    webp: ["image/webp"],
+    svg: ["image/svg+xml"],
+    pdf: ["application/pdf"],
+    mp3: ["audio/mpeg"],
+    wav: ["audio/wav"],
+    m4a: ["audio/mp4"],
+    mp4: ["video/mp4"],
+    mov: ["video/quicktime"],
+    webm: ["video/webm"]
+  };
+
+  const allowedMimeTypes = allowedMimeTypesByExtension[extension];
+
+  if (!allowedMimeTypes) {
+    return false;
+  }
+
+  return allowedMimeTypes.includes(mimeType);
+}
+
+function hasPrefix(buffer: Buffer, prefix: number[]) {
+  if (buffer.length < prefix.length) {
+    return false;
+  }
+
+  return prefix.every((value, index) => buffer[index] === value);
 }
