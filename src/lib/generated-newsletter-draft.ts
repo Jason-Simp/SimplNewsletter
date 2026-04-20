@@ -3,6 +3,10 @@ import type { UploadedAsset } from "@/types/media";
 import type { NewsletterDocument } from "@/types/newsletter";
 
 type GeneratedSection = NonNullable<ContentGenerateResponse["sections"]>[number];
+type PlannedStoryNote = {
+  notes: string;
+  imageName: string;
+};
 
 export function applyGeneratedDraftToDocument(
   document: NewsletterDocument,
@@ -149,7 +153,8 @@ function getGeneratedTitle(generated: ContentGenerateResponse, quickNotes: strin
     return title;
   }
 
-  const firstSentence = quickNotes
+  const fallbackSource = getPrimaryStorySource(quickNotes);
+  const firstSentence = fallbackSource
     .split(/[.!?]/)
     .map((part) => part.trim())
     .find(Boolean);
@@ -172,7 +177,7 @@ function getGeneratedIntro(generated: ContentGenerateResponse, quickNotes: strin
     return generated.raw.trim();
   }
 
-  return quickNotes.trim();
+  return getPrimaryStorySource(quickNotes).trim();
 }
 
 export function selectImageAssignments(
@@ -182,7 +187,10 @@ export function selectImageAssignments(
 ) {
   const imageAssets = assets.filter((asset) => asset.type.startsWith("image/") && asset.url);
   const usedNames = new Set<string>();
-  const noteCandidates = extractOrderedStoryNotes(noteSource);
+  const plannedStories = extractStructuredStoryPlans(noteSource);
+  const noteCandidates = plannedStories.length
+    ? plannedStories.map((story) => story.notes)
+    : extractOrderedStoryNotes(noteSource);
 
   const hero = generated.sections?.find((section) => section.sectionType === "hero");
   const topStory = generated.sections?.find((section) => section.sectionType === "top_story");
@@ -199,6 +207,16 @@ export function selectImageAssignments(
   });
 
   const topStoryImage =
+    choosePlannedImageForText(
+      [
+        topStory?.title,
+        typeof topStory?.content?.headline === "string" ? topStory.content.headline : "",
+        typeof topStory?.content?.summary === "string" ? topStory.content.summary : ""
+      ],
+      plannedStories,
+      imageAssets,
+      usedNames
+    ) ||
     orderedAssignments.topStoryImage ||
     chooseImageForText(
     [
@@ -221,6 +239,16 @@ export function selectImageAssignments(
   );
 
   const spotlightImage =
+    choosePlannedImageForText(
+      [
+        spotlight?.title,
+        typeof spotlight?.content?.name === "string" ? spotlight.content.name : "",
+        typeof spotlight?.content?.summary === "string" ? spotlight.content.summary : ""
+      ],
+      plannedStories,
+      imageAssets,
+      usedNames
+    ) ||
     orderedAssignments.spotlightImage ||
     chooseImageForText(
     [
@@ -244,6 +272,16 @@ export function selectImageAssignments(
 
   const newsItemImages = Array.isArray(newsGrid?.content?.items)
     ? newsGrid.content.items.map((item, index) =>
+        choosePlannedImageForText(
+          [
+            typeof item?.headline === "string" ? item.headline : "",
+            typeof item?.summary === "string" ? item.summary : "",
+            typeof item?.tag === "string" ? item.tag : ""
+          ],
+          plannedStories,
+          imageAssets,
+          usedNames
+        ) ||
         orderedAssignments.newsItemImages[index] ||
         chooseImageForText(
           [
@@ -269,6 +307,16 @@ export function selectImageAssignments(
 
   const eventItemImages = Array.isArray(events?.content?.items)
     ? events.content.items.map((item, index) =>
+        choosePlannedImageForText(
+          [
+            typeof item?.title === "string" ? item.title : "",
+            typeof item?.summary === "string" ? item.summary : "",
+            typeof item?.date === "string" ? item.date : ""
+          ],
+          plannedStories,
+          imageAssets,
+          usedNames
+        ) ||
         orderedAssignments.eventItemImages[index] ||
         chooseImageForText(
           [
@@ -326,6 +374,54 @@ export function selectImageAssignments(
     eventItemImages,
     galleryImages
   };
+}
+
+function choosePlannedImageForText(
+  textParts: Array<string | undefined>,
+  plannedStories: PlannedStoryNote[],
+  assets: UploadedAsset[],
+  usedNames: Set<string>
+) {
+  if (!plannedStories.length) {
+    return "";
+  }
+
+  const textTokens = tokenizeForMatching(textParts.filter(Boolean).join(" "));
+
+  if (!textTokens.length) {
+    return "";
+  }
+
+  let bestMatch: UploadedAsset | null = null;
+  let bestScore = 0;
+
+  for (const story of plannedStories) {
+    if (!story.imageName.trim()) {
+      continue;
+    }
+
+    const asset = findAssetByName(story.imageName, assets);
+
+    if (!asset || usedNames.has(asset.name)) {
+      continue;
+    }
+
+    const candidateTokens = tokenizeForMatching(story.notes);
+    const overlap = candidateTokens.filter((token) => hasTokenMatch(token, textTokens)).length;
+    const score = overlap * 10 + (containsOrderedTokenRun(candidateTokens, textTokens) ? 5 : 0);
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestMatch = asset;
+    }
+  }
+
+  if (!bestMatch || bestScore < 10) {
+    return "";
+  }
+
+  usedNames.add(bestMatch.name);
+  return bestMatch.url ?? "";
 }
 
 function assignOrderedDirectiveImages({
@@ -653,6 +749,48 @@ function normalizeForMatching(value: string) {
     .replace(/\.(png|jpe?g|gif|webp|svg)$/g, "");
 }
 
+function getPrimaryStorySource(noteSource: string) {
+  const structuredStories = extractStructuredStoryPlans(noteSource);
+
+  if (structuredStories.length > 0) {
+    return structuredStories[0]?.notes ?? "";
+  }
+
+  return noteSource
+    .replace(/^Overall guidance:\s*/i, "")
+    .replace(/Story\s+[A-Z]:\s*/gi, "")
+    .replace(/Notes:\s*/gi, "")
+    .replace(/Image:\s*.+$/gim, "")
+    .trim();
+}
+
+function extractStructuredStoryPlans(noteSource: string) {
+  const trimmedSource = noteSource.trim();
+
+  if (!trimmedSource) {
+    return [] as PlannedStoryNote[];
+  }
+
+  const matches = [...trimmedSource.matchAll(/Story\s+[A-Z]:\s*\nNotes:\s*([\s\S]*?)(?:\nImage:\s*(.+))?(?=\n\nStory\s+[A-Z]:|\n\nOverall guidance:|$)/gi)];
+
+  return matches
+    .map((match) => ({
+      notes: (match[1] ?? "").trim(),
+      imageName: (match[2] ?? "").trim()
+    }))
+    .filter((story) => story.notes.length > 0);
+}
+
+function findAssetByName(name: string, assets: UploadedAsset[]) {
+  const normalizedTarget = normalizeForMatching(name);
+
+  return (
+    assets.find((asset) => normalizeForMatching(asset.name) === normalizedTarget) ??
+    assets.find((asset) => asset.name.trim().toLowerCase() === name.trim().toLowerCase()) ??
+    null
+  );
+}
+
 function extractOrderedStoryNotes(noteSource: string) {
   return noteSource
     .split(/\n+/)
@@ -746,6 +884,16 @@ function parseAssetDirective(name: string): {
     };
   }
 
+  const letterMatch = directiveSource.match(/^(?:story[-_ ]?)?([a-z])(?:__|--|:)(.+)$/);
+
+  if (letterMatch) {
+    return {
+      slot: null,
+      keywords: tokenizeForMatching(letterMatch[2]),
+      storyIndex: storyLetterToIndex(letterMatch[1] ?? "")
+    };
+  }
+
   const directiveMatch = directiveSource.match(/^([a-z0-9-_ ]+?)(?:__|--|:)(.+)$/);
 
   if (!directiveMatch) {
@@ -772,6 +920,16 @@ function parseAssetDirective(name: string): {
     keywords: tokenizeForMatching(remainder),
     storyIndex: null
   };
+}
+
+function storyLetterToIndex(value: string) {
+  const normalized = value.trim().toLowerCase();
+
+  if (!/^[a-z]$/.test(normalized)) {
+    return null;
+  }
+
+  return normalized.charCodeAt(0) - 96;
 }
 
 const COMMON_MATCH_WORDS = new Set([

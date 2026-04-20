@@ -202,10 +202,8 @@ export function MediaUploadPanel({ assets: externalAssets = [], document, onAsse
           Example file names: `football-team.jpg`, `spring-concert-stage.jpg`, `science-fair-winners.png`.
         </div>
         <div className="mt-2 text-sm leading-6 text-brand-muted">
-          For exact placement, you can use either a slot prefix or a broad story-order prefix.
-          Examples: `lead__district-banner.jpg`, `top-story__vote-day.png`,
-          `spotlight__molly-cup-stacking.png`, or `story1__vote-day.png`, `story2__football-vs-roswell.png`,
-          `story3__molly-cup-stacking.png`, `story4__hot-fruit.jpg`.
+          If you assign a photo directly to Story A, Story B, or Story C in the form above, you do not need to rename
+          your files. Filename prefixes still work as an advanced fallback if you ever need them.
         </div>
         <div className="mt-2 text-sm leading-6 text-brand-muted">
           The system will choose the images that best fit the newsletter it builds.

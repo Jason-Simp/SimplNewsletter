@@ -47,6 +47,7 @@ export function IssueWizard() {
   } | null>(null);
   const [notice, setNotice] = useState<{ message: string; tone: "success" | "error" | "info" } | null>(null);
   const [quickNotes, setQuickNotes] = useState("");
+  const [storyInputs, setStoryInputs] = useState<StoryPlannerInput[]>(() => [createStoryPlannerInput(0)]);
   const [uploadedAssets, setUploadedAssets] = useState<UploadedAsset[]>([]);
   const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
   const [rewritingSection, setRewritingSection] = useState<string | null>(null);
@@ -72,6 +73,10 @@ export function IssueWizard() {
         draftId?.trim() || cloneFromId?.trim() || document.workspace.schoolId || session?.user?.id || "default"
       ].join(":"),
     [cloneFromId, document.workspace.schoolId, draftId, session?.user?.id]
+  );
+  const compiledNotes = useMemo(
+    () => buildStructuredNewsletterRequest(quickNotes, storyInputs),
+    [quickNotes, storyInputs]
   );
 
   useEffect(() => {
@@ -125,6 +130,39 @@ export function IssueWizard() {
     setLastGeneratedAt(null);
   };
 
+  const updateStoryInput = useCallback(
+    (storyId: string, field: keyof Pick<StoryPlannerInput, "notes" | "imageName">, value: string) => {
+      setStoryInputs((current) =>
+        current.map((story) => (story.id === storyId ? { ...story, [field]: value } : story))
+      );
+      setGenerationState("idle");
+      setGenerationPhase("idle");
+      setGenerationMessage("Fill in the form, then continue and the system will write the first draft for you.");
+      setLastGeneratedAt(null);
+    },
+    []
+  );
+
+  const addStoryInput = useCallback(() => {
+    setStoryInputs((current) => [...current, createStoryPlannerInput(current.length)]);
+    setGenerationState("idle");
+    setGenerationPhase("idle");
+    setGenerationMessage("Fill in the form, then continue and the system will write the first draft for you.");
+    setLastGeneratedAt(null);
+  }, []);
+
+  const removeStoryInput = useCallback((storyId: string) => {
+    setStoryInputs((current) => {
+      const nextStories = current.filter((story) => story.id !== storyId);
+
+      return nextStories.length > 0 ? nextStories : [createStoryPlannerInput(0)];
+    });
+    setGenerationState("idle");
+    setGenerationPhase("idle");
+    setGenerationMessage("Fill in the form, then continue and the system will write the first draft for you.");
+    setLastGeneratedAt(null);
+  }, []);
+
   const showNotice = useCallback((message: string, tone: "success" | "error" | "info") => {
     setNotice({ message, tone });
   }, []);
@@ -141,12 +179,12 @@ export function IssueWizard() {
 
   const applyGeneratedDraft = useCallback((generated: ContentGenerateResponse) => {
     setDocument((current) =>
-      applyGeneratedDraftToDocument(current, generated, quickNotes, uploadedAssets)
+      applyGeneratedDraftToDocument(current, generated, compiledNotes, uploadedAssets)
     );
-  }, [quickNotes, uploadedAssets]);
+  }, [compiledNotes, uploadedAssets]);
 
   const rewriteSection = async (sectionType: "hero" | "top_story" | "principal_message") => {
-    if (!hasSchoolWorkspace || !hasWritingAgentConnection || !quickNotes.trim()) {
+    if (!hasSchoolWorkspace || !hasWritingAgentConnection || !compiledNotes.trim()) {
       return;
     }
 
@@ -174,7 +212,7 @@ export function IssueWizard() {
           prompt: `Rewrite only the ${getSectionLabel(sectionType)} for this school newsletter. Keep the rest of the issue intact.`,
           notes: buildSectionRewriteNotes({
             sectionType,
-            quickNotes,
+            quickNotes: compiledNotes,
             document
           })
         })
@@ -199,7 +237,7 @@ export function IssueWizard() {
         uploadedAssets,
         buildSectionRewriteNotes({
           sectionType,
-          quickNotes,
+          quickNotes: compiledNotes,
           document
         })
       );
@@ -269,9 +307,9 @@ export function IssueWizard() {
       return false;
     }
 
-    if (!quickNotes.trim()) {
+    if (!compiledNotes.trim()) {
       setGenerationState("error");
-      setGenerationMessage("Add the main message first so the system has something to build from.");
+      setGenerationMessage("Add at least one story first so the system has something real to build from.");
       return false;
     }
 
@@ -292,7 +330,7 @@ export function IssueWizard() {
         },
         body: JSON.stringify({
           draftDocument,
-          quickNotes,
+          quickNotes: compiledNotes,
           uploadedAssets,
           payload: {
             schoolId: draftDocument.workspace.schoolId,
@@ -304,8 +342,8 @@ export function IssueWizard() {
             encryptedKnowledgeRef: draftDocument.workspace.encryptedKnowledgeRef,
             imageHints: uploadedAssets.map((asset) => asset.name),
             uploadedAssets,
-            prompt: `Write a school newsletter from the provided request. Decide which newsletter sections are needed, write those sections, and return a clean finished draft in the school's tone.\n\nWhat the newsletter should be about:\n${quickNotes}`,
-            notes: quickNotes
+            prompt: `Write a school newsletter from the provided request. Decide which newsletter sections are needed, write those sections, and return a clean finished draft in the school's tone.\n\nWhat the newsletter should be about:\n${compiledNotes}`,
+            notes: compiledNotes
           }
         })
       });
@@ -545,14 +583,29 @@ export function IssueWizard() {
           setSourceIssueLabel(
             draftId?.trim() ? restoredState?.sourceIssueLabel ?? null : selectedSource ? selectedSource.title : null
           );
-          setQuickNotes(
-            (draftId?.trim() ? restoredState?.quickNotes : null) ??
-              (selectedDraft
-                ? buildQuickNotesFromDocument(selectedDraft)
-                : selectedSource
-                  ? buildQuickNotesFromDocument(selectedSource)
-                  : "")
-          );
+          const nextPlannerState = draftId?.trim()
+            ? restoredState?.storyInputs?.length
+              ? {
+                  overallGuidance: restoredState.overallGuidance ?? "",
+                  stories: restoredState.storyInputs
+                }
+              : parseStoryPlannerState(
+                  restoredState?.quickNotes ??
+                    (selectedDraft
+                      ? buildQuickNotesFromDocument(selectedDraft)
+                      : selectedSource
+                        ? buildQuickNotesFromDocument(selectedSource)
+                        : "")
+                )
+            : parseStoryPlannerState(
+                selectedDraft
+                  ? buildQuickNotesFromDocument(selectedDraft)
+                  : selectedSource
+                    ? buildQuickNotesFromDocument(selectedSource)
+                    : ""
+              );
+          setQuickNotes(nextPlannerState.overallGuidance);
+          setStoryInputs(nextPlannerState.stories.length ? nextPlannerState.stories : [createStoryPlannerInput(0)]);
           setUploadedAssets((draftId?.trim() ? restoredState?.uploadedAssets : null) ?? []);
           setActiveStep(draftId?.trim() ? nextActiveStep : "setup");
           setGenerationJobId(draftId?.trim() ? restoredJobId : null);
@@ -587,7 +640,9 @@ export function IssueWizard() {
 
     writeBuilderDraft(browserDraftKey, {
       document,
-      quickNotes,
+      quickNotes: compiledNotes,
+      overallGuidance: quickNotes,
+      storyInputs,
       uploadedAssets,
       activeStep,
       generationState,
@@ -606,7 +661,9 @@ export function IssueWizard() {
     generationPhase,
     generationState,
     lastGeneratedAt,
+    compiledNotes,
     quickNotes,
+    storyInputs,
     sourceIssueLabel,
     uploadedAssets
   ]);
@@ -715,7 +772,7 @@ export function IssueWizard() {
 
   const persistDraft = useCallback(
     async (mode: "auto" | "manual" = "auto") => {
-      if (!shouldAutosaveDraft(document, quickNotes, uploadedAssets, lastGeneratedAt)) {
+      if (!shouldAutosaveDraft(document, compiledNotes, uploadedAssets, lastGeneratedAt)) {
         setSaveState("idle");
         setSaveMessage(mode === "manual" ? "Nothing to save yet." : "Draft ready.");
         return { saved: false, document: null as NewsletterDocument | null };
@@ -771,7 +828,7 @@ export function IssueWizard() {
         return { saved: false, document: null as NewsletterDocument | null };
       }
     },
-    [cloneFromId, document, draftId, lastGeneratedAt, quickNotes, router, supabase, uploadedAssets]
+    [cloneFromId, compiledNotes, document, draftId, lastGeneratedAt, router, supabase, uploadedAssets]
   );
 
   useEffect(() => {
@@ -820,7 +877,7 @@ export function IssueWizard() {
   const publishReadinessChecks = [
     {
       label: "Main message added",
-      ready: Boolean(quickNotes.trim() || document.intro.trim()),
+      ready: Boolean(compiledNotes.trim() || document.intro.trim()),
       detail: "There is a clear topic for the newsletter."
     },
     {
@@ -988,27 +1045,33 @@ export function IssueWizard() {
                 />
 
                 <div className="rounded-[24px] bg-[#EAF2FB] p-4 text-sm leading-6 text-brand-muted">
-                  Write this however you want. Plain sentences, rough notes, or bullet points are all fine.
-                  The stronger the input, the better the first draft.
+                  Build the issue story by story. Add each update in its own row, and connect a photo when you
+                  already know which image belongs to that story.
                 </div>
 
                 <label className="grid gap-2">
-                  <span className="text-sm font-semibold text-brand-text">
-                    What would you like your newsletter to be about and say?
-                  </span>
+                  <span className="text-sm font-semibold text-brand-text">Overall guidance for the issue</span>
                   <textarea
-                    className="min-h-40 rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
+                    className="min-h-28 rounded-2xl border border-slate-200 px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
                     onChange={(event) => updateQuickNotes(event.target.value)}
-                    placeholder="Example: Share the events for the week of April 18, congratulate the superintendent on the statewide award, mention that girls volleyball is on track for another state title, and remind families about our no-smoking and no-vaping expectations."
+                    placeholder="Optional: tone guidance, audience notes, anything the agent should keep in mind across the whole issue."
                     value={quickNotes}
                   />
                 </label>
 
+                <StoryPlannerPanel
+                  assets={uploadedAssets}
+                  onAddStory={addStoryInput}
+                  onRemoveStory={removeStoryInput}
+                  onStoryChange={updateStoryInput}
+                  stories={storyInputs}
+                />
+
                 <div className="rounded-[24px] border border-slate-200 bg-white p-4">
                   <div className="text-sm font-semibold text-brand-text">Best results usually include</div>
                   <div className="mt-2 text-sm leading-6 text-brand-muted">
-                    Main topic, dates and deadlines, celebrations or recognition, reminders for families,
-                    and anything that needs to stand out as urgent or important.
+                    One update per story row, dates and deadlines when they matter, and the exact image for a
+                    story if you already know it.
                   </div>
                 </div>
 
@@ -1024,7 +1087,7 @@ export function IssueWizard() {
 
                 {generationState === "error" ? (
                   <div className="flex flex-wrap gap-3">
-                    {hasSchoolWorkspace && hasWritingAgentConnection && quickNotes.trim() ? (
+                    {hasSchoolWorkspace && hasWritingAgentConnection && compiledNotes.trim() ? (
                       <button
                         className="rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white"
                         onClick={() => void retryDraftGeneration()}
@@ -1063,7 +1126,7 @@ export function IssueWizard() {
                     className="rounded-full bg-brand-primary px-6 py-4 text-sm font-semibold uppercase tracking-[0.12em] text-white disabled:cursor-not-allowed disabled:opacity-40"
                     disabled={
                       generationState === "generating" ||
-                      !quickNotes.trim() ||
+                      !compiledNotes.trim() ||
                       !hasSchoolWorkspace ||
                       !hasWritingAgentConnection
                     }
@@ -1119,7 +1182,7 @@ export function IssueWizard() {
                   </button>
                   <button
                     className="rounded-full border border-brand-primary bg-brand-background px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-primary disabled:cursor-not-allowed disabled:opacity-40"
-                    disabled={generationState === "generating" || !quickNotes.trim() || !hasWritingAgentConnection}
+                    disabled={generationState === "generating" || !compiledNotes.trim() || !hasWritingAgentConnection}
                     onClick={() => void retryDraftGeneration()}
                     type="button"
                   >
@@ -1396,6 +1459,8 @@ export function IssueWizard() {
 type BuilderDraftSnapshot = {
   document: NewsletterDocument;
   quickNotes: string;
+  overallGuidance?: string;
+  storyInputs?: StoryPlannerInput[];
   uploadedAssets: UploadedAsset[];
   activeStep: string;
   generationState: "idle" | "generating" | "ready" | "error";
@@ -1404,6 +1469,12 @@ type BuilderDraftSnapshot = {
   generationJobId: string | null;
   lastGeneratedAt: string | null;
   sourceIssueLabel: string | null;
+};
+
+type StoryPlannerInput = {
+  id: string;
+  notes: string;
+  imageName: string;
 };
 
 function readBuilderDraft(key: string): BuilderDraftSnapshot | null {
@@ -1532,6 +1603,99 @@ function SetupReadinessPanel({
           </a>
         </div>
       ) : null}
+    </section>
+  );
+}
+
+function StoryPlannerPanel({
+  stories,
+  assets,
+  onStoryChange,
+  onAddStory,
+  onRemoveStory
+}: {
+  stories: StoryPlannerInput[];
+  assets: UploadedAsset[];
+  onStoryChange: (storyId: string, field: keyof Pick<StoryPlannerInput, "notes" | "imageName">, value: string) => void;
+  onAddStory: () => void;
+  onRemoveStory: (storyId: string) => void;
+}) {
+  const imageOptions = assets
+    .filter((asset) => asset.type.startsWith("image/"))
+    .map((asset) => asset.name);
+
+  return (
+    <section className="rounded-[24px] border border-slate-200 bg-white p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="text-sm font-semibold text-brand-text">Story planner</div>
+          <div className="mt-1 text-sm leading-6 text-brand-muted">
+            Add the issue one story at a time. Story A, Story B, and Story C are easier for people and much
+            easier for the system to map cleanly.
+          </div>
+        </div>
+        <button
+          className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-brand-text"
+          onClick={onAddStory}
+          type="button"
+        >
+          Add story
+        </button>
+      </div>
+
+      <div className="mt-4 grid gap-4">
+        {stories.map((story, index) => (
+          <div key={story.id} className="rounded-2xl border border-slate-200 bg-[#F7F9FC] p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="text-xs font-bold uppercase tracking-[0.18em] text-brand-secondary">
+                  Story {storyIndexToLabel(index)}
+                </div>
+                <div className="mt-1 text-sm text-brand-muted">
+                  Keep this to one distinct update, announcement, celebration, or reminder.
+                </div>
+              </div>
+              <button
+                className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-brand-text disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={stories.length <= 1}
+                onClick={() => onRemoveStory(story.id)}
+                type="button"
+              >
+                Remove
+              </button>
+            </div>
+            <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
+              <label className="grid gap-2">
+                <span className="text-sm font-semibold text-brand-text">Story details</span>
+                <textarea
+                  className="min-h-28 rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none ring-brand-primary/20 focus:ring"
+                  onChange={(event) => onStoryChange(story.id, "notes", event.target.value)}
+                  placeholder="Example: We will be closed next Tuesday for the special election. Families should plan for no classes or after-school programs that day."
+                  value={story.notes}
+                />
+              </label>
+              <label className="grid gap-2">
+                <span className="text-sm font-semibold text-brand-text">Photo for this story</span>
+                <select
+                  className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none ring-brand-primary/20 focus:ring"
+                  onChange={(event) => onStoryChange(story.id, "imageName", event.target.value)}
+                  value={story.imageName}
+                >
+                  <option value="">No photo selected</option>
+                  {imageOptions.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+                <div className="text-xs leading-5 text-brand-muted">
+                  Optional. If you choose a photo here, the system should prefer it for this story before it starts guessing.
+                </div>
+              </label>
+            </div>
+          </div>
+        ))}
+      </div>
     </section>
   );
 }
@@ -2485,6 +2649,93 @@ function reconcileImageAssignments(document: NewsletterDocument) {
 
 function isPersistedDraftId(id: string) {
   return Boolean(id?.trim()) && !id.startsWith("draft-") && !id.startsWith("demo-") && id !== sampleNewsletter.id;
+}
+
+function createStoryPlannerInput(index: number): StoryPlannerInput {
+  return {
+    id: `story-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`,
+    notes: "",
+    imageName: ""
+  };
+}
+
+function storyIndexToLabel(index: number) {
+  return String.fromCharCode(65 + index);
+}
+
+function buildStructuredNewsletterRequest(overallGuidance: string, stories: StoryPlannerInput[]) {
+  const sections = [
+    overallGuidance.trim()
+      ? `Overall guidance:\n${overallGuidance.trim()}`
+      : "",
+    ...stories
+      .map((story, index) => {
+        const noteText = story.notes.trim();
+
+        if (!noteText) {
+          return "";
+        }
+
+        const imageLine = story.imageName.trim() ? `\nImage: ${story.imageName.trim()}` : "";
+
+        return `Story ${storyIndexToLabel(index)}:\nNotes: ${noteText}${imageLine}`;
+      })
+      .filter(Boolean)
+  ].filter(Boolean);
+
+  return sections.join("\n\n");
+}
+
+function parseStoryPlannerState(noteSource: string) {
+  const trimmedSource = noteSource.trim();
+
+  if (!trimmedSource) {
+    return {
+      overallGuidance: "",
+      stories: [createStoryPlannerInput(0)]
+    };
+  }
+
+  const structuredMatches = [...trimmedSource.matchAll(/Story\s+([A-Z]):\s*\nNotes:\s*([\s\S]*?)(?:\nImage:\s*(.+))?(?=\n\nStory\s+[A-Z]:|\n\nOverall guidance:|$)/gi)];
+
+  if (structuredMatches.length > 0) {
+    const overallMatch = trimmedSource.match(/Overall guidance:\s*\n([\s\S]*?)(?=\n\nStory\s+[A-Z]:|$)/i);
+    return {
+      overallGuidance: overallMatch?.[1]?.trim() ?? "",
+      stories: structuredMatches.map((match, index) => ({
+        id: createStoryPlannerInput(index).id,
+        notes: (match[2] ?? "").trim(),
+        imageName: (match[3] ?? "").trim()
+      }))
+    };
+  }
+
+  const fallbackLines = trimmedSource
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (fallbackLines.length > 1) {
+    return {
+      overallGuidance: "",
+      stories: fallbackLines.map((line, index) => ({
+        id: createStoryPlannerInput(index).id,
+        notes: line,
+        imageName: ""
+      }))
+    };
+  }
+
+  return {
+    overallGuidance: "",
+    stories: [
+      {
+        id: createStoryPlannerInput(0).id,
+        notes: trimmedSource,
+        imageName: ""
+      }
+    ]
+  };
 }
 
 function buildQuickNotesFromDocument(document: NewsletterDocument) {
