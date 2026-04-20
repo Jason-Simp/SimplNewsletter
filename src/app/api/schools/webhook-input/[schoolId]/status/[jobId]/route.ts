@@ -15,10 +15,12 @@ export async function GET(
   request: NextRequest,
   context: { params: Promise<{ schoolId: string; jobId: string }> }
 ) {
+  let resolvedSchoolId = "";
+  let resolvedJobId = "";
   try {
     const { schoolId, jobId } = await context.params;
-    const resolvedSchoolId = schoolId.trim();
-    const resolvedJobId = jobId.trim();
+    resolvedSchoolId = schoolId.trim();
+    resolvedJobId = jobId.trim();
 
     if (!resolvedSchoolId) {
       throw new ApiRouteError(400, "School ID is required.");
@@ -74,6 +76,11 @@ export async function GET(
       }
     );
   } catch (error) {
+    logAuditEvent("webhook.newsletter.status_failed", null, buildWebhookAuditDetails(request, {
+      schoolId: resolvedSchoolId || null,
+      jobId: resolvedJobId || null,
+      errorMessage: error instanceof Error ? error.message : "Unknown error"
+    }));
     return jsonApiError(
       "api.schools.webhook-input.status.get",
       error,

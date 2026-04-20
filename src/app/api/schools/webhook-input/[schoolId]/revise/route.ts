@@ -19,9 +19,11 @@ export async function POST(
   request: NextRequest,
   context: { params: Promise<{ schoolId: string }> }
 ) {
+  let resolvedSchoolId = "";
+  let draftId = "";
   try {
     const { schoolId } = await context.params;
-    const resolvedSchoolId = schoolId.trim();
+    resolvedSchoolId = schoolId.trim();
 
     if (!resolvedSchoolId) {
       throw new ApiRouteError(400, "School ID is required.");
@@ -31,7 +33,7 @@ export async function POST(
     const rawBody = await request.text();
     assertWebhookRequestSecurity({ request, school, rawBody });
     const body = JSON.parse(rawBody) as Record<string, unknown> & { draftId?: string };
-    const draftId = typeof body.draftId === "string" ? body.draftId.trim() : "";
+    draftId = typeof body.draftId === "string" ? body.draftId.trim() : "";
     const normalized = normalizeWebhookDraftRequest(body);
 
     if (!draftId) {
@@ -109,6 +111,11 @@ export async function POST(
       }
     );
   } catch (error) {
+    logAuditEvent("webhook.newsletter.revise_failed", null, buildWebhookAuditDetails(request, {
+      schoolId: resolvedSchoolId || null,
+      draftId: draftId || null,
+      errorMessage: error instanceof Error ? error.message : "Unknown error"
+    }));
     return jsonApiError(
       "api.schools.webhook-input.revise.post",
       error,

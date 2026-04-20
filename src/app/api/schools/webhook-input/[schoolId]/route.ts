@@ -20,9 +20,10 @@ export async function POST(
   request: NextRequest,
   context: { params: Promise<{ schoolId: string }> }
 ) {
+  let resolvedSchoolId = "";
   try {
     const { schoolId } = await context.params;
-    const resolvedSchoolId = schoolId.trim();
+    resolvedSchoolId = schoolId.trim();
 
     if (!resolvedSchoolId) {
       throw new ApiRouteError(400, "School ID is required.");
@@ -103,6 +104,10 @@ export async function POST(
       }
     );
   } catch (error) {
+    logAuditEvent("webhook.newsletter.create_failed", null, buildWebhookAuditDetails(request, {
+      schoolId: resolvedSchoolId || null,
+      errorMessage: error instanceof Error ? error.message : "Unknown error"
+    }));
     return jsonApiError(
       "api.schools.webhook-input.post",
       error,
