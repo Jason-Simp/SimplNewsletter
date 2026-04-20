@@ -2,6 +2,8 @@ import type { ContentGenerateResponse } from "@/types/integration";
 import type { UploadedAsset } from "@/types/media";
 import type { NewsletterDocument } from "@/types/newsletter";
 
+type GeneratedSection = NonNullable<ContentGenerateResponse["sections"]>[number];
+
 export function applyGeneratedDraftToDocument(
   document: NewsletterDocument,
   generated: ContentGenerateResponse,
@@ -187,8 +189,18 @@ export function selectImageAssignments(
   const newsGrid = generated.sections?.find((section) => section.sectionType === "news_grid");
   const spotlight = generated.sections?.find((section) => section.sectionType === "student_spotlight");
   const events = generated.sections?.find((section) => section.sectionType === "arts_events");
+  const orderedAssignments = assignOrderedDirectiveImages({
+    assets: imageAssets,
+    usedNames,
+    topStory,
+    newsGridItems: Array.isArray(newsGrid?.content?.items) ? newsGrid.content.items : [],
+    spotlight,
+    eventItems: Array.isArray(events?.content?.items) ? events.content.items : []
+  });
 
-  const topStoryImage = chooseImageForText(
+  const topStoryImage =
+    orderedAssignments.topStoryImage ||
+    chooseImageForText(
     [
       topStory?.title,
       typeof topStory?.content?.headline === "string" ? topStory.content.headline : "",
@@ -208,7 +220,9 @@ export function selectImageAssignments(
     )
   );
 
-  const spotlightImage = chooseImageForText(
+  const spotlightImage =
+    orderedAssignments.spotlightImage ||
+    chooseImageForText(
     [
       spotlight?.title,
       typeof spotlight?.content?.name === "string" ? spotlight.content.name : "",
@@ -229,7 +243,8 @@ export function selectImageAssignments(
   );
 
   const newsItemImages = Array.isArray(newsGrid?.content?.items)
-    ? newsGrid.content.items.map((item) =>
+    ? newsGrid.content.items.map((item, index) =>
+        orderedAssignments.newsItemImages[index] ||
         chooseImageForText(
           [
             typeof item?.headline === "string" ? item.headline : "",
@@ -253,7 +268,8 @@ export function selectImageAssignments(
     : [];
 
   const eventItemImages = Array.isArray(events?.content?.items)
-    ? events.content.items.map((item) =>
+    ? events.content.items.map((item, index) =>
+        orderedAssignments.eventItemImages[index] ||
         chooseImageForText(
           [
             typeof item?.title === "string" ? item.title : "",
@@ -309,6 +325,94 @@ export function selectImageAssignments(
     newsItemImages,
     eventItemImages,
     galleryImages
+  };
+}
+
+function assignOrderedDirectiveImages({
+  assets,
+  usedNames,
+  topStory,
+  newsGridItems,
+  spotlight,
+  eventItems
+}: {
+  assets: UploadedAsset[];
+  usedNames: Set<string>;
+  topStory: GeneratedSection | undefined;
+  newsGridItems: Array<Record<string, unknown>>;
+  spotlight: GeneratedSection | undefined;
+  eventItems: Array<Record<string, unknown>>;
+}) {
+  let topStoryImage = "";
+  let spotlightImage = "";
+  const newsItemImages = newsGridItems.map(() => "");
+  const eventItemImages = eventItems.map(() => "");
+
+  const orderedTargets: Array<
+    | { kind: "top_story" }
+    | { kind: "news_grid"; index: number }
+    | { kind: "student_spotlight" }
+    | { kind: "arts_events"; index: number }
+  > = [];
+
+  if (topStory) {
+    orderedTargets.push({ kind: "top_story" });
+  }
+
+  newsGridItems.forEach((_, index) => {
+    orderedTargets.push({ kind: "news_grid", index });
+  });
+
+  if (spotlight) {
+    orderedTargets.push({ kind: "student_spotlight" });
+  }
+
+  eventItems.forEach((_, index) => {
+    orderedTargets.push({ kind: "arts_events", index });
+  });
+
+  for (const asset of assets) {
+    const directive = parseAssetDirective(asset.name);
+
+    if (!directive.storyIndex || !asset.url) {
+      continue;
+    }
+
+    const target = orderedTargets[directive.storyIndex - 1];
+
+    if (!target || usedNames.has(asset.name)) {
+      continue;
+    }
+
+    if (target.kind === "top_story") {
+      usedNames.add(asset.name);
+      topStoryImage = asset.url;
+      continue;
+    }
+
+    if (target.kind === "student_spotlight") {
+      usedNames.add(asset.name);
+      spotlightImage = asset.url;
+      continue;
+    }
+
+    if (target.kind === "news_grid") {
+      newsItemImages[target.index] = asset.url;
+      usedNames.add(asset.name);
+      continue;
+    }
+
+    if (target.kind === "arts_events") {
+      eventItemImages[target.index] = asset.url;
+      usedNames.add(asset.name);
+    }
+  }
+
+  return {
+    topStoryImage,
+    spotlightImage,
+    newsItemImages,
+    eventItemImages
   };
 }
 
@@ -626,15 +730,29 @@ function findTokenVariant(token: string, assetTokens: string[]) {
 function parseAssetDirective(name: string): {
   slot: "hero" | "top_story" | "student_spotlight" | "news_grid" | "arts_events" | null;
   keywords: string[];
+  storyIndex: number | null;
 } {
-  const normalizedName = normalizeForMatching(name);
-  const directiveMatch = normalizedName.match(/^([a-z0-9-]+)(?:__|--|:)(.+)$/);
+  const directiveSource = name
+    .toLowerCase()
+    .replace(/\.(png|jpe?g|gif|webp|svg)$/g, "")
+    .trim();
+  const orderedMatch = directiveSource.match(/^(?:story|item|card|s)[-_ ]?(\d+)(?:__|--|:)(.+)$/);
 
-  if (!directiveMatch) {
-    return { slot: null, keywords: [] };
+  if (orderedMatch) {
+    return {
+      slot: null,
+      keywords: tokenizeForMatching(orderedMatch[2]),
+      storyIndex: Number.parseInt(orderedMatch[1] ?? "", 10) || null
+    };
   }
 
-  const rawSlot = directiveMatch[1];
+  const directiveMatch = directiveSource.match(/^([a-z0-9-_ ]+?)(?:__|--|:)(.+)$/);
+
+  if (!directiveMatch) {
+    return { slot: null, keywords: [], storyIndex: null };
+  }
+
+  const rawSlot = directiveMatch[1].replace(/[_ ]+/g, "-");
   const remainder = directiveMatch[2];
   const slot =
     rawSlot === "hero" || rawSlot === "lead" || rawSlot === "banner"
@@ -651,7 +769,8 @@ function parseAssetDirective(name: string): {
 
   return {
     slot,
-    keywords: tokenizeForMatching(remainder)
+    keywords: tokenizeForMatching(remainder),
+    storyIndex: null
   };
 }
 
