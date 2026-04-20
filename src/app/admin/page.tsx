@@ -6,7 +6,7 @@ import Link from "next/link";
 import { ActionNotice } from "@/components/ui/ActionNotice";
 import { authFetch } from "@/lib/api-client";
 import { useAuthSession } from "@/lib/auth-client";
-import { isCompanyAdmin } from "@/lib/member-access";
+import { canDeleteNewsletters, isCompanyAdmin } from "@/lib/member-access";
 import { getNewsletterPdfPath, getNewsletterWebPath, getSchoolArchivePath } from "@/lib/public-links";
 import type { MemberRecord } from "@/types/member";
 import type { NewsletterDocument } from "@/types/newsletter";
@@ -56,6 +56,7 @@ export default function AdminPage() {
   }, [supabase]);
 
   const companyView = isCompanyAdmin(member);
+  const canDeleteIssues = canDeleteNewsletters(member);
   const currentSchool =
     companyView
       ? null
@@ -398,14 +399,16 @@ export default function AdminPage() {
                       >
                         Copy as new draft
                       </Link>
-                      <button
-                        className="rounded-full border border-red-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-red-700"
-                        disabled={busyNewsletterId === newsletter.id}
-                        onClick={() => void removeNewsletter(newsletter)}
-                        type="button"
-                      >
-                        {busyNewsletterId === newsletter.id ? "Deleting..." : "Delete draft"}
-                      </button>
+                      {canDeleteIssues ? (
+                        <button
+                          className="rounded-full border border-red-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-red-700"
+                          disabled={busyNewsletterId === newsletter.id}
+                          onClick={() => void removeNewsletter(newsletter)}
+                          type="button"
+                        >
+                          {busyNewsletterId === newsletter.id ? "Deleting..." : "Delete draft"}
+                        </button>
+                      ) : null}
                     </div>
                   </article>
                 );
@@ -485,14 +488,16 @@ export default function AdminPage() {
                             PDF view
                           </Link>
                         ) : null}
-                        <button
-                          className="rounded-full border border-red-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-red-700"
-                          disabled={busyNewsletterId === newsletter.id}
-                          onClick={() => void removeNewsletter(newsletter)}
-                          type="button"
-                        >
-                          {busyNewsletterId === newsletter.id ? "Removing..." : "Delete issue"}
-                        </button>
+                        {canDeleteIssues ? (
+                          <button
+                            className="rounded-full border border-red-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-red-700"
+                            disabled={busyNewsletterId === newsletter.id}
+                            onClick={() => void removeNewsletter(newsletter)}
+                            type="button"
+                          >
+                            {busyNewsletterId === newsletter.id ? "Removing..." : "Delete issue"}
+                          </button>
+                        ) : null}
                       </div>
                     ) : null}
                   </article>

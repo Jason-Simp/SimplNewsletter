@@ -6,10 +6,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { authFetch } from "@/lib/api-client";
 import { useAuthSession } from "@/lib/auth-client";
 import { applyGeneratedDraftToDocument, selectImageAssignments } from "@/lib/generated-newsletter-draft";
+import { canPublishNewsletters } from "@/lib/member-access";
 import { buildSteps, sampleNewsletter } from "@/lib/sample-data";
 import { getNewsletterPdfPath, getNewsletterWebPath, getSchoolArchivePath } from "@/lib/public-links";
 import type { ContentGenerateResponse } from "@/types/integration";
 import type { UploadedAsset } from "@/types/media";
+import type { MemberRecord } from "@/types/member";
 import type { Channel, DistributionChannel, NewsletterDocument } from "@/types/newsletter";
 import type { SchoolProfile } from "@/types/school";
 import { ActionNotice } from "@/components/ui/ActionNotice";
@@ -46,6 +48,7 @@ export function IssueWizard() {
     pdfPath?: string;
   } | null>(null);
   const [notice, setNotice] = useState<{ message: string; tone: "success" | "error" | "info" } | null>(null);
+  const [member, setMember] = useState<MemberRecord | null>(null);
   const [quickNotes, setQuickNotes] = useState("");
   const [storyInputs, setStoryInputs] = useState<StoryPlannerInput[]>(() => [createStoryPlannerInput(0)]);
   const [uploadedAssets, setUploadedAssets] = useState<UploadedAsset[]>([]);
@@ -78,6 +81,7 @@ export function IssueWizard() {
     () => buildStructuredNewsletterRequest(quickNotes, storyInputs),
     [quickNotes, storyInputs]
   );
+  const canPublishIssue = canPublishNewsletters(member);
 
   useEffect(() => {
     if (!draftId?.trim() && !cloneFromId?.trim() && !freshIssue) {
@@ -466,7 +470,7 @@ export function IssueWizard() {
 
     async function loadDocument() {
       try {
-        let nextMember: { schoolId: string } | null = null;
+        let nextMember: MemberRecord | null = null;
         let nextSchool: SchoolProfile | null = null;
 
         if (session?.user?.email) {
@@ -506,6 +510,7 @@ export function IssueWizard() {
             : createFreshDraft(nextSchool);
 
         if (!cancelled && nextDocument) {
+          setMember(nextMember);
           const mergedDocument = nextSchool
             ? {
                 ...nextDocument,
@@ -618,6 +623,7 @@ export function IssueWizard() {
         }
       } catch {
         if (!cancelled) {
+          setMember(null);
           setSaveMessage("Starting with a new draft.");
           setLastSavedAt(null);
         }
@@ -1383,10 +1389,15 @@ export function IssueWizard() {
                 >
                   {distributionMessage}
                 </div>
+                {!canPublishIssue ? (
+                  <div className="mt-4 rounded-[20px] bg-amber-50 p-4 text-sm leading-6 text-amber-800">
+                    Your account can prepare and review drafts, but a school admin needs to publish them.
+                  </div>
+                ) : null}
                 <div className="mt-6 flex flex-wrap gap-3">
                   <button
                     className="rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white disabled:cursor-not-allowed disabled:opacity-40"
-                    disabled={distributionState === "publishing"}
+                    disabled={distributionState === "publishing" || !canPublishIssue}
                     onClick={() => void publishDistribution()}
                     type="button"
                   >

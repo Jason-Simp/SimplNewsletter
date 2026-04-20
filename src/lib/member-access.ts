@@ -19,3 +19,11 @@ export function canManageCodes(member: MemberRecord | null) {
 export function canAccessBuilder(member: MemberRecord | null) {
   return member?.role === "company_admin" || member?.role === "school_admin" || member?.role === "editor";
 }
+
+export function canPublishNewsletters(member: MemberRecord | null) {
+  return member?.role === "company_admin" || member?.role === "school_admin";
+}
+
+export function canDeleteNewsletters(member: MemberRecord | null) {
+  return member?.role === "company_admin" || member?.role === "school_admin";
+}

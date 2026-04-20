@@ -1,7 +1,14 @@
 import { createClient, type User } from "@supabase/supabase-js";
 
 import { ApiRouteError } from "@/lib/api-route";
-import { canAccessBuilder, canManageCodes, canManageMembers, canManageSchools } from "@/lib/member-access";
+import {
+  canAccessBuilder,
+  canDeleteNewsletters,
+  canManageCodes,
+  canManageMembers,
+  canManageSchools,
+  canPublishNewsletters
+} from "@/lib/member-access";
 import { getMemberByEmail } from "@/lib/member-repository";
 import type { MemberRecord } from "@/types/member";
 
@@ -47,6 +54,18 @@ export function requireCodeManagement(member: MemberRecord | null) {
 export function requireBuilderAccess(member: MemberRecord | null) {
   if (!canAccessBuilder(member)) {
     throw new ApiRouteError(403, "You do not have access to the newsletter builder.");
+  }
+}
+
+export function requireNewsletterPublishAccess(member: MemberRecord | null) {
+  if (!canPublishNewsletters(member)) {
+    throw new ApiRouteError(403, "Only school admins can publish newsletters.");
+  }
+}
+
+export function requireNewsletterDeleteAccess(member: MemberRecord | null) {
+  if (!canDeleteNewsletters(member)) {
+    throw new ApiRouteError(403, "Only school admins can delete newsletters.");
   }
 }
 

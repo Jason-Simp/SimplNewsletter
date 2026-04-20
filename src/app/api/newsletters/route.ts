@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { ApiRouteError, jsonApiError } from "@/lib/api-route";
 import { deleteNewsletter, listNewsletters, saveNewsletter } from "@/lib/newsletter-repository";
-import { assertSchoolScope, requireBuilderAccess, requireSignedInMember } from "@/lib/server-auth";
+import {
+  assertSchoolScope,
+  requireBuilderAccess,
+  requireNewsletterDeleteAccess,
+  requireSignedInMember
+} from "@/lib/server-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +61,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const { member } = await requireSignedInMember(request);
     requireBuilderAccess(member);
+    requireNewsletterDeleteAccess(member);
     const newsletterId = request.nextUrl.searchParams.get("newsletterId") ?? "";
     const schoolId = request.nextUrl.searchParams.get("schoolId") ?? undefined;
     const scopedSchoolId = member.role === "company_admin" ? schoolId : member.schoolId;

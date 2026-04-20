@@ -8,7 +8,12 @@ import {
   getSchoolArchivePath,
   toAbsoluteUrl
 } from "@/lib/public-links";
-import { assertSchoolScope, requireBuilderAccess, requireSignedInMember } from "@/lib/server-auth";
+import {
+  assertSchoolScope,
+  requireBuilderAccess,
+  requireNewsletterPublishAccess,
+  requireSignedInMember
+} from "@/lib/server-auth";
 import { serverConfig } from "@/lib/server-config";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +22,7 @@ export async function POST(request: Request) {
   try {
     const { member } = await requireSignedInMember(request);
     requireBuilderAccess(member);
+    requireNewsletterPublishAccess(member);
     const payload = await request.json();
     const document = payload?.document;
     const selectedChannels = Array.isArray(payload?.distributionOptions)
