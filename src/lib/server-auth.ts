@@ -1,6 +1,7 @@
 import { createClient, type User } from "@supabase/supabase-js";
 
 import { ApiRouteError } from "@/lib/api-route";
+import { isWithinSchoolScope } from "@/lib/authorization";
 import {
   canAccessBuilder,
   canDeleteNewsletters,
@@ -70,7 +71,7 @@ export function requireNewsletterDeleteAccess(member: MemberRecord | null) {
 }
 
 export function assertSchoolScope(member: MemberRecord, schoolId: string) {
-  if (member.role !== "company_admin" && member.schoolId !== schoolId) {
+  if (!isWithinSchoolScope(member, schoolId)) {
     throw new ApiRouteError(403, "This action is limited to your assigned school.");
   }
 }

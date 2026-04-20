@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { ApiRouteError, jsonApiError } from "@/lib/api-route";
+import { canManageMemberAtSchool } from "@/lib/authorization";
 import { getMemberByEmail } from "@/lib/member-repository";
 import { requireMemberManagement, requireSignedInMember } from "@/lib/server-auth";
 import { resendMemberInvite, sendMemberPasswordReset } from "@/lib/member-repository";
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
       throw new ApiRouteError(404, "Member not found.");
     }
 
-    if (member.role !== "company_admin" && targetMember.schoolId !== member.schoolId) {
+    if (!canManageMemberAtSchool(member, targetMember.schoolId)) {
       throw new ApiRouteError(403, "You can only manage members in your own school.");
     }
 
