@@ -64,6 +64,58 @@ function asStringArray(value: unknown) {
     : [];
 }
 
+function deriveFallbackTitleFromSections(sections: unknown) {
+  const sectionList = Array.isArray(sections) ? sections.filter(isRecord) : [];
+
+  for (const section of sectionList) {
+    const content = isRecord(section.content) ? section.content : {};
+    const candidates = [
+      asTrimmedString(content.headline),
+      asTrimmedString(section.title),
+      asTrimmedString(content.title),
+      ...asObjectArray(content.items).flatMap((item) => [
+        getString(item, ["headline", "title", "name"]),
+        getString(item, ["tag"])
+      ])
+    ];
+
+    const usable = candidates.find(
+      (candidate) => candidate && !GENERIC_HEADLINES.has(candidate.toLowerCase())
+    );
+
+    if (usable) {
+      return usable;
+    }
+  }
+
+  return "";
+}
+
+function deriveFallbackIntroFromSections(sections: unknown) {
+  const sectionList = Array.isArray(sections) ? sections.filter(isRecord) : [];
+
+  for (const section of sectionList) {
+    const content = isRecord(section.content) ? section.content : {};
+    const candidates = [
+      asTrimmedString(content.body),
+      asTrimmedString(content.summary),
+      asTrimmedString(content.message),
+      asTrimmedString(content.quote),
+      ...asObjectArray(content.items).flatMap((item) => [
+        getString(item, ["summary", "body", "description"])
+      ])
+    ];
+
+    const usable = candidates.find(Boolean);
+
+    if (usable) {
+      return usable;
+    }
+  }
+
+  return "";
+}
+
 function assertMeaningfulCopy(value: string, context: string) {
   const normalized = value.trim().toLowerCase();
 
@@ -414,9 +466,14 @@ export function validateGeneratedNewsletterPackage(
     throw new Error("The school's writing agent did not return a valid newsletter package.");
   }
 
-  const title = asTrimmedString(value.title);
-  const intro = asTrimmedString(value.intro);
   const sections = value.sections;
+
+  if (!Array.isArray(sections) || sections.length === 0) {
+    throw new Error("The school's writing agent did not return any newsletter sections.");
+  }
+
+  const title = asTrimmedString(value.title) || deriveFallbackTitleFromSections(sections);
+  const intro = asTrimmedString(value.intro) || deriveFallbackIntroFromSections(sections);
 
   if (!title) {
     throw new Error("The school's writing agent did not return a newsletter title.");
@@ -428,10 +485,6 @@ export function validateGeneratedNewsletterPackage(
 
   assertSpecificHeadline(title, "Newsletter title");
   assertMeaningfulCopy(intro, "Newsletter introduction");
-
-  if (!Array.isArray(sections) || sections.length === 0) {
-    throw new Error("The school's writing agent did not return any newsletter sections.");
-  }
 
   const minimumSections = options?.minimumSections ?? 2;
   const allowedSectionTypes = options?.allowedSectionTypes?.filter(Boolean) ?? [];
