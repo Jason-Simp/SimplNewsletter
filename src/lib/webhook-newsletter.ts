@@ -174,6 +174,19 @@ export function normalizeWebhookDraftRequest(body: Partial<WebhookDraftRequest> 
   };
 }
 
+export function buildWebhookAuditDetails(
+  request: Request,
+  details?: Record<string, unknown>
+) {
+  return {
+    method: request.method,
+    path: new URL(request.url).pathname,
+    clientIp: getWebhookClientIp(request.headers),
+    hasSignature: Boolean(request.headers.get("x-the-wire-signature")?.trim()),
+    ...details
+  };
+}
+
 function assertWebhookRateLimit(request: Request, schoolId: string) {
   const now = Date.now();
   const ip = getWebhookClientIp(request.headers);

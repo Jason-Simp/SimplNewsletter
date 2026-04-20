@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { ApiRouteError, jsonApiError } from "@/lib/api-route";
+import { ApiRouteError, jsonApiError, logAuditEvent } from "@/lib/api-route";
 import { createNewsletterGenerationJob } from "@/lib/newsletter-generation-jobs";
 import { saveNewsletter } from "@/lib/newsletter-repository";
 import {
   assertWebhookRequestSecurity,
+  buildWebhookAuditDetails,
   buildCreatePrompt,
   createFreshDraftForSchool,
   normalizeWebhookDraftRequest,
@@ -69,6 +70,16 @@ export async function POST(
       callbackUrl: normalized.callbackUrl,
       externalThreadId: normalized.externalThreadId
     });
+
+    logAuditEvent("webhook.newsletter.create", null, buildWebhookAuditDetails(request, {
+      schoolId: school.id,
+      draftId: persisted.newsletter.id,
+      jobId: job.id,
+      externalThreadId: normalized.externalThreadId || null,
+      hasCallbackUrl: Boolean(normalized.callbackUrl),
+      uploadedAssetCount: normalized.uploadedAssets.length,
+      imageHintCount: normalized.imageHints.length
+    }));
 
     return NextResponse.json(
       {

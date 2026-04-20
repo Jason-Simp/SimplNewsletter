@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { ApiRouteError, jsonApiError } from "@/lib/api-route";
+import { ApiRouteError, jsonApiError, logAuditEvent } from "@/lib/api-route";
 import { getNewsletterGenerationJob } from "@/lib/newsletter-generation-jobs";
 import {
   assertWebhookRequestSecurity,
+  buildWebhookAuditDetails,
   requireWebhookSchool
 } from "@/lib/webhook-newsletter";
 
@@ -37,6 +38,15 @@ export async function GET(
     if (!job || job.schoolId !== resolvedSchoolId) {
       throw new ApiRouteError(404, "That newsletter writing job could not be found for this school.");
     }
+
+    logAuditEvent("webhook.newsletter.status", null, buildWebhookAuditDetails(request, {
+      schoolId: school.id,
+      draftId: job.draftId,
+      jobId: job.id,
+      jobStatus: job.status,
+      externalThreadId: job.externalThreadId || null,
+      hasCallbackUrl: Boolean(job.callbackUrl)
+    }));
 
     return NextResponse.json(
       {
