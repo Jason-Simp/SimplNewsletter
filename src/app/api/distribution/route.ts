@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { jsonApiError } from "@/lib/api-route";
+import { jsonApiError, logAuditEvent } from "@/lib/api-route";
 import { saveNewsletter } from "@/lib/newsletter-repository";
 import {
   getNewsletterPdfPath,
@@ -57,6 +57,14 @@ export async function POST(request: Request) {
       schoolId && newsletterId && selectedChannels.includes("pdf")
         ? getNewsletterPdfPath(schoolId, newsletterId, true)
         : undefined;
+
+    logAuditEvent("newsletter.publish", member, {
+      newsletterId,
+      schoolId,
+      channels: selectedChannels,
+      publishedToWebsite: selectedChannels.includes("web"),
+      pdfSelected: selectedChannels.includes("pdf")
+    });
 
     return NextResponse.json(
       {

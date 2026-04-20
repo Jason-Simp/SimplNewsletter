@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 
 import { NextResponse } from "next/server";
+import type { MemberRecord } from "@/types/member";
 
 type LogDetails = Record<string, unknown> | undefined;
 
@@ -71,6 +72,33 @@ export function jsonApiError(
       }
     }
   );
+}
+
+export function logAuditEvent(
+  action: string,
+  actor: Pick<MemberRecord, "id" | "email" | "role" | "schoolId"> | null,
+  details?: LogDetails
+) {
+  const auditId = randomUUID();
+
+  console.info(
+    JSON.stringify({
+      level: "audit",
+      auditId,
+      action,
+      actor: actor
+        ? {
+            id: actor.id,
+            email: actor.email,
+            role: actor.role,
+            schoolId: actor.schoolId
+          }
+        : null,
+      details: sanitizeForLogs(details)
+    })
+  );
+
+  return auditId;
 }
 
 function sanitizeForLogs(value: unknown): unknown {

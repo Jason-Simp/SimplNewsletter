@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { ApiRouteError, jsonApiError } from "@/lib/api-route";
+import { ApiRouteError, jsonApiError, logAuditEvent } from "@/lib/api-route";
 import { assertSchoolScope, requireMemberManagement, requireSignedInMember } from "@/lib/server-auth";
 import { deleteMember, inviteMember, listMembers, saveMember, updateMember } from "@/lib/member-repository";
 
@@ -52,7 +52,30 @@ export async function POST(request: Request) {
       schoolId: nextSchoolId
     };
 
-    const data = invite ? await inviteMember(nextPayload) : await saveMember(nextPayload);
+    if (invite) {
+      const data = await inviteMember(nextPayload);
+      logAuditEvent("member.invite", member, {
+        targetMemberId: data.member.id,
+        targetSchoolId: data.member.schoolId,
+        targetRole: data.member.role,
+        targetEmail: data.member.email,
+        inviteSent: data.inviteSent
+      });
+
+      return NextResponse.json({
+        status: "ok",
+        data
+      });
+    }
+
+    const data = await saveMember(nextPayload);
+
+    logAuditEvent("member.create", member, {
+      targetMemberId: data.id,
+      targetSchoolId: data.schoolId,
+      targetRole: data.role,
+      targetEmail: data.email
+    });
 
     return NextResponse.json({
       status: "ok",
@@ -88,6 +111,13 @@ export async function PUT(request: Request) {
 
     const data = await updateMember(nextPayload);
 
+    logAuditEvent("member.update", member, {
+      targetMemberId: data.id,
+      targetSchoolId: data.schoolId,
+      targetRole: data.role,
+      targetEmail: data.email
+    });
+
     return NextResponse.json({
       status: "ok",
       data
@@ -113,18 +143,23 @@ export async function DELETE(request: Request) {
       );
     }
 
-    if (member.role !== "company_admin") {
-      const visibleMembers = await listMembers();
-      const target = visibleMembers.find((item) => item.id === String(payload.id));
+    const visibleMembers = await listMembers();
+    const target = visibleMembers.find((item) => item.id === String(payload.id));
 
-      if (!target) {
-        throw new ApiRouteError(404, "Member not found.");
-      }
-
-      assertSchoolScope(member, target.schoolId);
+    if (!target) {
+      throw new ApiRouteError(404, "Member not found.");
     }
 
+    assertSchoolScope(member, target.schoolId);
+
     const data = await deleteMember(String(payload.id));
+
+    logAuditEvent("member.delete", member, {
+      targetMemberId: target.id,
+      targetSchoolId: target.schoolId,
+      targetRole: target.role,
+      targetEmail: target.email
+    });
 
     return NextResponse.json({
       status: "ok",

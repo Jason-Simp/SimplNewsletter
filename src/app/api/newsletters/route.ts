@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { ApiRouteError, jsonApiError } from "@/lib/api-route";
+import { ApiRouteError, jsonApiError, logAuditEvent } from "@/lib/api-route";
 import { deleteNewsletter, listNewsletters, saveNewsletter } from "@/lib/newsletter-repository";
 import {
   assertSchoolScope,
@@ -81,6 +81,11 @@ export async function DELETE(request: NextRequest) {
     if (!result.deleted) {
       throw new ApiRouteError(404, "The newsletter could not be found for deletion.");
     }
+
+    logAuditEvent("newsletter.delete", member, {
+      newsletterId: newsletterId.trim(),
+      schoolId: scopedSchoolId
+    });
 
     return NextResponse.json({
       status: "ok",

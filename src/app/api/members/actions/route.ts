@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { ApiRouteError, jsonApiError } from "@/lib/api-route";
+import { ApiRouteError, jsonApiError, logAuditEvent } from "@/lib/api-route";
 import { canManageMemberAtSchool } from "@/lib/authorization";
 import { getMemberByEmail } from "@/lib/member-repository";
 import { requireMemberManagement, requireSignedInMember } from "@/lib/server-auth";
@@ -39,6 +39,12 @@ export async function POST(request: Request) {
     if (action === "password_reset") {
       const data = await sendMemberPasswordReset(email);
 
+      logAuditEvent("member.password_reset", member, {
+        targetMemberId: targetMember.id,
+        targetSchoolId: targetMember.schoolId,
+        targetEmail: targetMember.email
+      });
+
       return NextResponse.json({
         status: "ok",
         data,
@@ -48,6 +54,13 @@ export async function POST(request: Request) {
 
     if (action === "resend_invite") {
       const data = await resendMemberInvite(email);
+
+      logAuditEvent("member.resend_invite", member, {
+        targetMemberId: targetMember.id,
+        targetSchoolId: targetMember.schoolId,
+        targetEmail: targetMember.email,
+        inviteSent: data.sent
+      });
 
       return NextResponse.json({
         status: "ok",
