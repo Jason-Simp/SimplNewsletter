@@ -113,7 +113,7 @@ export function SchoolManager() {
   const [member, setMember] = useState<MemberRecord | null>(null);
   const [userEmail, setUserEmail] = useState("");
   const [userName, setUserName] = useState("");
-  const [userRole, setUserRole] = useState<"school_admin" | "editor">("editor");
+  const [userRole, setUserRole] = useState<"company_admin" | "school_admin" | "editor">("editor");
   const [logoStatus, setLogoStatus] = useState("Upload a logo to get started.");
   const [agentStatus, setAgentStatus] = useState("Not checked yet.");
   const [notice, setNotice] = useState<{ message: string; tone: "success" | "error" | "info" } | null>(null);
@@ -1104,8 +1104,13 @@ export function SchoolManager() {
             <Input label="Email" value={userEmail} onChange={setUserEmail} />
             <SelectField
               label="Access level"
-              onChange={(value) => setUserRole(value as "school_admin" | "editor")}
+              onChange={(value) =>
+                setUserRole(value as "company_admin" | "school_admin" | "editor")
+              }
               options={[
+                ...(member?.role === "company_admin"
+                  ? ([["company_admin", "Company admin"]] as [string, string][])
+                  : []),
                 ["school_admin", "School admin"],
                 ["editor", "Editor"]
               ]}
@@ -1128,7 +1133,12 @@ export function SchoolManager() {
               <div key={item.id} className="rounded-2xl border border-slate-200 px-4 py-4">
                 <div className="font-semibold text-brand-text">{item.fullName || item.email}</div>
                 <div className="mt-1 text-sm text-brand-muted">
-                  {item.email} · {item.role === "school_admin" ? "School admin" : "Editor"}
+                  {item.email} ·{" "}
+                  {item.role === "company_admin"
+                    ? "Company admin"
+                    : item.role === "school_admin"
+                      ? "School admin"
+                      : "Editor"}
                 </div>
               </div>
             ))}

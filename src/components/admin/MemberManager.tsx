@@ -15,7 +15,7 @@ export function MemberManager() {
   const [status, setStatus] = useState("Loading members...");
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
-  const [role, setRole] = useState<"school_admin" | "editor">("editor");
+  const [role, setRole] = useState<"company_admin" | "school_admin" | "editor">("editor");
   const [schoolId, setSchoolId] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [member, setMember] = useState<MemberRecord | null>(null);
@@ -128,7 +128,14 @@ export function MemberManager() {
       return;
     }
 
-    setMembers((current) => [payload.data, ...current.filter((item) => item.id !== payload.data.id)]);
+    const savedMember = (payload?.data?.member ?? payload?.data) as MemberRecord;
+
+    setMembers((current) => [savedMember, ...current.filter((item) => item.id !== savedMember.id)]);
+
+    if (savedMember.email.toLowerCase() === session?.user?.email?.toLowerCase()) {
+      setMember(savedMember);
+    }
+
     resetForm();
     const message = editingMemberId ? "Member updated." : "Member saved and invite sent.";
     setStatus(message);
@@ -139,7 +146,7 @@ export function MemberManager() {
     setEditingMemberId(memberToEdit.id);
     setEmail(memberToEdit.email);
     setFullName(memberToEdit.fullName);
-    setRole(memberToEdit.role === "company_admin" ? "school_admin" : memberToEdit.role);
+    setRole(memberToEdit.role);
     setIsActive(memberToEdit.isActive);
     setSchoolId(memberToEdit.schoolId);
     setStatus("Editing member.");
@@ -274,9 +281,14 @@ export function MemberManager() {
             </select>
             <select
               className="rounded-2xl border border-slate-200 px-4 py-3"
-              onChange={(event) => setRole(event.target.value as "school_admin" | "editor")}
+              onChange={(event) =>
+                setRole(event.target.value as "company_admin" | "school_admin" | "editor")
+              }
               value={role}
             >
+              {member?.role === "company_admin" ? (
+                <option value="company_admin">Company admin</option>
+              ) : null}
               <option value="school_admin">School admin</option>
               <option value="editor">Editor</option>
             </select>
