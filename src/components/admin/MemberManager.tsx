@@ -114,7 +114,8 @@ export function MemberManager() {
         email,
         fullName,
         role,
-        isActive
+        isActive,
+        invite: !editingMemberId
       })
     });
 
@@ -129,7 +130,7 @@ export function MemberManager() {
 
     setMembers((current) => [payload.data, ...current.filter((item) => item.id !== payload.data.id)]);
     resetForm();
-    const message = editingMemberId ? "Member updated." : "Member saved.";
+    const message = editingMemberId ? "Member updated." : "Member saved and invite sent.";
     setStatus(message);
     showNotice(message, "success");
   };

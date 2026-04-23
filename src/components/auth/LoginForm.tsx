@@ -7,7 +7,7 @@ import { authFetch } from "@/lib/api-client";
 import { schoolAmplifiedBrand } from "@/lib/brand";
 import { useAuthSession } from "@/lib/auth-client";
 
-type AuthMode = "signin" | "signup" | "magic";
+type AuthMode = "signin" | "signup" | "magic" | "reset";
 
 export function LoginForm({
   initialMode = "signin",
@@ -83,6 +83,30 @@ export function LoginForm({
     setStatus("Magic link sent.");
   };
 
+  const requestPasswordReset = async () => {
+    if (!supabase) {
+      setStatus("Supabase auth is not configured.");
+      return;
+    }
+
+    if (!email.trim()) {
+      setStatus("Enter the email address tied to your account first.");
+      return;
+    }
+
+    setStatus("Sending password reset email...");
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: typeof window !== "undefined" ? `${window.location.origin}/reset-password` : undefined
+    });
+
+    if (error) {
+      setStatus(error.message);
+      return;
+    }
+
+    setStatus("Password reset email sent. Check your inbox and spam folder.");
+  };
+
   const createAccount = async () => {
     if (!password || password.length < 8) {
       setStatus("Use a password with at least 8 characters.");
@@ -137,7 +161,9 @@ export function LoginForm({
         : "Member login"
       : mode === "signup"
         ? "Create account"
-        : "Email magic link";
+        : mode === "magic"
+          ? "Email magic link"
+          : "Reset password";
   const description =
     mode === "signin"
       ? audience === "admin"
@@ -145,7 +171,9 @@ export function LoginForm({
         : "Sign in with your existing member credentials."
       : mode === "signup"
         ? "Use your invite code to create a member account for your school."
-        : "Request a sign-in link by email if your account is already set up.";
+        : mode === "magic"
+          ? "Request a sign-in link by email if your account is already set up."
+          : "Send yourself a password reset email and choose a new password.";
   const helperItems =
     audience === "admin"
       ? [
@@ -162,10 +190,15 @@ export function LoginForm({
               "Use this if your account already exists and you prefer a sign-in link by email.",
               "The link will bring you back into your school workspace."
             ]
-          : [
-              "Use this if your school account is already set up.",
-              "After sign-in, you will go to your school dashboard or setup if your workspace is still being connected."
-            ];
+          : mode === "reset"
+            ? [
+              "Use the email address tied to your school account.",
+              "The reset email will send you to a secure page where you can choose a new password."
+            ]
+            : [
+                "Use this if your school account is already set up.",
+                "After sign-in, you will go to your school dashboard or setup if your workspace is still being connected."
+              ];
 
   return (
     <section className="w-full max-w-md rounded-editorial border border-white/10 bg-white p-8 shadow-editorial">
@@ -196,7 +229,7 @@ export function LoginForm({
         </div>
       </div>
 
-      <div className="mt-6 grid grid-cols-3 gap-2 rounded-2xl bg-brand-background p-2">
+      <div className="mt-6 grid grid-cols-4 gap-2 rounded-2xl bg-brand-background p-2">
         <button
           className={`rounded-xl px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] ${
             mode === "signin" ? "bg-brand-primary text-white" : "text-brand-text"
@@ -224,6 +257,15 @@ export function LoginForm({
         >
           Magic link
         </button>
+        <button
+          className={`rounded-xl px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] ${
+            mode === "reset" ? "bg-brand-secondary text-white" : "text-brand-text"
+          }`}
+          onClick={() => setMode("reset")}
+          type="button"
+        >
+          Reset
+        </button>
       </div>
 
       <div className="mt-6 grid gap-4">
@@ -237,15 +279,17 @@ export function LoginForm({
           />
         </label>
 
-        <label className="grid gap-2">
-          <span className="text-sm font-semibold text-brand-text">Password</span>
-          <input
-            className="rounded-2xl border border-slate-200 px-4 py-3"
-            onChange={(event) => setPassword(event.target.value)}
-            type="password"
-            value={password}
-          />
-        </label>
+        {mode !== "magic" && mode !== "reset" ? (
+          <label className="grid gap-2">
+            <span className="text-sm font-semibold text-brand-text">Password</span>
+            <input
+              className="rounded-2xl border border-slate-200 px-4 py-3"
+              onChange={(event) => setPassword(event.target.value)}
+              type="password"
+              value={password}
+            />
+          </label>
+        ) : null}
 
         {mode === "signup" ? (
           <>
@@ -276,13 +320,22 @@ export function LoginForm({
 
       <div className="mt-6 flex flex-wrap gap-3">
         {mode === "signin" ? (
-          <button
-            className="rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white"
-            onClick={() => void signIn()}
-            type="button"
-          >
-            Sign in
-          </button>
+          <>
+            <button
+              className="rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white"
+              onClick={() => void signIn()}
+              type="button"
+            >
+              Sign in
+            </button>
+            <button
+              className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
+              onClick={() => setMode("reset")}
+              type="button"
+            >
+              Forgot password
+            </button>
+          </>
         ) : null}
         {mode === "signup" ? (
           <button
@@ -300,6 +353,15 @@ export function LoginForm({
             type="button"
           >
             Send magic link
+          </button>
+        ) : null}
+        {mode === "reset" ? (
+          <button
+            className="rounded-full bg-brand-secondary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white"
+            onClick={() => void requestPasswordReset()}
+            type="button"
+          >
+            Send reset email
           </button>
         ) : null}
       </div>

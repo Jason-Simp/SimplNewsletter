@@ -169,7 +169,7 @@ export async function sendMemberPasswordReset(email: string) {
   }
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${serverConfig.renderExternalUrl}/login`
+    redirectTo: `${serverConfig.renderExternalUrl}/reset-password`
   });
 
   if (error) {
@@ -187,7 +187,7 @@ export async function resendMemberInvite(email: string) {
   }
 
   const { error } = await supabase.auth.admin.inviteUserByEmail(email, {
-    redirectTo: `${serverConfig.renderExternalUrl}/login`
+    redirectTo: `${serverConfig.renderExternalUrl}/reset-password`
   });
 
   if (error && !error.message.toLowerCase().includes("already")) {
@@ -220,7 +220,7 @@ export async function inviteMember(input: Omit<MemberRecord, "id" | "schoolName"
   }
 
   const { error: inviteError } = await supabase.auth.admin.inviteUserByEmail(input.email, {
-    redirectTo: `${serverConfig.renderExternalUrl}/login`
+    redirectTo: `${serverConfig.renderExternalUrl}/reset-password`
   });
 
   if (inviteError && !inviteError.message.toLowerCase().includes("already")) {
