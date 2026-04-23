@@ -1,3 +1,44 @@
+function normalizeExternalUrl(value: string) {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return "";
+  }
+
+  const withProtocol =
+    trimmed.startsWith("http://") || trimmed.startsWith("https://")
+      ? trimmed
+      : `https://${trimmed}`;
+
+  return withProtocol.replace(/\/+$/, "");
+}
+
+function resolveExternalUrl() {
+  const candidates = [
+    process.env.APP_PUBLIC_URL,
+    process.env.NEXT_PUBLIC_APP_URL,
+    process.env.NEXT_PUBLIC_SITE_URL,
+    process.env.RENDER_EXTERNAL_URL,
+    process.env.VERCEL_URL
+  ];
+
+  for (const candidate of candidates) {
+    const normalized = normalizeExternalUrl(candidate ?? "");
+
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    return "http://localhost:3000";
+  }
+
+  return "";
+}
+
+const renderExternalUrl = resolveExternalUrl();
+
 export const serverConfig = {
   assetRetentionDays: Number(process.env.ASSET_RETENTION_DAYS ?? 30),
   storageBucket: process.env.SUPABASE_STORAGE_BUCKET ?? "newsletter-assets",
@@ -21,5 +62,6 @@ export const serverConfig = {
   hasIntegrationBridge: Boolean(
     process.env.INTEGRATION_BASE_URL || process.env.ELEVENLABS_AGENT_BASE_URL
   ),
-  renderExternalUrl: process.env.RENDER_EXTERNAL_URL ?? "http://localhost:3000"
+  hasPublicAppUrl: Boolean(renderExternalUrl),
+  renderExternalUrl
 } as const;

@@ -168,8 +168,10 @@ export async function sendMemberPasswordReset(email: string) {
     return { sent: false };
   }
 
+  const redirectUrl = getAuthRedirectUrl();
+
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${serverConfig.renderExternalUrl}/reset-password`
+    redirectTo: redirectUrl
   });
 
   if (error) {
@@ -186,8 +188,10 @@ export async function resendMemberInvite(email: string) {
     return { sent: false };
   }
 
+  const redirectUrl = getAuthRedirectUrl();
+
   const { error } = await supabase.auth.admin.inviteUserByEmail(email, {
-    redirectTo: `${serverConfig.renderExternalUrl}/reset-password`
+    redirectTo: redirectUrl
   });
 
   if (error && !error.message.toLowerCase().includes("already")) {
@@ -211,6 +215,8 @@ export async function inviteMember(input: Omit<MemberRecord, "id" | "schoolName"
     };
   }
 
+  const redirectUrl = getAuthRedirectUrl();
+
   const existingMember = await getMemberByEmail(input.email);
 
   if (!existingMember) {
@@ -220,7 +226,7 @@ export async function inviteMember(input: Omit<MemberRecord, "id" | "schoolName"
   }
 
   const { error: inviteError } = await supabase.auth.admin.inviteUserByEmail(input.email, {
-    redirectTo: `${serverConfig.renderExternalUrl}/reset-password`
+    redirectTo: redirectUrl
   });
 
   if (inviteError && !inviteError.message.toLowerCase().includes("already")) {
@@ -366,4 +372,14 @@ function resolveSchoolName(schools: MemberRow["schools"]) {
   }
 
   return schools?.name ?? "Unknown School";
+}
+
+function getAuthRedirectUrl() {
+  if (!serverConfig.renderExternalUrl) {
+    throw new Error(
+      "Public app URL is not configured for auth emails. Set APP_PUBLIC_URL or RENDER_EXTERNAL_URL."
+    );
+  }
+
+  return `${serverConfig.renderExternalUrl}/reset-password`;
 }

@@ -46,6 +46,7 @@ export async function POST(request: Request) {
       { publish: true }
     );
     const savedDocument = saveResult.newsletter;
+    const externalUrl = serverConfig.renderExternalUrl || new URL(request.url).origin;
     const schoolId = savedDocument.workspace.schoolId;
     const newsletterId = savedDocument.id;
     const archivePath = schoolId ? getSchoolArchivePath(schoolId) : undefined;
@@ -76,9 +77,9 @@ export async function POST(request: Request) {
         archivePath,
         websitePath,
         pdfPath,
-        archiveUrl: archivePath ? toAbsoluteUrl(archivePath, serverConfig.renderExternalUrl) : null,
-        websiteUrl: websitePath ? toAbsoluteUrl(websitePath, serverConfig.renderExternalUrl) : null,
-        pdfUrl: pdfPath ? toAbsoluteUrl(pdfPath, serverConfig.renderExternalUrl) : null
+        archiveUrl: archivePath ? toAbsoluteUrl(archivePath, externalUrl) : null,
+        websiteUrl: websitePath ? toAbsoluteUrl(websitePath, externalUrl) : null,
+        pdfUrl: pdfPath ? toAbsoluteUrl(pdfPath, externalUrl) : null
       },
       { status: 200 }
     );

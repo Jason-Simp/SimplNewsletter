@@ -2,7 +2,7 @@ import { listNewsletters } from "@/lib/newsletter-repository";
 import { serverConfig } from "@/lib/server-config";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: { schoolId: string } }
 ) {
   const newsletters = await listNewsletters(params.schoolId);
@@ -11,7 +11,10 @@ export async function GET(
     newsletter.distributionOptions.some((option) => option.channel === "web" && option.selected)
   );
   const schoolName = newsletters[0]?.organization.name ?? "School";
-  const siteUrl = serverConfig.renderExternalUrl.replace(/\/$/, "");
+  const siteUrl = (serverConfig.renderExternalUrl || new URL(request.url).origin).replace(
+    /\/$/,
+    ""
+  );
   const feedUrl = `${siteUrl}/schools/${params.schoolId}/feed`;
 
   const items = publishedNewsletters
