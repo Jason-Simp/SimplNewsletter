@@ -12,9 +12,14 @@ export async function authFetch(
     typeof window !== "undefined" ? window.localStorage.getItem("the-wire-active-school-id") : null;
 
   if (supabase) {
-    const {
+    let {
       data: { session }
     } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      const { data: refreshData } = await supabase.auth.refreshSession();
+      session = refreshData.session ?? session;
+    }
 
     if (session?.access_token) {
       headers.set("Authorization", `Bearer ${session.access_token}`);
