@@ -59,13 +59,17 @@ export async function POST(request: Request) {
         targetMemberId: targetMember.id,
         targetSchoolId: targetMember.schoolId,
         targetEmail: targetMember.email,
-        inviteSent: data.sent
+        inviteSent: data.sent,
+        deliveryMode: data.mode
       });
 
       return NextResponse.json({
         status: "ok",
         data,
-        message: data.sent ? "Invite email sent." : "Invite was already active."
+        message:
+          data.mode === "reset"
+            ? "This account already existed, so a password reset email was sent instead."
+            : "Invite email sent."
       });
     }
 

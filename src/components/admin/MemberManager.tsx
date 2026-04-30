@@ -137,7 +137,11 @@ export function MemberManager() {
     }
 
     resetForm();
-    const message = editingMemberId ? "Member updated." : "Member saved and invite sent.";
+    const message = editingMemberId
+      ? "Member updated."
+      : payload?.data?.accessEmailMode === "reset"
+        ? "Member saved. This account already existed, so a password reset email was sent."
+        : "Member saved and invite sent.";
     setStatus(message);
     showNotice(message, "success");
   };

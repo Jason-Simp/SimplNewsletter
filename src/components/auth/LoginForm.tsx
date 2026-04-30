@@ -41,7 +41,7 @@ export function LoginForm({
     }
 
     setStatus("Signing in...");
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
       setStatus(error.message);
@@ -49,15 +49,46 @@ export function LoginForm({
     }
 
     try {
-      const response = await authFetch(supabase, "/api/members/me");
-      const payload = response.ok ? await response.json() : null;
-      const hasMember = Boolean(payload?.data);
+      if (data.user?.email && data.user.id) {
+        await authFetch(supabase, "/api/members/link-session", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            email: data.user.email,
+            authUserId: data.user.id
+          })
+        });
+      }
 
-      setStatus("Signed in.");
-      setRedirectTarget(hasMember ? "/admin" : "/setup");
+      const response = await authFetch(supabase, "/api/members/me");
+      const payload = await response.json();
+
+      if (response.ok && payload?.data) {
+        setStatus("Signed in.");
+        setRedirectTarget("/admin");
+        return;
+      }
+
+      if (response.status === 403) {
+        setStatus(
+          payload?.message ??
+            "Your account exists, but your member access is not active yet. Ask a school admin to reactivate you or send a password reset."
+        );
+        return;
+      }
+
+      if (response.status === 404) {
+        setStatus(
+          "Your account signed in, but it is not linked to an active school member record. Ask an admin to resend your access email or send you a password reset."
+        );
+        return;
+      }
+
+      setStatus(payload?.message ?? "Signed in, but we could not load your school access yet.");
     } catch {
-      setStatus("Signed in.");
-      setRedirectTarget("/setup");
+      setStatus("Signed in, but we could not verify your school access yet. Please try again.");
     }
   };
 

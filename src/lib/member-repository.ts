@@ -194,11 +194,23 @@ export async function resendMemberInvite(email: string) {
     redirectTo: redirectUrl
   });
 
-  if (error && !error.message.toLowerCase().includes("already")) {
+  if (error && !isAlreadyProvisionedAuthError(error.message)) {
     throw new Error(error.message || "Unable to resend invite email.");
   }
 
-  return { sent: !error };
+  if (error) {
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: redirectUrl
+    });
+
+    if (resetError) {
+      throw new Error(resetError.message || "Unable to send password reset email.");
+    }
+
+    return { sent: true, mode: "reset" as const };
+  }
+
+  return { sent: true, mode: "invite" as const };
 }
 
 export async function inviteMember(input: Omit<MemberRecord, "id" | "schoolName">) {
@@ -229,8 +241,22 @@ export async function inviteMember(input: Omit<MemberRecord, "id" | "schoolName"
     redirectTo: redirectUrl
   });
 
-  if (inviteError && !inviteError.message.toLowerCase().includes("already")) {
+  if (inviteError && !isAlreadyProvisionedAuthError(inviteError.message)) {
     throw new Error(inviteError.message);
+  }
+
+  let accessEmailMode: "invite" | "reset" = "invite";
+
+  if (inviteError) {
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(input.email, {
+      redirectTo: redirectUrl
+    });
+
+    if (resetError) {
+      throw new Error(resetError.message || "Unable to send password reset email.");
+    }
+
+    accessEmailMode = "reset";
   }
 
   const member = await getMemberByEmail(input.email);
@@ -241,7 +267,8 @@ export async function inviteMember(input: Omit<MemberRecord, "id" | "schoolName"
 
   return {
     member,
-    inviteSent: !inviteError
+    inviteSent: true,
+    accessEmailMode
   };
 }
 
@@ -382,4 +409,9 @@ function getAuthRedirectUrl() {
   }
 
   return `${serverConfig.renderExternalUrl}/reset-password`;
+}
+
+function isAlreadyProvisionedAuthError(message: string) {
+  const normalized = message.toLowerCase();
+  return normalized.includes("already") || normalized.includes("registered");
 }

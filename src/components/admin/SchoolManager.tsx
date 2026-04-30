@@ -528,7 +528,12 @@ export function SchoolManager() {
     setUserEmail("");
     setUserName("");
     setUserRole("editor");
-    const message = payload?.data?.inviteSent ? "Invite email sent." : "User added.";
+    const message =
+      payload?.data?.accessEmailMode === "reset"
+        ? "User added. This account already existed, so a password reset email was sent."
+        : payload?.data?.inviteSent
+          ? "Invite email sent."
+          : "User added.";
     setStatus(message);
     showNotice(message, "success");
   };
