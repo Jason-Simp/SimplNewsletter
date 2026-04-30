@@ -429,6 +429,54 @@ export function SchoolManager() {
     showNotice("School profile saved.", "success");
   };
 
+  const removeSchool = async () => {
+    if (member?.role !== "company_admin") {
+      showNotice("Only company admins can delete school profiles.", "error");
+      return;
+    }
+
+    if (!activeSchoolId || activeSchoolId.startsWith("demo-new-school")) {
+      showNotice("Save the school profile first before trying to delete it.", "error");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete ${form.name || "this school"}? This removes its members, newsletters, assets, and archive history.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setStatus("Deleting school...");
+
+    const response = await authFetch(
+      supabase,
+      `/api/schools?schoolId=${encodeURIComponent(activeSchoolId)}`,
+      {
+        method: "DELETE"
+      }
+    );
+    const payload = await response.json();
+
+    if (!response.ok) {
+      const message = payload?.message ?? "We could not delete this school yet.";
+      setStatus(message);
+      showNotice(message, "error");
+      return;
+    }
+
+    const remainingSchools = schools.filter((school) => school.id !== activeSchoolId);
+    const nextSchool = remainingSchools[0] ?? null;
+
+    setSchools(remainingSchools);
+    setMembers((current) => current.filter((item) => item.schoolId !== activeSchoolId));
+    setActiveSchoolId(nextSchool?.id ?? "");
+    setForm(nextSchool ?? { ...emptySchool, id: `demo-new-school-${Date.now()}` });
+    setStatus("School deleted.");
+    showNotice("School profile deleted.", "success");
+  };
+
   const uploadLogo = async (file: File | null) => {
     if (!file) {
       return;
@@ -621,8 +669,19 @@ export function SchoolManager() {
             <div className="text-xs font-bold uppercase tracking-[0.3em] text-brand-secondary">School setup</div>
             <h2 className="mt-2 font-display text-3xl text-brand-navy">School profile</h2>
           </div>
-          <div className="rounded-full bg-brand-background px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-brand-primary">
-            {status}
+          <div className="flex flex-wrap items-center gap-3">
+            {member?.role === "company_admin" && activeSchoolId && !activeSchoolId.startsWith("demo-new-school") ? (
+              <button
+                className="rounded-full border border-red-200 bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-red-700"
+                onClick={() => void removeSchool()}
+                type="button"
+              >
+                Delete school
+              </button>
+            ) : null}
+            <div className="rounded-full bg-brand-background px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-brand-primary">
+              {status}
+            </div>
           </div>
         </div>
 

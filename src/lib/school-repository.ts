@@ -228,6 +228,36 @@ export async function saveSchool(profile: SchoolProfile) {
   } satisfies SchoolProfile;
 }
 
+export async function deleteSchool(schoolId: string) {
+  const supabase = getServiceSupabase();
+
+  if (!supabase) {
+    return { deleted: true };
+  }
+
+  const { data: existing, error: fetchError } = await supabase
+    .from("schools")
+    .select("id")
+    .eq("id", schoolId)
+    .maybeSingle();
+
+  if (fetchError) {
+    throw new Error(fetchError.message || "Unable to load school profile.");
+  }
+
+  if (!existing) {
+    return { deleted: false };
+  }
+
+  const { error } = await supabase.from("schools").delete().eq("id", schoolId);
+
+  if (error) {
+    throw new Error(error.message || "Unable to delete school profile.");
+  }
+
+  return { deleted: true };
+}
+
 function normalizeSupportModules(value: unknown): SupportModule[] {
   if (!Array.isArray(value)) {
     return [];
