@@ -15,6 +15,7 @@ export async function POST(request: Request) {
     const payload = await request.json();
     const action = String(payload?.action ?? "");
     const email = String(payload?.email ?? "").trim();
+    const schoolId = String(payload?.schoolId ?? "").trim();
 
     if (!email) {
       return NextResponse.json(
@@ -26,7 +27,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const targetMember = await getMemberByEmail(email);
+    const targetMember = await getMemberByEmail(email, schoolId || undefined);
 
     if (!targetMember) {
       throw new ApiRouteError(404, "Member not found.");

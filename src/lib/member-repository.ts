@@ -1,15 +1,17 @@
 import { getServiceSupabase } from "@/lib/supabase/server";
 import { serverConfig } from "@/lib/server-config";
-import type { MemberRecord } from "@/types/member";
+import type { MemberMembership, MemberRecord } from "@/types/member";
 import type { SchoolProfile } from "@/types/school";
 
 type MemberRow = {
   id: string;
   school_id: string;
   email: string;
+  auth_user_id?: string | null;
   full_name: string | null;
   role: "company_admin" | "school_admin" | "editor";
   is_active: boolean;
+  created_at?: string | null;
   schools: { name: string } | { name: string }[] | null;
 };
 
@@ -43,27 +45,60 @@ export async function listMembers() {
 
   const { data, error } = await supabase
     .from("school_users")
-    .select("id,school_id,email,full_name,role,is_active,schools(name)")
+    .select("id,school_id,email,auth_user_id,full_name,role,is_active,created_at,schools(name)")
     .order("created_at", { ascending: false });
 
   if (error || !data) {
     return [];
   }
 
-  return (data as MemberRow[]).map((member) => ({
-    id: member.id,
-    schoolId: member.school_id,
-    schoolName: resolveSchoolName(member.schools),
-    email: member.email,
-    fullName: member.full_name ?? "",
-    role: member.role,
-    isActive: member.is_active
-  })) as MemberRecord[];
+  return (data as MemberRow[]).map(mapMemberRowToRecord) as MemberRecord[];
 }
 
-export async function getMemberByEmail(email: string) {
+export async function getMemberByEmail(email: string, schoolId?: string) {
   const members = await listMembers();
-  return members.find((member) => member.email.toLowerCase() === email.toLowerCase()) ?? null;
+  const normalizedEmail = email.toLowerCase();
+  const scopedMembers = members.filter((member) => member.email.toLowerCase() === normalizedEmail);
+
+  if (schoolId) {
+    return scopedMembers.find((member) => member.schoolId === schoolId) ?? null;
+  }
+
+  return scopedMembers[0] ?? null;
+}
+
+export async function getMemberForAuth(options: {
+  email: string;
+  authUserId?: string | null;
+  activeSchoolId?: string | null;
+}) {
+  const memberships = await listMemberMemberships(options);
+  const activeMemberships = memberships.filter((membership) => membership.isActive);
+
+  if (activeMemberships.length === 0) {
+    return null;
+  }
+
+  const requestedSchoolId = options.activeSchoolId?.trim();
+  const selectedMembership =
+    (requestedSchoolId
+      ? activeMemberships.find((membership) => membership.schoolId === requestedSchoolId)
+      : null) ?? activeMemberships[0];
+
+  return {
+    ...selectedMembership,
+    email: options.email.trim(),
+    fullName:
+      activeMemberships.find((membership) => membership.fullName.trim())?.fullName ??
+      selectedMembership.fullName,
+    memberships: activeMemberships.map((membership) => ({
+      id: membership.id,
+      schoolId: membership.schoolId,
+      schoolName: membership.schoolName,
+      role: membership.role,
+      isActive: membership.isActive
+    }))
+  } satisfies MemberRecord;
 }
 
 export async function saveMember(member: Omit<MemberRecord, "id" | "schoolName">) {
@@ -391,6 +426,69 @@ export async function bootstrapSchoolAdmin(input: {
       isActive: (member as MemberRow).is_active
     } satisfies MemberRecord
   };
+}
+
+async function listMemberMemberships(options: { email: string; authUserId?: string | null }) {
+  const supabase = getServiceSupabase();
+
+  if (!supabase) {
+    return fallbackMembers
+      .filter((member) => member.email.toLowerCase() === options.email.trim().toLowerCase())
+      .map((member) => ({
+        ...member,
+        memberships: undefined
+      }));
+  }
+
+  const normalizedEmail = options.email.trim().toLowerCase();
+  let query = supabase
+    .from("school_users")
+    .select("id,school_id,email,auth_user_id,full_name,role,is_active,created_at,schools(name)")
+    .eq("email", normalizedEmail);
+
+  if (options.authUserId?.trim()) {
+    query = query.or(
+      `auth_user_id.eq.${options.authUserId.trim()},and(auth_user_id.is.null,email.eq.${normalizedEmail})`
+    );
+  }
+
+  const { data, error } = await query.order("created_at", { ascending: false });
+
+  if (error || !data) {
+    return [];
+  }
+
+  return (data as MemberRow[])
+    .map(mapMemberRowToRecord)
+    .sort((left, right) => compareMemberPriority(left, right));
+}
+
+function mapMemberRowToRecord(member: MemberRow) {
+  return {
+    id: member.id,
+    schoolId: member.school_id,
+    schoolName: resolveSchoolName(member.schools),
+    email: member.email,
+    fullName: member.full_name ?? "",
+    role: member.role,
+    isActive: member.is_active
+  } satisfies MemberRecord;
+}
+
+function compareMemberPriority(left: MemberRecord, right: MemberRecord) {
+  const roleScore = (role: MemberMembership["role"]) => {
+    if (role === "company_admin") {
+      return 3;
+    }
+
+    if (role === "school_admin") {
+      return 2;
+    }
+
+    return 1;
+  };
+
+  return roleScore(right.role) - roleScore(left.role);
 }
 
 function resolveSchoolName(schools: MemberRow["schools"]) {

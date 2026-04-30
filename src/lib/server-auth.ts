@@ -10,7 +10,7 @@ import {
   canManageSchools,
   canPublishNewsletters
 } from "@/lib/member-access";
-import { getMemberByEmail } from "@/lib/member-repository";
+import { getMemberForAuth } from "@/lib/member-repository";
 import type { MemberRecord } from "@/types/member";
 
 export async function requireSignedInUser(request: Request) {
@@ -25,7 +25,11 @@ export async function requireSignedInUser(request: Request) {
 
 export async function requireSignedInMember(request: Request) {
   const user = await requireSignedInUser(request);
-  const member = await getMemberByEmail(user.email ?? "");
+  const member = await getMemberForAuth({
+    email: user.email ?? "",
+    authUserId: user.id,
+    activeSchoolId: request.headers.get("x-active-school-id")
+  });
 
   if (!member || !member.isActive) {
     throw new ApiRouteError(403, "Your member access is not active yet.");

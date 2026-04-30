@@ -18,6 +18,12 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
   const [member, setMember] = useState<MemberRecord | null>(null);
   const [memberLoading, setMemberLoading] = useState(true);
 
+  const updateActiveSchool = (schoolId: string) => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("the-wire-active-school-id", schoolId);
+    }
+  };
+
   useEffect(() => {
     if (!loading && !session && supabase) {
       router.replace("/login");
@@ -61,7 +67,13 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
 
       const payload = await response.json();
       if (!cancelled) {
-        setMember(payload.data ?? null);
+        const nextMember = payload.data ?? null;
+
+        if (nextMember?.schoolId) {
+          updateActiveSchool(nextMember.schoolId);
+        }
+
+        setMember(nextMember);
         setMemberLoading(false);
       }
     }
@@ -78,8 +90,24 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem("the-wire-active-school-id");
+    }
+
     await supabase.auth.signOut();
     router.replace("/login");
+  };
+
+  const switchSchool = async (schoolId: string) => {
+    updateActiveSchool(schoolId);
+    setMemberLoading(true);
+
+    const response = await authFetch(supabase, "/api/members/me");
+    const payload = response.ok ? await response.json() : null;
+
+    setMember(payload?.data ?? null);
+    setMemberLoading(false);
+    router.refresh();
   };
 
   if (loading || memberLoading) {
@@ -218,6 +246,22 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
               <div className="inline-flex w-fit rounded-full bg-white/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.2em] text-[#7db3f1]">
                 {member.role.replace("_", " ")}
               </div>
+              {member.memberships && member.memberships.length > 1 ? (
+                <label className="mt-2 grid gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-300">
+                  Active school
+                  <select
+                    className="rounded-2xl border border-white/10 bg-white/10 px-3 py-3 text-sm font-semibold text-white"
+                    onChange={(event) => void switchSchool(event.target.value)}
+                    value={member.schoolId}
+                  >
+                    {member.memberships.map((membership) => (
+                      <option key={membership.id} className="text-brand-text" value={membership.schoolId}>
+                        {membership.schoolName}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
             </div>
           ) : null}
 

@@ -208,6 +208,7 @@ export function MemberManager() {
     }
 
     setStatus(action === "password_reset" ? "Sending password reset..." : "Resending invite...");
+    const targetMember = members.find((item) => item.id === editingMemberId);
 
     const response = await authFetch(supabase, "/api/members/actions", {
       method: "POST",
@@ -216,7 +217,8 @@ export function MemberManager() {
       },
       body: JSON.stringify({
         action,
-        email
+        email,
+        schoolId: targetMember?.schoolId ?? schoolId
       })
     });
 
