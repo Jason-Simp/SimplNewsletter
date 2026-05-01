@@ -1,3 +1,4 @@
+import { ApiRouteError } from "@/lib/api-route";
 import { getServiceSupabase } from "@/lib/supabase/server";
 import { serverConfig } from "@/lib/server-config";
 import type { MemberMembership, MemberRecord } from "@/types/member";
@@ -57,7 +58,7 @@ export async function listMembers() {
 
 export async function getMemberByEmail(email: string, schoolId?: string) {
   const members = await listMembers();
-  const normalizedEmail = email.toLowerCase();
+  const normalizedEmail = email.trim().toLowerCase();
   const scopedMembers = members.filter((member) => member.email.toLowerCase() === normalizedEmail);
 
   if (schoolId) {
@@ -116,9 +117,9 @@ export async function saveMember(member: Omit<MemberRecord, "id" | "schoolName">
     .from("school_users")
     .upsert(
       {
-        school_id: member.schoolId,
-        email: member.email,
-        full_name: member.fullName,
+        school_id: member.schoolId.trim(),
+        email: member.email.trim().toLowerCase(),
+        full_name: member.fullName.trim(),
         role: member.role,
         is_active: member.isActive
       },
@@ -128,7 +129,7 @@ export async function saveMember(member: Omit<MemberRecord, "id" | "schoolName">
     .single();
 
   if (error || !data) {
-    throw new Error(error?.message ?? "Unable to save member.");
+    throw new ApiRouteError(400, error?.message ?? "Unable to save member.");
   }
 
   return {
@@ -155,9 +156,9 @@ export async function updateMember(member: Omit<MemberRecord, "schoolName">) {
   const { data, error } = await supabase
     .from("school_users")
     .update({
-      school_id: member.schoolId,
-      email: member.email,
-      full_name: member.fullName,
+      school_id: member.schoolId.trim(),
+      email: member.email.trim().toLowerCase(),
+      full_name: member.fullName.trim(),
       role: member.role,
       is_active: member.isActive
     })
@@ -166,7 +167,7 @@ export async function updateMember(member: Omit<MemberRecord, "schoolName">) {
     .single();
 
   if (error || !data) {
-    throw new Error(error?.message ?? "Unable to update member.");
+    throw new ApiRouteError(400, error?.message ?? "Unable to update member.");
   }
 
   return {
@@ -190,7 +191,7 @@ export async function deleteMember(memberId: string) {
   const { error } = await supabase.from("school_users").delete().eq("id", memberId);
 
   if (error) {
-    throw new Error(error.message || "Unable to remove member.");
+    throw new ApiRouteError(400, error.message || "Unable to remove member.");
   }
 
   return { success: true };
@@ -210,7 +211,7 @@ export async function sendMemberPasswordReset(email: string) {
   });
 
   if (error) {
-    throw new Error(error.message || "Unable to send password reset email.");
+    throw new ApiRouteError(400, error.message || "Unable to send password reset email.");
   }
 
   return { sent: true };
@@ -230,7 +231,7 @@ export async function resendMemberInvite(email: string) {
   });
 
   if (error && !isAlreadyProvisionedAuthError(error.message)) {
-    throw new Error(error.message || "Unable to resend invite email.");
+    throw new ApiRouteError(400, error.message || "Unable to resend invite email.");
   }
 
   if (error) {
@@ -239,7 +240,7 @@ export async function resendMemberInvite(email: string) {
     });
 
     if (resetError) {
-      throw new Error(resetError.message || "Unable to send password reset email.");
+      throw new ApiRouteError(400, resetError.message || "Unable to send password reset email.");
     }
 
     return { sent: true, mode: "reset" as const };
@@ -264,40 +265,59 @@ export async function inviteMember(input: Omit<MemberRecord, "id" | "schoolName"
 
   const redirectUrl = getAuthRedirectUrl();
 
-  const existingMember = await getMemberByEmail(input.email);
+  const nextInput = {
+    ...input,
+    schoolId: input.schoolId.trim(),
+    email: input.email.trim().toLowerCase(),
+    fullName: input.fullName.trim()
+  };
+  const existingMember = await getMemberByEmail(nextInput.email, nextInput.schoolId);
 
   if (!existingMember) {
-    await saveMember(input);
-  } else if (existingMember.schoolId !== input.schoolId || existingMember.role !== input.role) {
-    await saveMember(input);
+    await saveMember(nextInput);
+  } else if (
+    existingMember.schoolId !== nextInput.schoolId ||
+    existingMember.role !== nextInput.role ||
+    existingMember.fullName !== nextInput.fullName ||
+    existingMember.isActive !== nextInput.isActive
+  ) {
+    await saveMember(nextInput);
   }
 
-  const { error: inviteError } = await supabase.auth.admin.inviteUserByEmail(input.email, {
+  const member = await getMemberByEmail(nextInput.email, nextInput.schoolId);
+
+  if (!member) {
+    throw new ApiRouteError(500, "School user record was not created.", { exposeMessage: true });
+  }
+
+  const { error: inviteError } = await supabase.auth.admin.inviteUserByEmail(nextInput.email, {
     redirectTo: redirectUrl
   });
 
   if (inviteError && !isAlreadyProvisionedAuthError(inviteError.message)) {
-    throw new Error(inviteError.message);
+    return {
+      member,
+      inviteSent: false,
+      warning: `Member saved, but the invite email could not be sent yet: ${inviteError.message}`
+    };
   }
 
   let accessEmailMode: "invite" | "reset" = "invite";
 
   if (inviteError) {
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(input.email, {
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(nextInput.email, {
       redirectTo: redirectUrl
     });
 
     if (resetError) {
-      throw new Error(resetError.message || "Unable to send password reset email.");
+      return {
+        member,
+        inviteSent: false,
+        warning: `Member saved, but the password reset email could not be sent yet: ${resetError.message || "Unable to send password reset email."}`
+      };
     }
 
     accessEmailMode = "reset";
-  }
-
-  const member = await getMemberByEmail(input.email);
-
-  if (!member) {
-    throw new Error("School user record was not created.");
   }
 
   return {
@@ -366,7 +386,7 @@ export async function bootstrapSchoolAdmin(input: {
       .eq("id", existingMember.id);
 
     if (updateError) {
-      throw new Error(updateError.message);
+      throw new ApiRouteError(400, updateError.message);
     }
 
     return {
@@ -391,7 +411,7 @@ export async function bootstrapSchoolAdmin(input: {
     .single();
 
   if (schoolError || !school) {
-    throw new Error(schoolError?.message ?? "Unable to create school.");
+    throw new ApiRouteError(400, schoolError?.message ?? "Unable to create school.");
   }
 
   const { data: member, error: memberError } = await supabase
@@ -408,7 +428,7 @@ export async function bootstrapSchoolAdmin(input: {
     .single();
 
   if (memberError || !member) {
-    throw new Error(memberError?.message ?? "Unable to create school admin.");
+    throw new ApiRouteError(400, memberError?.message ?? "Unable to create school admin.");
   }
 
   return {

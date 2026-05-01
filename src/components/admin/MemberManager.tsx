@@ -137,13 +137,15 @@ export function MemberManager() {
     }
 
     resetForm();
-    const message = editingMemberId
-      ? "Member updated."
-      : payload?.data?.accessEmailMode === "reset"
-        ? "Member saved. This account already existed, so a password reset email was sent."
-        : "Member saved and invite sent.";
+    const message =
+      payload?.data?.warning ??
+      (editingMemberId
+        ? "Member updated."
+        : payload?.data?.accessEmailMode === "reset"
+          ? "Member saved. This account already existed, so a password reset email was sent."
+          : "Member saved and invite sent.");
     setStatus(message);
-    showNotice(message, "success");
+    showNotice(message, payload?.data?.warning ? "info" : "success");
   };
 
   const startEdit = (memberToEdit: MemberRecord) => {

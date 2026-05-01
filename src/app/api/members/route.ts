@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { ApiRouteError, jsonApiError, logAuditEvent } from "@/lib/api-route";
 import { assertSchoolScope, requireMemberManagement, requireSignedInMember } from "@/lib/server-auth";
 import { deleteMember, inviteMember, listMembers, saveMember, updateMember } from "@/lib/member-repository";
+import type { MemberRecord } from "@/types/member";
 
 export const dynamic = "force-dynamic";
 
@@ -33,13 +34,26 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  let payload: Record<string, unknown> | null = null;
   try {
     const { member } = await requireSignedInMember(request);
     requireMemberManagement(member);
-    const payload = await request.json();
+    payload = await request.json();
     const invite = Boolean(payload?.invite);
     const nextSchoolId =
       member.role === "company_admin" ? String(payload?.schoolId ?? "") : member.schoolId;
+
+    if (!String(payload?.email ?? "").trim()) {
+      throw new ApiRouteError(400, "Email is required.");
+    }
+
+    if (!String(payload?.fullName ?? "").trim()) {
+      throw new ApiRouteError(400, "Full name is required.");
+    }
+
+    if (!nextSchoolId.trim()) {
+      throw new ApiRouteError(400, "Choose a school before saving this member.");
+    }
 
     if (member.role !== "company_admin" && payload?.role === "company_admin") {
       throw new ApiRouteError(403, "Only company admins can assign company admin access.");
@@ -47,9 +61,13 @@ export async function POST(request: Request) {
 
     assertSchoolScope(member, nextSchoolId);
 
-    const nextPayload = {
-      ...payload,
-      schoolId: nextSchoolId
+    const nextPayload: Omit<MemberRecord, "id" | "schoolName"> = {
+      schoolId: nextSchoolId,
+      email: String(payload?.email ?? ""),
+      fullName: String(payload?.fullName ?? ""),
+      role:
+        payload?.role === "company_admin" || payload?.role === "school_admin" ? payload.role : "editor",
+      isActive: Boolean(payload?.isActive)
     };
 
     if (invite) {
@@ -82,15 +100,20 @@ export async function POST(request: Request) {
       data
     });
   } catch (error) {
-    return jsonApiError("api.members.post", error, "Unable to save member.");
+    return jsonApiError("api.members.post", error, "Unable to save member.", {
+      targetEmail: String(payload?.email ?? ""),
+      targetSchoolId: String(payload?.schoolId ?? ""),
+      targetRole: String(payload?.role ?? "")
+    });
   }
 }
 
 export async function PUT(request: Request) {
+  let payload: Record<string, unknown> | null = null;
   try {
     const { member } = await requireSignedInMember(request);
     requireMemberManagement(member);
-    const payload = await request.json();
+    payload = await request.json();
     const existingMembers = await listMembers();
     const targetMember = existingMembers.find((item) => item.id === String(payload?.id ?? ""));
 
@@ -104,9 +127,23 @@ export async function PUT(request: Request) {
       throw new ApiRouteError(403, "Only company admins can assign company admin access.");
     }
 
-    const nextPayload = {
-      ...payload,
-      schoolId: member.role === "company_admin" ? payload.schoolId : targetMember.schoolId
+    if (!String(payload?.email ?? "").trim()) {
+      throw new ApiRouteError(400, "Email is required.");
+    }
+
+    if (!String(payload?.fullName ?? "").trim()) {
+      throw new ApiRouteError(400, "Full name is required.");
+    }
+
+    const nextPayload: Omit<MemberRecord, "schoolName"> = {
+      id: targetMember.id,
+      schoolId:
+        member.role === "company_admin" ? String(payload?.schoolId ?? targetMember.schoolId) : targetMember.schoolId,
+      email: String(payload?.email ?? ""),
+      fullName: String(payload?.fullName ?? ""),
+      role:
+        payload?.role === "company_admin" || payload?.role === "school_admin" ? payload.role : "editor",
+      isActive: Boolean(payload?.isActive)
     };
 
     const data = await updateMember(nextPayload);
@@ -123,7 +160,12 @@ export async function PUT(request: Request) {
       data
     });
   } catch (error) {
-    return jsonApiError("api.members.put", error, "Unable to update member.");
+    return jsonApiError("api.members.put", error, "Unable to update member.", {
+      targetMemberId: String(payload?.id ?? ""),
+      targetEmail: String(payload?.email ?? ""),
+      targetSchoolId: String(payload?.schoolId ?? ""),
+      targetRole: String(payload?.role ?? "")
+    });
   }
 }
 
