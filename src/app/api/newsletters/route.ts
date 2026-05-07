@@ -16,13 +16,15 @@ export async function GET(request: NextRequest) {
     const { member } = await requireSignedInMember(request);
     requireBuilderAccess(member);
     const schoolId = request.nextUrl.searchParams.get("schoolId") ?? undefined;
+    const requestedLimit = Number(request.nextUrl.searchParams.get("limit") ?? "10");
+    const limit = Number.isFinite(requestedLimit) && requestedLimit > 0 ? requestedLimit : 10;
     const scopedSchoolId = member.role === "company_admin" ? schoolId : member.schoolId;
 
     if (scopedSchoolId) {
       assertSchoolScope(member, scopedSchoolId);
     }
 
-    const data = await listNewsletters(scopedSchoolId);
+    const data = await listNewsletters({ schoolId: scopedSchoolId, limit });
 
     return NextResponse.json({
       status: "ok",

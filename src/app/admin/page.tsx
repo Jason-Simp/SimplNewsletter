@@ -37,10 +37,13 @@ export default function AdminPage() {
 
   useEffect(() => {
     async function loadDashboardData() {
+      const newsletterPath = member?.schoolId
+        ? `/api/newsletters?schoolId=${encodeURIComponent(member.schoolId)}&limit=25`
+        : "/api/newsletters?limit=25";
       const [schoolsResponse, membersResponse, newslettersResponse] = await Promise.all([
         authFetch(supabase, "/api/schools"),
         authFetch(supabase, "/api/members"),
-        authFetch(supabase, "/api/newsletters")
+        authFetch(supabase, newsletterPath)
       ]);
 
       const schoolsPayload = schoolsResponse.ok ? await schoolsResponse.json() : { data: [] };
@@ -53,24 +56,18 @@ export default function AdminPage() {
     }
 
     void loadDashboardData();
-  }, [supabase]);
+  }, [member?.schoolId, supabase]);
 
   const companyView = isCompanyAdmin(member);
   const canDeleteIssues = canDeleteNewsletters(member);
   const currentSchool =
-    companyView
-      ? null
-      : schools.find((school) => school.id === member?.schoolId) ?? schools[0] ?? null;
+    schools.find((school) => school.id === member?.schoolId) ?? schools[0] ?? null;
   const currentSchoolMembers = members.filter((item) => item.schoolId === currentSchool?.id);
   const currentSchoolAdmins = currentSchoolMembers.filter((item) => item.role === "school_admin");
   const recentDraftIssues = newsletters
     .filter((newsletter) => {
       if (newsletter.status !== "draft") {
         return false;
-      }
-
-      if (companyView) {
-        return true;
       }
 
       return newsletter.workspace.schoolId === currentSchool?.id;
@@ -85,10 +82,6 @@ export default function AdminPage() {
     .filter((newsletter) => {
       if (newsletter.status !== "published") {
         return false;
-      }
-
-      if (companyView) {
-        return true;
       }
 
       return newsletter.workspace.schoolId === currentSchool?.id;
@@ -422,23 +415,25 @@ export default function AdminPage() {
         </section>
       ) : null}
 
-      {!companyView ? (
+      {currentSchool ? (
         <section className="rounded-editorial border border-slate-200 bg-white p-6">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <div className="text-sm font-semibold text-brand-text">Recently published</div>
+              <div className="text-sm font-semibold text-brand-text">
+                {companyView ? `${currentSchool.name} archive` : "Recently published"}
+              </div>
               <div className="mt-2 text-sm leading-6 text-brand-muted">
-                This gives school admins a quick way to confirm what is already live on the website and in the archive.
+                {companyView
+                  ? "This shows the live issues for the active school selection, including the public archive link."
+                  : "This gives school admins a quick way to confirm what is already live on the website and in the archive."}
               </div>
             </div>
-            {currentSchool ? (
-              <Link
-                className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
-                href={getSchoolArchivePath(currentSchool.id)}
-              >
-                Open archive
-              </Link>
-            ) : null}
+            <Link
+              className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
+              href={getSchoolArchivePath(currentSchool.id)}
+            >
+              Open archive
+            </Link>
           </div>
 
           {recentPublishedIssues.length ? (

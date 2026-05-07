@@ -148,18 +148,21 @@ function toDocument(
   };
 }
 
-export async function listNewsletters(schoolId?: string) {
+export async function listNewsletters(options?: { schoolId?: string; limit?: number }) {
   const supabase = getServiceSupabase();
 
   if (!supabase) {
     return [];
   }
 
+  const schoolId = options?.schoolId;
+  const limit = options?.limit ?? 10;
+
   let query = supabase
     .from("newsletters")
     .select("id,status,title,issue_date,audience,intro,subject_line,preview_text,published_at,school_id")
     .order("created_at", { ascending: false })
-    .limit(10);
+    .limit(limit);
 
   if (schoolId) {
     query = query.eq("school_id", schoolId);
@@ -202,7 +205,7 @@ export async function listNewsletters(schoolId?: string) {
 }
 
 export async function getNewsletterById(newsletterId: string, schoolId?: string) {
-  const newsletters = await listNewsletters(schoolId);
+  const newsletters = await listNewsletters({ schoolId, limit: 100 });
   return newsletters.find((newsletter) => newsletter.id === newsletterId) ?? null;
 }
 
