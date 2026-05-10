@@ -8,6 +8,7 @@ import {
 } from "@/lib/crypto";
 import { defaultDistributionOptions, mediaConstraints } from "@/lib/product-config";
 import { sampleNewsletter } from "@/lib/sample-data";
+import { getSchoolById } from "@/lib/school-repository";
 import { getServiceSupabase } from "@/lib/supabase/server";
 import type { DistributionChannel, NewsletterDocument, NewsletterSection } from "@/types/newsletter";
 import type { SupportModule, SupportModuleGraphic, SupportModuleTone } from "@/types/support-module";
@@ -177,32 +178,38 @@ export async function listNewsletters(options?: { schoolId?: string; limit?: num
     return [];
   }
 
-  const documents = await Promise.all(
-    newsletterRows.map(async (newsletter) => {
-      const [{ data: school }, { data: sections }, { data: distributionRows }] = await Promise.all([
-        supabase.from("schools").select("*").eq("id", newsletter.school_id).single(),
-        supabase
-          .from("newsletter_sections")
-          .select("id,section_type,title,enabled,sort_order,layout_variant,visibility,content")
-          .eq("newsletter_id", newsletter.id),
-        supabase
-          .from("newsletter_distribution_targets")
-          .select("channel,selected,config")
-          .eq("newsletter_id", newsletter.id)
-      ]);
+  const newsletterIds = newsletterRows.map((newsletter) => newsletter.id);
+  const schoolIds = Array.from(new Set(newsletterRows.map((newsletter) => newsletter.school_id)));
+  const [{ data: schools }, { data: sections }, { data: distributionRows }] = await Promise.all([
+    supabase.from("schools").select("*").in("id", schoolIds),
+    supabase
+      .from("newsletter_sections")
+      .select("id,newsletter_id,section_type,title,enabled,sort_order,layout_variant,visibility,content")
+      .in("newsletter_id", newsletterIds),
+    supabase
+      .from("newsletter_distribution_targets")
+      .select("newsletter_id,channel,selected,config")
+      .in("newsletter_id", newsletterIds)
+  ]);
 
-      if (!school) {
-        return null;
-      }
+  const schoolMap = new Map((schools ?? []).map((school) => [school.id, school as SchoolRow]));
+  const sectionMap = groupRowsByNewsletterId(sections ?? []);
+  const distributionMap = groupRowsByNewsletterId(distributionRows ?? []);
 
-      return toDocument(
-        school as SchoolRow,
-        newsletter as NewsletterRow,
-        (sections ?? []) as SectionRow[],
-        (distributionRows ?? []) as DistributionRow[]
-      );
-    })
-  );
+  const documents = newsletterRows.map((newsletter) => {
+    const school = schoolMap.get(newsletter.school_id);
+
+    if (!school) {
+      return null;
+    }
+
+    return toDocument(
+      school,
+      newsletter as NewsletterRow,
+      sectionMap.get(newsletter.id) ?? [],
+      distributionMap.get(newsletter.id) ?? []
+    );
+  });
 
   return documents.filter(Boolean) as NewsletterDocument[];
 }
@@ -251,6 +258,22 @@ export async function getNewsletterById(newsletterId: string, schoolId?: string)
     (sections ?? []) as SectionRow[],
     (distributionRows ?? []) as DistributionRow[]
   );
+}
+
+export async function getArchivedNewsletterSummariesForSchool(schoolId: string) {
+  const [school, newsletters] = await Promise.all([
+    getSchoolById(schoolId.trim()),
+    listNewsletters({ schoolId: schoolId.trim() })
+  ]);
+
+  return {
+    school,
+    newsletters: newsletters.filter(
+      (newsletter) =>
+        (newsletter.status === "published" || newsletter.status === "archived") &&
+        newsletter.distributionOptions.some((option) => option.channel === "web" && option.selected)
+    )
+  };
 }
 
 export async function saveNewsletter(
@@ -561,6 +584,18 @@ function isDuplicateNewsletterSlugError(error: { message?: string; code?: string
     Boolean(error.message?.includes('newsletters_school_slug_idx')) ||
     Boolean(error.message?.includes("duplicate key value violates unique constraint"))
   );
+}
+
+function groupRowsByNewsletterId<T extends { newsletter_id: string }>(rows: T[]) {
+  const grouped = new Map<string, T[]>();
+
+  for (const row of rows) {
+    const current = grouped.get(row.newsletter_id) ?? [];
+    current.push(row);
+    grouped.set(row.newsletter_id, current);
+  }
+
+  return grouped;
 }
 
 function normalizeSupportTone(value: unknown): SupportModuleTone {

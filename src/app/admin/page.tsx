@@ -434,6 +434,12 @@ export default function AdminPage() {
             >
               Open archive
             </Link>
+            <Link
+              className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
+              href="/admin/archive"
+            >
+              View full history
+            </Link>
           </div>
 
           {recentPublishedIssues.length ? (

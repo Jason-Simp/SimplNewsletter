@@ -3,19 +3,16 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { getNewsletterPdfPath } from "@/lib/public-links";
-import { listNewsletters } from "@/lib/newsletter-repository";
+import { getArchivedNewsletterSummariesForSchool } from "@/lib/newsletter-repository";
 
 export default async function SchoolArchivePage({
   params
 }: {
   params: { schoolId: string };
 }) {
-  const newsletters = await listNewsletters({ schoolId: params.schoolId });
-  const archivedNewsletters = newsletters.filter((newsletter) =>
-    (newsletter.status === "published" || newsletter.status === "archived") &&
-    newsletter.distributionOptions.some((option) => option.channel === "web" && option.selected)
+  const { school, newsletters: archivedNewsletters } = await getArchivedNewsletterSummariesForSchool(
+    params.schoolId
   );
-  const school = newsletters[0]?.organization;
   const schoolName = school?.name;
 
   if (!schoolName) {
