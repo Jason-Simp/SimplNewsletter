@@ -80,7 +80,7 @@ export default function AdminPage() {
     .slice(0, 3);
   const recentPublishedIssues = newsletters
     .filter((newsletter) => {
-      if (newsletter.status !== "published") {
+      if (newsletter.status !== "published" && newsletter.status !== "archived") {
         return false;
       }
 
@@ -91,7 +91,7 @@ export default function AdminPage() {
       const rightDate = right.publishedAt || right.issueDate || "";
       return rightDate.localeCompare(leftDate);
     })
-    .slice(0, 3);
+    .slice(0, 8);
   const logoReady = Boolean(currentSchool?.logoUrl);
   const agentReady = Boolean(currentSchool?.assistantReference && currentSchool?.integrationEndpoint);
   const websiteReady = Boolean(currentSchool?.id);
@@ -424,7 +424,7 @@ export default function AdminPage() {
               </div>
               <div className="mt-2 text-sm leading-6 text-brand-muted">
                 {companyView
-                  ? "This shows the live issues for the active school selection, including the public archive link."
+                  ? "This shows the active school's published and archived website issues, including the public archive link."
                   : "This gives school admins a quick way to confirm what is already live on the website and in the archive."}
               </div>
             </div>
@@ -451,7 +451,7 @@ export default function AdminPage() {
                         Published
                       </div>
                       <div className="rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-emerald-700">
-                        Live
+                        {newsletter.status === "archived" ? "Archived" : "Live"}
                       </div>
                     </div>
                     <div className="mt-3 text-lg font-semibold text-brand-text">{newsletter.title}</div>

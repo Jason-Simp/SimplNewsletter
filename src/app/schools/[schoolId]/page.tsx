@@ -10,9 +10,9 @@ export default async function SchoolArchivePage({
 }: {
   params: { schoolId: string };
 }) {
-  const newsletters = await listNewsletters({ schoolId: params.schoolId, limit: 100 });
-  const publishedNewsletters = newsletters.filter((newsletter) =>
-    newsletter.status === "published" &&
+  const newsletters = await listNewsletters({ schoolId: params.schoolId });
+  const archivedNewsletters = newsletters.filter((newsletter) =>
+    (newsletter.status === "published" || newsletter.status === "archived") &&
     newsletter.distributionOptions.some((option) => option.channel === "web" && option.selected)
   );
   const school = newsletters[0]?.organization;
@@ -94,8 +94,8 @@ export default async function SchoolArchivePage({
 
           <div className="grid gap-4 bg-[#F7F9FC] px-6 py-5 text-sm text-brand-muted md:grid-cols-3 lg:px-8">
             <div className="rounded-[24px] border border-slate-200 bg-white px-4 py-4">
-              <div className="text-xs font-bold uppercase tracking-[0.22em] text-brand-secondary">Published issues</div>
-              <div className="mt-2 text-3xl font-bold text-brand-navy">{publishedNewsletters.length}</div>
+              <div className="text-xs font-bold uppercase tracking-[0.22em] text-brand-secondary">Archived issues</div>
+              <div className="mt-2 text-3xl font-bold text-brand-navy">{archivedNewsletters.length}</div>
             </div>
             <div className="rounded-[24px] border border-slate-200 bg-white px-4 py-4">
               <div className="text-xs font-bold uppercase tracking-[0.22em] text-brand-secondary">Audience</div>
@@ -113,7 +113,7 @@ export default async function SchoolArchivePage({
         </section>
 
         <section className="mt-6 grid gap-4">
-          {publishedNewsletters.map((newsletter) => (
+          {archivedNewsletters.map((newsletter) => (
             <article
               key={newsletter.id}
               className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-editorial"
@@ -126,7 +126,7 @@ export default async function SchoolArchivePage({
                   <h2 className="mt-3 font-display text-3xl text-brand-navy">{newsletter.title}</h2>
                 </div>
                 <div className="rounded-full bg-brand-background px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-brand-primary">
-                  Published
+                  {newsletter.status === "archived" ? "Archive" : "Published"}
                 </div>
               </div>
               <p className="mt-4 max-w-3xl text-sm leading-7 text-brand-muted">{newsletter.intro}</p>
@@ -152,9 +152,9 @@ export default async function SchoolArchivePage({
             </article>
           ))}
 
-          {publishedNewsletters.length === 0 ? (
+          {archivedNewsletters.length === 0 ? (
             <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-editorial">
-              <h2 className="text-xl font-semibold text-brand-text">No website newsletters yet</h2>
+              <h2 className="text-xl font-semibold text-brand-text">No website archive yet</h2>
               <p className="mt-2 text-sm leading-6 text-brand-muted">
                 Once a newsletter is published to the school website, it will appear here and in the RSS
                 feed.

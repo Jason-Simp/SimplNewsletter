@@ -5,9 +5,9 @@ export async function GET(
   request: Request,
   { params }: { params: { schoolId: string } }
 ) {
-  const newsletters = await listNewsletters({ schoolId: params.schoolId, limit: 100 });
+  const newsletters = await listNewsletters({ schoolId: params.schoolId });
   const publishedNewsletters = newsletters.filter((newsletter) =>
-    newsletter.status === "published" &&
+    (newsletter.status === "published" || newsletter.status === "archived") &&
     newsletter.distributionOptions.some((option) => option.channel === "web" && option.selected)
   );
   const schoolName = newsletters[0]?.organization.name ?? "School";

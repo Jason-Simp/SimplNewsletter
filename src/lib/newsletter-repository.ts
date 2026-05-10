@@ -156,13 +156,16 @@ export async function listNewsletters(options?: { schoolId?: string; limit?: num
   }
 
   const schoolId = options?.schoolId;
-  const limit = options?.limit ?? 10;
+  const limit = options?.limit;
 
   let query = supabase
     .from("newsletters")
     .select("id,status,title,issue_date,audience,intro,subject_line,preview_text,published_at,school_id")
-    .order("created_at", { ascending: false })
-    .limit(limit);
+    .order("created_at", { ascending: false });
+
+  if (typeof limit === "number" && limit > 0) {
+    query = query.limit(limit);
+  }
 
   if (schoolId) {
     query = query.eq("school_id", schoolId);
@@ -205,8 +208,49 @@ export async function listNewsletters(options?: { schoolId?: string; limit?: num
 }
 
 export async function getNewsletterById(newsletterId: string, schoolId?: string) {
-  const newsletters = await listNewsletters({ schoolId, limit: 100 });
-  return newsletters.find((newsletter) => newsletter.id === newsletterId) ?? null;
+  const supabase = getServiceSupabase();
+
+  if (!supabase) {
+    return null;
+  }
+
+  let newsletterQuery = supabase
+    .from("newsletters")
+    .select("id,status,title,issue_date,audience,intro,subject_line,preview_text,published_at,school_id")
+    .eq("id", newsletterId.trim());
+
+  if (schoolId?.trim()) {
+    newsletterQuery = newsletterQuery.eq("school_id", schoolId.trim());
+  }
+
+  const { data: newsletter, error } = await newsletterQuery.maybeSingle();
+
+  if (error || !newsletter) {
+    return null;
+  }
+
+  const [{ data: school }, { data: sections }, { data: distributionRows }] = await Promise.all([
+    supabase.from("schools").select("*").eq("id", newsletter.school_id).single(),
+    supabase
+      .from("newsletter_sections")
+      .select("id,section_type,title,enabled,sort_order,layout_variant,visibility,content")
+      .eq("newsletter_id", newsletter.id),
+    supabase
+      .from("newsletter_distribution_targets")
+      .select("channel,selected,config")
+      .eq("newsletter_id", newsletter.id)
+  ]);
+
+  if (!school) {
+    return null;
+  }
+
+  return toDocument(
+    school as SchoolRow,
+    newsletter as NewsletterRow,
+    (sections ?? []) as SectionRow[],
+    (distributionRows ?? []) as DistributionRow[]
+  );
 }
 
 export async function saveNewsletter(
