@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { isTrustedMutationOrigin } from "@/lib/request-security";
 
 const mutationMethods = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const signupAttempts = new Map<string, number[]>();
@@ -10,7 +11,16 @@ export function proxy(request: NextRequest) {
 
   if (mutationMethods.has(request.method)) {
     const origin = request.headers.get("origin");
-    if (origin && origin !== request.nextUrl.origin) {
+    if (
+      origin &&
+      !isTrustedMutationOrigin(
+        origin,
+        request.nextUrl.origin,
+        request.headers.get("x-forwarded-host"),
+        request.headers.get("host"),
+        request.headers.get("x-forwarded-proto")
+      )
+    ) {
       return NextResponse.json({ status: "error", message: "Cross-site request rejected." }, { status: 403 });
     }
 
