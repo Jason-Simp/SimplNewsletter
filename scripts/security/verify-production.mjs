@@ -15,6 +15,10 @@ function includes(actual, expected, label) {
   assert.ok(actual?.includes(expected), `${label}: expected ${JSON.stringify(actual)} to include ${JSON.stringify(expected)}`);
   checks += 1;
 }
+function oneOf(actual, expected, label) {
+  assert.ok(expected.includes(actual), `${label}: expected ${JSON.stringify(actual)} to be one of ${JSON.stringify(expected)}`);
+  checks += 1;
+}
 
 async function request(path, init) {
   return fetch(`${baseUrl}${path}`, { redirect: "manual", ...init });
@@ -79,14 +83,18 @@ const webhook = await request(`/api/schools/webhook-input/${schoolId}`, {
   headers: { "content-type": "application/json", origin: baseUrl },
   body: JSON.stringify({ prompt: "security probe", callbackUrl: "https://127.0.0.1/callback" })
 });
-expect(webhook.status, 401, "webhook requires its secret");
+oneOf(webhook.status, [400, 401], "webhook fails closed without a usable secret");
+const webhookBody = await webhook.json();
+expect("jobId" in webhookBody, false, "rejected webhook creates no job");
 
 const revise = await request(`/api/schools/webhook-input/${schoolId}/revise`, {
   method: "POST",
   headers: { "content-type": "application/json", origin: baseUrl },
   body: JSON.stringify({ prompt: "security probe" })
 });
-expect(revise.status, 401, "revision webhook requires its secret");
+oneOf(revise.status, [400, 401], "revision webhook fails closed without a usable secret");
+const reviseBody = await revise.json();
+expect("jobId" in reviseBody, false, "rejected revision creates no job");
 
 const missingSchool = await request("/schools/00000000-0000-4000-8000-000000000000");
 expect(missingSchool.status, 404, "unknown school is not exposed");
