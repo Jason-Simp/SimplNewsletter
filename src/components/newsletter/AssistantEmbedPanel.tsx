@@ -1,12 +1,13 @@
 import type { NewsletterDocument } from "@/types/newsletter";
+import { safeExternalUrl } from "@/lib/safe-url";
 
 type Props = {
   document: NewsletterDocument;
 };
 
 export function AssistantEmbedPanel({ document }: Props) {
-  const embedUrl = document.workspace.integrationEndpoint?.trim() ?? "";
-  const hasEmbed = /^https?:\/\//i.test(embedUrl);
+  const embedUrl = safeExternalUrl(document.workspace.integrationEndpoint);
+  const hasEmbed = Boolean(embedUrl);
 
   return (
     <section className="rounded-editorial border border-slate-200 bg-white p-6 shadow-editorial">

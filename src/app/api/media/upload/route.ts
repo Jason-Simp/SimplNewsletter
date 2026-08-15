@@ -122,7 +122,7 @@ function validateFile(file: File, detectedMimeType: string) {
     mediaConstraints.find((candidate) => matchesMimeType(candidate.type, detectedMimeType));
 
   if (!constraint) {
-    return `"${file.name}" is not supported. Use PNG, JPG, JPEG, GIF, WEBP, SVG, MP3, MP4, MOV, WEBM, WAV, M4A, or PDF.`;
+    return `"${file.name}" is not supported. Use PNG, JPG, JPEG, GIF, WEBP, MP3, MP4, MOV, WEBM, WAV, M4A, or PDF.`;
   }
 
   if (!matchesExtensionToMime(extension, detectedMimeType)) {
@@ -190,10 +190,6 @@ function detectMimeType(buffer: Buffer, fileName: string, fallbackMimeType: stri
     return "image/webp";
   }
 
-  if (buffer.slice(0, 5).toString("utf8").toLowerCase() === "<?xml" || buffer.slice(0, 512).toString("utf8").includes("<svg")) {
-    return "image/svg+xml";
-  }
-
   if (hasPrefix(buffer, [0x25, 0x50, 0x44, 0x46])) {
     return "application/pdf";
   }
@@ -236,8 +232,6 @@ function mimeTypeFromExtension(extension: string) {
       return "image/gif";
     case "webp":
       return "image/webp";
-    case "svg":
-      return "image/svg+xml";
     case "pdf":
       return "application/pdf";
     case "mp3":
@@ -264,7 +258,6 @@ function matchesExtensionToMime(extension: string, mimeType: string) {
     jpeg: ["image/jpeg"],
     gif: ["image/gif"],
     webp: ["image/webp"],
-    svg: ["image/svg+xml"],
     pdf: ["application/pdf"],
     mp3: ["audio/mpeg"],
     wav: ["audio/wav"],

@@ -1,6 +1,7 @@
 import Image from "next/image";
 
 import { buildTwoColumnRenderModel, type TwoColumnStoryRow } from "@/lib/newsletter-render-model";
+import { safeExternalUrl } from "@/lib/safe-url";
 import type { Channel, NewsletterDocument, NewsletterSection } from "@/types/newsletter";
 
 type Props = {
@@ -222,7 +223,7 @@ function ArticleCell({ row }: { row: TwoColumnStoryRow }) {
         {row.buttonText ? (
           <a
             className="mt-4 inline-block rounded-full bg-[#224a7d] px-4 py-2 text-xs font-bold text-white no-underline"
-            href={row.buttonUrl || "#"}
+            href={safeExternalUrl(row.buttonUrl) || "#"}
           >
             {row.buttonText}
           </a>

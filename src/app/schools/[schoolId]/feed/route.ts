@@ -3,9 +3,10 @@ import { serverConfig } from "@/lib/server-config";
 
 export async function GET(
   request: Request,
-  { params }: { params: { schoolId: string } }
+  { params }: { params: Promise<{ schoolId: string }> }
 ) {
-  const newsletters = await listNewsletters({ schoolId: params.schoolId });
+  const { schoolId } = await params;
+  const newsletters = await listNewsletters({ schoolId });
   const publishedNewsletters = newsletters.filter((newsletter) =>
     (newsletter.status === "published" || newsletter.status === "archived") &&
     newsletter.distributionOptions.some((option) => option.channel === "web" && option.selected)
@@ -15,11 +16,11 @@ export async function GET(
     /\/$/,
     ""
   );
-  const feedUrl = `${siteUrl}/schools/${params.schoolId}/feed`;
+  const feedUrl = `${siteUrl}/schools/${schoolId}/feed`;
 
   const items = publishedNewsletters
     .map((newsletter) => {
-      const link = `${siteUrl}/schools/${params.schoolId}/newsletters/${newsletter.id}`;
+      const link = `${siteUrl}/schools/${schoolId}/newsletters/${newsletter.id}`;
       const description = escapeXml(newsletter.intro || newsletter.previewText || newsletter.title);
       const pubDate = newsletter.publishedAt
         ? new Date(newsletter.publishedAt).toUTCString()

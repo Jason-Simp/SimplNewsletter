@@ -1,17 +1,7 @@
 import { getServiceSupabase } from "@/lib/supabase/server";
 import type { SignupCodeRecord } from "@/types/signup-code";
 
-const fallbackCodes: SignupCodeRecord[] = [
-  {
-    id: "default-thewire-code",
-    code: "thewire",
-    description: "Default launch signup code",
-    isActive: true,
-    maxUses: null,
-    useCount: 0,
-    expiresAt: null
-  }
-];
+const fallbackCodes: SignupCodeRecord[] = [];
 
 type SignupCodeRow = {
   id: string;
@@ -122,6 +112,25 @@ export async function validateSignupCode(code: string) {
   }
 
   return mapCodeRow(codeRow);
+}
+
+export async function consumeSignupCode(code: string) {
+  const normalizedCode = code.trim().toLowerCase();
+  const supabase = getServiceSupabase();
+
+  if (!supabase) {
+    throw new Error("Account creation is not configured right now.");
+  }
+
+  const { data, error } = await supabase.rpc("consume_signup_code", {
+    input_code: normalizedCode
+  });
+
+  if (error || !data) {
+    throw new Error("Signup could not be completed.");
+  }
+
+  return String(data);
 }
 
 export async function incrementSignupCodeUse(codeId: string, nextUseCount: number) {
