@@ -5,13 +5,15 @@ import { notFound } from "next/navigation";
 import { NewsletterPreview } from "@/components/newsletter/NewsletterPreview";
 import { getNewsletterPdfPath, getSchoolArchivePath } from "@/lib/public-links";
 import { getNewsletterById } from "@/lib/newsletter-repository";
+import { safeExternalUrl } from "@/lib/safe-url";
 
 export default async function PublicNewsletterPage({
   params
 }: {
-  params: { schoolId: string; newsletterId: string };
+  params: Promise<{ schoolId: string; newsletterId: string }>;
 }) {
-  const document = await getNewsletterById(params.newsletterId, params.schoolId);
+  const { schoolId, newsletterId } = await params;
+  const document = await getNewsletterById(newsletterId, schoolId);
 
   if (!document) {
     notFound();
@@ -35,6 +37,7 @@ export default async function PublicNewsletterPage({
         year: "numeric"
       })
     : document.issueDate;
+  const schoolWebsiteUrl = safeExternalUrl(document.organization.websiteUrl);
 
   return (
     <main className="min-h-screen bg-[linear-gradient(180deg,#F7F9FC_0%,#EAF2FB_100%)] px-4 py-8 lg:px-8">
@@ -87,14 +90,14 @@ export default async function PublicNewsletterPage({
               <div className="mt-4 flex flex-wrap gap-3">
                 <Link
                   className="inline-flex rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-brand-text"
-                  href={getSchoolArchivePath(params.schoolId)}
+                  href={getSchoolArchivePath(schoolId)}
                 >
                   Back to archive
                 </Link>
-                {document.organization.websiteUrl ? (
+                {schoolWebsiteUrl ? (
                   <a
                     className="inline-flex rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-brand-text"
-                    href={document.organization.websiteUrl}
+                    href={schoolWebsiteUrl}
                     rel="noreferrer"
                     target="_blank"
                   >
@@ -104,7 +107,7 @@ export default async function PublicNewsletterPage({
                 {pdfSelected ? (
                   <a
                     className="inline-flex rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-brand-text"
-                    href={getNewsletterPdfPath(params.schoolId, params.newsletterId, true)}
+                    href={getNewsletterPdfPath(schoolId, newsletterId, true)}
                     rel="noreferrer"
                     target="_blank"
                   >

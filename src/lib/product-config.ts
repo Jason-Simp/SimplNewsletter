@@ -3,7 +3,7 @@ import type { DistributionChannel, DistributionOption, MediaConstraint, PublishM
 export const mediaConstraints: MediaConstraint[] = [
   {
     type: "image",
-    extensions: ["png", "jpg", "jpeg", "webp", "gif", "svg"],
+    extensions: ["png", "jpg", "jpeg", "webp", "gif"],
     maxSizeMb: 4,
     compressionTargetMb: 1.5,
     notes: "Compress images automatically on upload and retain a higher-quality derivative for PDF."

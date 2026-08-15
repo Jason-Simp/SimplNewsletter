@@ -16,6 +16,8 @@
     "src/lib/authorization.ts",
     "src/lib/member-access.ts",
     "src/lib/generated-newsletter-schema.ts",
+    "src/lib/outbound-url.ts",
+    "src/lib/safe-url.ts",
     "src/types/integration.ts",
     "src/types/member.ts",
     "src/types/newsletter.ts"

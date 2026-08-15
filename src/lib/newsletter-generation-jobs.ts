@@ -5,6 +5,7 @@ import { applyGeneratedDraftToDocument } from "@/lib/generated-newsletter-draft"
 import { generateNewsletterPackage } from "@/lib/newsletter-generation-service";
 import { saveNewsletter } from "@/lib/newsletter-repository";
 import { getServiceSupabase } from "@/lib/supabase/server";
+import { assertSafePublicHttpsUrl } from "@/lib/outbound-url";
 import type { ContentGenerateRequest, ContentGenerateResponse } from "@/types/integration";
 import type { UploadedAsset } from "@/types/media";
 import type { NewsletterDocument } from "@/types/newsletter";
@@ -208,29 +209,23 @@ async function runNewsletterGenerationJob(jobId: string, options?: NewsletterGen
     return;
   }
 
-  const now = new Date().toISOString();
-
-  await persistJobState(jobId, {
-    status: "running",
-    error: null,
-    started_at: initialRecord.started_at ?? now,
-    attempt_count: (initialRecord.attempt_count ?? 0) + 1
-  });
+  const claimedRecord = await claimDurableJob(initialRecord);
+  if (!claimedRecord) return;
 
   const runningJob = await getNewsletterGenerationJob(jobId);
   if (runningJob) {
     logJobEvent("running", runningJob, {
-      attemptCount: (initialRecord.attempt_count ?? 0) + 1
+      attemptCount: claimedRecord.attempt_count ?? 1
     });
   }
 
   try {
-    const result = await generateNewsletterPackage(initialRecord.request_payload, options);
+    const result = await generateNewsletterPackage(claimedRecord.request_payload, options);
     const nextDocument = applyGeneratedDraftToDocument(
-      initialRecord.draft_document,
+      claimedRecord.draft_document,
       result,
-      initialRecord.quick_notes ?? "",
-      initialRecord.uploaded_assets ?? []
+      claimedRecord.quick_notes ?? "",
+      claimedRecord.uploaded_assets ?? []
     );
     const persisted = await saveNewsletter(nextDocument);
 
@@ -269,6 +264,27 @@ async function runNewsletterGenerationJob(jobId: string, options?: NewsletterGen
       });
     }
   }
+}
+
+async function claimDurableJob(record: NewsletterGenerationJobRow) {
+  const supabase = getServiceSupabase();
+  if (!supabase) {
+    if ((record.attempt_count ?? 0) >= 3) return null;
+    const now = new Date().toISOString();
+    await persistJobState(record.id, {
+      status: "running",
+      error: null,
+      started_at: now,
+      attempt_count: (record.attempt_count ?? 0) + 1
+    });
+    return { ...record, status: "running" as const, started_at: now, attempt_count: (record.attempt_count ?? 0) + 1 };
+  }
+
+  const { data, error } = await supabase.rpc("claim_newsletter_generation_job", {
+    input_job_id: record.id
+  });
+  if (error) throw new Error("The newsletter writing job could not be claimed safely.");
+  return Array.isArray(data) && data[0] ? (data[0] as NewsletterGenerationJobRow) : null;
 }
 
 async function loadDurableJobRecord(jobId: string) {
@@ -454,8 +470,13 @@ async function sendJobCallback(job: NewsletterGenerationJob) {
   }
 
   try {
-    await fetch(job.callbackUrl, {
+    const callbackUrl = await assertSafePublicHttpsUrl(job.callbackUrl);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10_000);
+    await fetch(callbackUrl, {
       method: "POST",
+      redirect: "error",
+      signal: controller.signal,
       headers: {
         "Content-Type": "application/json"
       },
@@ -469,7 +490,7 @@ async function sendJobCallback(job: NewsletterGenerationJob) {
         result: job.result,
         newsletter: job.persistedDocument
       })
-    });
+    }).finally(() => clearTimeout(timeout));
   } catch (error) {
     console.warn(
       JSON.stringify({
@@ -477,10 +498,18 @@ async function sendJobCallback(job: NewsletterGenerationJob) {
         scope: "newsletter-generation-job",
         event: "callback_failed",
         jobId: job.id,
-        callbackUrl: job.callbackUrl,
+        callbackHost: safeCallbackHost(job.callbackUrl),
         error: error instanceof Error ? error.message : "Unknown callback error"
       })
     );
+  }
+}
+
+function safeCallbackHost(value: string) {
+  try {
+    return new URL(value).hostname;
+  } catch {
+    return "invalid";
   }
 }
 

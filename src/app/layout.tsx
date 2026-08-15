@@ -7,6 +7,8 @@ export const metadata: Metadata = {
     "A structured school newsletter platform with web, email, PDF, HTML, blog, and agent-assisted output modes."
 };
 
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">

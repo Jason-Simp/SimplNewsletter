@@ -4,16 +4,19 @@ import { notFound } from "next/navigation";
 
 import { getNewsletterPdfPath } from "@/lib/public-links";
 import { getArchivedNewsletterSummariesForSchool } from "@/lib/newsletter-repository";
+import { safeExternalUrl } from "@/lib/safe-url";
 
 export default async function SchoolArchivePage({
   params
 }: {
-  params: { schoolId: string };
+  params: Promise<{ schoolId: string }>;
 }) {
+  const { schoolId } = await params;
   const { school, newsletters: archivedNewsletters } = await getArchivedNewsletterSummariesForSchool(
-    params.schoolId
+    schoolId
   );
   const schoolName = school?.name;
+  const schoolWebsiteUrl = safeExternalUrl(school?.websiteUrl);
 
   if (!schoolName) {
     notFound();
@@ -39,10 +42,10 @@ export default async function SchoolArchivePage({
             >
               Member login
             </Link>
-            {school?.websiteUrl ? (
+            {schoolWebsiteUrl ? (
               <a
                 className="rounded-full bg-brand-primary px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white"
-                href={school.websiteUrl}
+                href={schoolWebsiteUrl}
                 rel="noreferrer"
                 target="_blank"
               >
@@ -78,8 +81,8 @@ export default async function SchoolArchivePage({
             <div className="grid gap-3 rounded-[24px] bg-[#F7F9FC] p-4 text-sm text-brand-muted">
               <div>
                 <div className="text-xs font-bold uppercase tracking-[0.22em] text-brand-secondary">Website</div>
-                <a className="mt-1 block font-semibold text-brand-text" href={school?.websiteUrl || "#"}>
-                  {school?.websiteUrl || "School website"}
+                <a className="mt-1 block font-semibold text-brand-text" href={schoolWebsiteUrl || "#"}>
+                  {schoolWebsiteUrl || "School website"}
                 </a>
               </div>
               <div>
@@ -130,7 +133,7 @@ export default async function SchoolArchivePage({
               <div className="mt-6 flex flex-wrap gap-3">
                 <Link
                   className="inline-flex rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white"
-                  href={`/schools/${params.schoolId}/newsletters/${newsletter.id}`}
+                  href={`/schools/${schoolId}/newsletters/${newsletter.id}`}
                 >
                   Read newsletter
                 </Link>
@@ -139,7 +142,7 @@ export default async function SchoolArchivePage({
                 ) ? (
                   <Link
                     className="inline-flex rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-brand-text"
-                    href={getNewsletterPdfPath(params.schoolId, newsletter.id, true)}
+                    href={getNewsletterPdfPath(schoolId, newsletter.id, true)}
                     target="_blank"
                   >
                     PDF view

@@ -8,10 +8,12 @@ export default async function PublicNewsletterPdfPage({
   params,
   searchParams
 }: {
-  params: { schoolId: string; newsletterId: string };
-  searchParams?: { print?: string };
+  params: Promise<{ schoolId: string; newsletterId: string }>;
+  searchParams?: Promise<{ print?: string }>;
 }) {
-  const document = await getNewsletterById(params.newsletterId, params.schoolId);
+  const { schoolId, newsletterId } = await params;
+  const query = searchParams ? await searchParams : undefined;
+  const document = await getNewsletterById(newsletterId, schoolId);
 
   if (!document) {
     notFound();
@@ -28,7 +30,7 @@ export default async function PublicNewsletterPdfPage({
   return (
     <main className="min-h-screen bg-[linear-gradient(180deg,#F7F9FC_0%,#EAF2FB_100%)] px-4 py-8 print:bg-white print:px-0 print:py-0 lg:px-8">
       <div className="mx-auto max-w-6xl print:max-w-none">
-        <PdfPrintBar autoPrint={searchParams?.print === "1"} />
+        <PdfPrintBar autoPrint={query?.print === "1"} />
         <NewsletterPreview
           channel="pdf"
           chrome="public"
