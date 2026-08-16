@@ -89,3 +89,6 @@ An authorized school/company administrator must generate and save a strong per-s
 - [Next.js Content Security Policy](https://nextjs.org/docs/app/guides/content-security-policy)
 - [Next.js `proxy`](https://nextjs.org/docs/app/api-reference/file-conventions/proxy)
 
+## Current re-verification — August 16, 2026
+
+Production health reported exact deployed revision `c62ca69be99f0d40619dd7e9cb1e8aa540530cda`. The complete production verifier passed **38/38 twice** on that exact revision, for **76/76 current checks and zero failures**. The current dependency installation reported **0 vulnerabilities** across 407 packages. The official Supabase advisor remained at **0 warnings/errors** and two informational deny-all notices; database checks remained at zero public RLS gaps, browser grants, unsafe views/functions, and one intentionally public publication bucket. Current-tree and added-history high-confidence secret scans found no candidate. The per-school inbound-secret protected human action and independent penetration-test needs above remain open.
